@@ -6,7 +6,13 @@ game. Served at `https://td-dev.demonreeper.xyz/tiles/{z}/{x}/{y}@2x.png`.
 
 Map data © OpenStreetMap contributors (ODbL); the game must show that credit on the map.
 
-1. **Make the map data (PC, Java 21+).** Planetiler downloads the Maldives extract plus ocean
+1. **Make the map data (PC, Java 21+).** If osmdata.openstreetmap.de or naciscdn.org can't be
+   reached (as from the Maldives), skip `--download` and make those two inputs from the extract
+   itself with `python3 make_ocean.py data/sources/maldives.osm.pbf data/sources` (no libraries
+   needed): the sea is built from the extract's coastline, and Natural Earth (only used at world
+   zoom levels) is left empty. The extract itself is mirrored at
+   `https://download.openstreetmap.fr/extracts/asia/maldives-latest.osm.pbf`.
+   Otherwise: Planetiler downloads the Maldives extract plus ocean
    polygons (about 1 GB the first time) and writes `maldives.mbtiles` (tens of MB):
    ```powershell
    mkdir D:\Development\Github\ProjectAR\References\maps; cd D:\Development\Github\ProjectAR\References\maps
