@@ -66,6 +66,10 @@ Make yourself an admin once, by hand: `UPDATE td.players SET is_admin = true WHE
 4. Add the nginx site from `deploy/nginx-terrandominion.conf` and get certificates.
 5. Install the crontab lines from `deploy/crontab.example`.
 
+Dev in one step from Windows: `.\scripts\deploy-dev.ps1` builds, copies the binary as `tdapi.new`,
+renames it over the running one (it cannot be overwritten while the service has it open) and
+restarts the service.
+
 Migrations run on start-up, so deploying a binary with a new migration upgrades the database.
 Deploy to dev first; live only after dev has run the migration.
 
