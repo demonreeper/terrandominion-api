@@ -41,6 +41,14 @@ go test ./...
 go run ./cmd/tdapi serve      # applies migrations, then listens on TD_ADDR
 ```
 
+On Windows (PowerShell), `scripts/dev.ps1` loads `.env` for you:
+
+```powershell
+go mod tidy
+.\scripts\dev.ps1 migrate
+.\scripts\dev.ps1 serve
+```
+
 With `TD_ENV=dev` and `TD_DEV_LOGIN=true`, `POST /v1/auth/dev {"name":"me","deviceId":"...",
 "platform":"editor"}` signs in without Google, for the Unity editor and quick tests. It does not
 exist on live.
