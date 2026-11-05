@@ -1,0 +1,7 @@
+# Terran Dominion scheduled jobs (crontab -e as ubuntu). Each job is safe to run late or twice.
+# Live
+*/10 * * * * cd /home/ubuntu/terrandominion-api && set -a && . ./.env && ./tdapi job node-regrow >> jobs.log 2>&1
+17 3 * * *   cd /home/ubuntu/terrandominion-api && set -a && . ./.env && ./tdapi job account-cleanup >> jobs.log 2>&1
+37 3 * * *   cd /home/ubuntu/terrandominion-api && set -a && . ./.env && ./tdapi job session-prune >> jobs.log 2>&1
+# Dev
+*/10 * * * * cd /home/ubuntu/terrandominion-api-dev && set -a && . ./.env && ./tdapi job node-regrow >> jobs.log 2>&1

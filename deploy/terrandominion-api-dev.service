@@ -1,0 +1,17 @@
+[Unit]
+Description=Terran Dominion API (dev)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/terrandominion-api-dev
+EnvironmentFile=/home/ubuntu/terrandominion-api-dev/.env
+ExecStart=/home/ubuntu/terrandominion-api-dev/tdapi serve
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

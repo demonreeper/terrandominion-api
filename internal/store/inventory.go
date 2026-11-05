@@ -1,0 +1,107 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/demonreeper/terrandominion/api/internal/db"
+)
+
+// Carried returns what the player carries, with every resource type present (zero if none).
+func Carried(ctx context.Context, q db.Querier, playerID int64) (map[string]int64, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT rt.code, COALESCE(pr.carried, 0)
+		FROM td.resource_types rt
+		LEFT JOIN td.player_resources pr ON pr.resource = rt.code AND pr.player_id = $1
+		ORDER BY rt.sort`, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var code string
+		var amount int64
+		if err := rows.Scan(&code, &amount); err != nil {
+			return nil, err
+		}
+		out[code] = amount
+	}
+	return out, rows.Err()
+}
+
+// AddCarried adds (or with a negative amount, removes) a resource. The table's CHECK refuses to
+// go below zero, so a bad caller fails instead of minting debt.
+func AddCarried(ctx context.Context, q db.Querier, playerID int64, resource string, amount int64) error {
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_resources (player_id, resource, carried) VALUES ($1, $2, $3)
+		ON CONFLICT (player_id, resource) DO UPDATE SET carried = td.player_resources.carried + $3`,
+		playerID, resource, amount)
+	return err
+}
+
+type GearItem struct {
+	ID            int64           `json:"id"`
+	TypeID        string          `json:"typeId"`
+	Name          string          `json:"name"`
+	Slot          string          `json:"slot"`
+	Tier          int             `json:"tier"`
+	Durability    int             `json:"durability"`
+	MaxDurability int             `json:"maxDurability"`
+	Equipped      bool            `json:"equipped"`
+	Stats         json.RawMessage `json:"stats"`
+}
+
+// GrantStarterGear gives a new player the Mk I scanner and extractor, equipped.
+func GrantStarterGear(ctx context.Context, q db.Querier, playerID int64) error {
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_gear (player_id, gear_type_id, slot, durability, equipped, acquired_from)
+		SELECT $1, gt.id, gt.slot, gt.max_durability, true, 'starter'
+		FROM td.gear_types gt WHERE gt.id IN ('scanner_mk1', 'extractor_mk1')`, playerID)
+	return err
+}
+
+func Gear(ctx context.Context, q db.Querier, playerID int64) ([]GearItem, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT pg.id, gt.id, gt.name, gt.slot, gt.tier, pg.durability, gt.max_durability, pg.equipped, gt.stats
+		FROM td.player_gear pg JOIN td.gear_types gt ON gt.id = pg.gear_type_id
+		WHERE pg.player_id = $1
+		ORDER BY pg.equipped DESC, gt.slot, gt.tier DESC`, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]GearItem, 0, 8)
+	for rows.Next() {
+		var g GearItem
+		var stats []byte
+		if err := rows.Scan(&g.ID, &g.TypeID, &g.Name, &g.Slot, &g.Tier, &g.Durability, &g.MaxDurability,
+			&g.Equipped, &stats); err != nil {
+			return nil, err
+		}
+		g.Stats = stats
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
+// EquippedStats folds the equipped gear's stats into the numbers the rules need. Worn-out gear
+// (durability 0) contributes nothing until repaired.
+type EquippedStats struct {
+	ScanRangeM    float64
+	YieldMult     float64
+	CarryCapacity int64
+}
+
+func Equipped(ctx context.Context, q db.Querier, playerID int64) (EquippedStats, error) {
+	out := EquippedStats{YieldMult: 1}
+	err := q.QueryRowContext(ctx, `
+		SELECT
+		  COALESCE(MAX((gt.stats->>'range_m')::float8)   FILTER (WHERE gt.slot = 'scanner'), 0),
+		  COALESCE(MAX((gt.stats->>'yield_mult')::float8) FILTER (WHERE gt.slot = 'extractor'), 1),
+		  COALESCE(MAX((gt.stats->>'carry')::int8)       FILTER (WHERE gt.slot = 'extractor'), 0)
+		FROM td.player_gear pg JOIN td.gear_types gt ON gt.id = pg.gear_type_id
+		WHERE pg.player_id = $1 AND pg.equipped AND pg.durability > 0`, playerID).
+		Scan(&out.ScanRangeM, &out.YieldMult, &out.CarryCapacity)
+	return out, err
+}
