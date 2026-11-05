@@ -29,7 +29,7 @@ token expires, or on E1001.
 ## World
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/nodes/nearby` | `lat, lon, radius?` | Active nodes nearest first, within the scanner's range |
+| GET | `/nodes/nearby` | `lat, lon, radius?` | Active nodes nearest first, within the scanner's range. `readyInS` = seconds until this player can harvest it again |
 | POST | `/nodes/{id}/harvest` | `lat, lon, accuracyM` | Server checks GPS accuracy, distance, travel speed, cooldown, reserve and carry room |
 
 ## Factions
@@ -45,6 +45,8 @@ token expires, or on E1001.
 | GET | `/admin/settings` | – | Every setting with its description |
 | PUT | `/admin/settings/{key}` | `value` | Changes one setting; logged in `admin_actions`; live within a minute |
 | POST | `/admin/nodes` | `name, resource, lat, lon, regionCode, yield, regenPerHour` | Places a node by hand |
+| POST | `/admin/nodes/scatter` | `lat, lon, count (1-40), radiusM (30-3000)` | Test nodes at random around a point (source `scatter`, fast regrowth) |
+| POST | `/admin/nodes/clear-scatter` | – | Retires every scattered test node |
 
 ## Error codes
 | Code | Meaning |

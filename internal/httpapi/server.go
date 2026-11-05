@@ -58,6 +58,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
 	mux.HandleFunc("PUT /v1/admin/settings/{key}", s.admin(s.adminUpdateSetting))
 	mux.HandleFunc("POST /v1/admin/nodes", s.admin(s.adminCreateNode))
+	mux.HandleFunc("POST /v1/admin/nodes/scatter", s.admin(s.adminScatterNodes))
+	mux.HandleFunc("POST /v1/admin/nodes/clear-scatter", s.admin(s.adminClearScatter))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, r, apperr.NotFound) })
 
@@ -269,6 +271,36 @@ func (s *Server) adminUpdateSetting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, "updated")
+}
+
+func (s *Server) adminScatterNodes(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Lat     float64 `json:"lat"`
+		Lon     float64 `json:"lon"`
+		Count   int     `json:"count"`
+		RadiusM float64 `json:"radiusM"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.AdminScatterNodes(r.Context(), playerID, body.Lat, body.Lon, body.Count, body.RadiusM)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) adminClearScatter(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	n, err := s.svc.AdminClearScatteredNodes(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"retired": n})
 }
 
 func (s *Server) adminCreateNode(w http.ResponseWriter, r *http.Request) {

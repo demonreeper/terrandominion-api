@@ -17,21 +17,33 @@ type Node struct {
 	Lon       float64 `json:"lon"`
 	Reserve   float64 `json:"reserve"`
 	DistanceM float64 `json:"distanceM"`
+	// ReadyInS is how long until this player may harvest the node again (0 = ready now).
+	ReadyInS int `json:"readyInS"`
 
 	Yield  int    `json:"-"`
 	Status string `json:"-"`
 }
 
-// NearbyNodes uses the GiST index on location; distance is metres on the spheroid.
-func NearbyNodes(ctx context.Context, q db.Querier, lat, lon, radiusM float64, limit int) ([]Node, error) {
+// NearbyNodes uses the GiST index on location; distance is metres on the spheroid. Each node
+// also says how long until this player's harvest cooldown on it ends, so the app can show it.
+func NearbyNodes(ctx context.Context, q db.Querier, playerID int64, lat, lon, radiusM float64, limit int,
+	cooldownSec int) ([]Node, error) {
 	rows, err := q.QueryContext(ctx, `
 		WITH here AS (SELECT ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography AS g)
 		SELECT n.id, n.name, n.resource, ST_Y(n.location::geometry), ST_X(n.location::geometry),
-		       n.reserve, ST_Distance(n.location, here.g)
-		FROM td.nodes n, here
+		       n.reserve, ST_Distance(n.location, here.g),
+		       COALESCE(GREATEST(0, CEIL(EXTRACT(EPOCH FROM
+		           (h.last_at + make_interval(secs => $6)) - now())))::int, 0)
+		FROM td.nodes n
+		CROSS JOIN here
+		LEFT JOIN LATERAL (
+		    SELECT created_at AS last_at FROM td.harvests
+		    WHERE player_id = $5 AND node_id = n.id
+		    ORDER BY created_at DESC LIMIT 1
+		) h ON true
 		WHERE n.status = 'active' AND ST_DWithin(n.location, here.g, $3)
 		ORDER BY n.location <-> here.g
-		LIMIT $4`, lat, lon, radiusM, limit)
+		LIMIT $4`, lat, lon, radiusM, limit, playerID, cooldownSec)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +51,7 @@ func NearbyNodes(ctx context.Context, q db.Querier, lat, lon, radiusM float64, l
 	out := make([]Node, 0, limit)
 	for rows.Next() {
 		var n Node
-		if err := rows.Scan(&n.ID, &n.Name, &n.Resource, &n.Lat, &n.Lon, &n.Reserve, &n.DistanceM); err != nil {
+		if err := rows.Scan(&n.ID, &n.Name, &n.Resource, &n.Lat, &n.Lon, &n.Reserve, &n.DistanceM, &n.ReadyInS); err != nil {
 			return nil, err
 		}
 		out = append(out, n)
@@ -121,15 +133,32 @@ type NewNode struct {
 	RegionCode   string  `json:"regionCode"`
 	Yield        int     `json:"yield"`
 	RegenPerHour float64 `json:"regenPerHour"`
+	// Source records where a node came from: manual (default), scatter (test nodes), osm.
+	Source string `json:"-"`
 }
 
 func CreateNode(ctx context.Context, q db.Querier, n NewNode, adminID int64) (int64, error) {
 	var id int64
 	err := q.QueryRowContext(ctx, `
-		INSERT INTO td.nodes (name, resource, location, region_code, yield_per_harvest, regen_per_hour, created_by)
-		VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, NULLIF($5, ''), $6, $7, $8)
-		RETURNING id`, n.Name, n.Resource, n.Lat, n.Lon, n.RegionCode, n.Yield, n.RegenPerHour, adminID).Scan(&id)
+		INSERT INTO td.nodes (name, resource, location, region_code, yield_per_harvest, regen_per_hour,
+		                      created_by, source)
+		VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, NULLIF($5, ''), $6, $7, $8,
+		        COALESCE(NULLIF($9, ''), 'manual'))
+		RETURNING id`, n.Name, n.Resource, n.Lat, n.Lon, n.RegionCode, n.Yield, n.RegenPerHour, adminID,
+		n.Source).Scan(&id)
 	return id, err
+}
+
+// RetireNodesBySource takes every active node from one source off the map (they stay in the
+// table, so harvest history still points at them).
+func RetireNodesBySource(ctx context.Context, q db.Querier, source string) (int64, error) {
+	res, err := q.ExecContext(ctx, `
+		UPDATE td.nodes SET status = 'retired', updated_at = now()
+		WHERE source = $1 AND status <> 'retired'`, source)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // RegrowNodes tops up every node by its hourly rate for the time since it last regrew. It is

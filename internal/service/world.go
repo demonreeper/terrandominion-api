@@ -30,7 +30,7 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 	if radiusM <= 0 || radiusM > limit {
 		radiusM = limit
 	}
-	return store.NearbyNodes(ctx, s.db, lat, lon, radiusM, 100)
+	return store.NearbyNodes(ctx, s.db, playerID, lat, lon, radiusM, 100, settings.HarvestCooldownSec)
 }
 
 type HarvestRequest struct {
