@@ -3,6 +3,9 @@
 Go game server for Terran Dominion: PostgreSQL + PostGIS, JWT sessions, run behind nginx as a
 systemd service, with separate dev and live instances on separate databases.
 
+The mobile client is [terrandominion-mobile](https://github.com/demonreeper/terrandominion-mobile);
+this repository owns the API contract it follows ([docs/API.md](docs/API.md)).
+
 - Schema and rules: [docs/DATABASE.md](docs/DATABASE.md)
 - Endpoints and error codes: [docs/API.md](docs/API.md)
 

@@ -1,0 +1,15 @@
+# Build output
+/bin/
+*.exe
+coverage.out
+
+# Real configuration lives on the server; only .env.example is committed.
+.env
+.env.*
+!.env.example
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
