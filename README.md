@@ -57,7 +57,8 @@ Make yourself an admin once, by hand: `UPDATE td.players SET is_admin = true WHE
 
 ## Deploying (same pattern as the MonoCity server)
 
-1. Build: `make build` produces `bin/tdapi` for Linux with the git version stamped in.
+1. Build: `make build` (or `.\scripts\build-linux.ps1` on Windows) produces `bin/tdapi` for
+   Linux **arm64**, which is what the API server runs, with the git version stamped in.
 2. Copy the binary to `/home/ubuntu/terrandominion-api/` (live) or
    `/home/ubuntu/terrandominion-api-dev/` (dev), with an env file beside it (`chmod 600`).
 3. Install the units from `deploy/`: `terrandominion-api.service` (live, port 8091 — set TD_ADDR=127.0.0.1:8091 in its .env) and
