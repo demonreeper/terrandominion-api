@@ -1,0 +1,310 @@
+{
+  "version": 8,
+  "name": "Terran Dominion",
+  "metadata": {
+    "description": "Dark, unlabelled game map: navy land, near-black sea with a cyan coastline, glowing roads."
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "mbtiles://{maldives}"
+    }
+  },
+  "layers": [
+    {
+      "id": "land",
+      "type": "background",
+      "paint": {
+        "background-color": "#0c1c2c"
+      }
+    },
+    {
+      "id": "landcover-green",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "grass",
+            "wood",
+            "farmland",
+            "wetland"
+          ]
+        ]
+      ],
+      "paint": {
+        "fill-color": "#0e2532"
+      }
+    },
+    {
+      "id": "landcover-sand",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "sand",
+            "rock"
+          ]
+        ]
+      ],
+      "paint": {
+        "fill-color": "#13283a"
+      }
+    },
+    {
+      "id": "park",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "park",
+      "paint": {
+        "fill-color": "#0e2532"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#040b16"
+      }
+    },
+    {
+      "id": "coastline",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {
+        "line-color": "rgba(89,217,255,0.55)",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          0.6,
+          16,
+          1.6,
+          18,
+          2.4
+        ],
+        "line-blur": 0.6
+      }
+    },
+    {
+      "id": "aeroway",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "aeroway",
+      "filter": [
+        "==",
+        [
+          "geometry-type"
+        ],
+        "Polygon"
+      ],
+      "paint": {
+        "fill-color": "#183a52"
+      }
+    },
+    {
+      "id": "building",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "building",
+      "minzoom": 14,
+      "paint": {
+        "fill-color": "#12324a",
+        "fill-outline-color": "#2a6f94"
+      }
+    },
+    {
+      "id": "road-path",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 14,
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "path",
+            "track"
+          ]
+        ]
+      ],
+      "layout": {
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#1a4762",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          0.5,
+          18,
+          2
+        ],
+        "line-dasharray": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "id": "road-minor",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 12,
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "minor",
+            "service"
+          ]
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#1d4f6d",
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.6
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.5,
+          16,
+          3,
+          18,
+          8
+        ]
+      }
+    },
+    {
+      "id": "road-major",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "motorway",
+            "trunk",
+            "primary",
+            "secondary",
+            "tertiary"
+          ]
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#2b6e93",
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.6
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          0.8,
+          16,
+          5,
+          18,
+          12
+        ]
+      }
+    },
+    {
+      "id": "bridge",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": [
+        "==",
+        [
+          "get",
+          "brunnel"
+        ],
+        "bridge"
+      ],
+      "layout": {
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#2b6e93",
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.6
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          1,
+          16,
+          6,
+          18,
+          14
+        ]
+      }
+    }
+  ]
+}

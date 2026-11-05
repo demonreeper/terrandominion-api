@@ -1,0 +1,28 @@
+{
+  "options": {
+    "paths": {
+      "root": "/home/ubuntu/terrandominion-maps",
+      "styles": "styles",
+      "mbtiles": "data",
+      "fonts": "fonts"
+    },
+    "serveAllStyles": false,
+    "serveStaticMaps": false,
+    "maxScaleFactor": 2,
+    "minRendererPoolSizes": [4, 2, 1],
+    "maxRendererPoolSizes": [8, 4, 2]
+  },
+  "styles": {
+    "terran": {
+      "style": "terran.json",
+      "tilejson": {
+        "bounds": [72.5, -0.8, 74.0, 7.2]
+      }
+    }
+  },
+  "data": {
+    "maldives": {
+      "mbtiles": "maldives.mbtiles"
+    }
+  }
+}
