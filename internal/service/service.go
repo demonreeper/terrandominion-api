@@ -14,6 +14,7 @@ import (
 	"github.com/demonreeper/terrandominion/api/internal/auth"
 	"github.com/demonreeper/terrandominion/api/internal/config"
 	"github.com/demonreeper/terrandominion/api/internal/game"
+	"github.com/demonreeper/terrandominion/api/internal/push"
 	"github.com/demonreeper/terrandominion/api/internal/store"
 )
 
@@ -23,6 +24,7 @@ type Service struct {
 	tokens *auth.Tokens
 	google *auth.GoogleVerifier
 	now    func() time.Time
+	push   pushSender
 
 	settingsMu     sync.RWMutex
 	settings       game.Settings
@@ -30,7 +32,7 @@ type Service struct {
 }
 
 func New(conn *sql.DB, cfg config.Config) *Service {
-	return &Service{
+	svc := &Service{
 		db:       conn,
 		cfg:      cfg,
 		tokens:   auth.NewTokens(cfg.JWTSecret, cfg.Env),
@@ -38,6 +40,12 @@ func New(conn *sql.DB, cfg config.Config) *Service {
 		now:      time.Now,
 		settings: game.DefaultSettings(),
 	}
+	if client, err := push.Load(cfg.FCMProjectID, cfg.FCMCredentialsFile); err != nil {
+		slog.Warn("push notifications off; notices will be marked skipped", "reason", err.Error())
+	} else {
+		svc.push = client
+	}
+	return svc
 }
 
 func (s *Service) Tokens() *auth.Tokens { return s.tokens }

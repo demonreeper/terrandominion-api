@@ -123,7 +123,7 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 			return err
 		}
 		body := fmt.Sprintf("A drone is inbound to %s. It lands in %d s.", place, int(arrives.Sub(now).Seconds()))
-		if err := store.InsertNotice(ctx, tx, ownerID, "drone_inbound", body); err != nil {
+		if err := notify(ctx, tx, ownerID, tetherID, "drone_inbound", body); err != nil {
 			return err
 		}
 		out = DroneOutcome{ArrivesAt: arrives, DistanceM: distance}
@@ -178,14 +178,14 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 			if err := s.endTether(ctx, tx, drone.TetherID, tether, "destroyed", settings); err != nil {
 				return err
 			}
-			if err := store.InsertNotice(ctx, tx, drone.OwnerID, "destroyed", capitalize(place)+" was destroyed by a drone."); err != nil {
+			if err := notify(ctx, tx, drone.OwnerID, drone.TetherID, "destroyed", capitalize(place)+" was destroyed by a drone."); err != nil {
 				return err
 			}
-			return store.InsertNotice(ctx, tx, drone.LaunchedBy, "drone_result", "Your drone destroyed the Tether Node.")
+			return notify(ctx, tx, drone.LaunchedBy, drone.TetherID, "drone_result", "Your drone destroyed the Tether Node.")
 		}
-		if err := store.InsertNotice(ctx, tx, drone.OwnerID, "attacked", "A drone hit "+place+"."); err != nil {
+		if err := notify(ctx, tx, drone.OwnerID, drone.TetherID, "attacked", "A drone hit "+place+"."); err != nil {
 			return err
 		}
-		return store.InsertNotice(ctx, tx, drone.LaunchedBy, "drone_result", "Your drone hit its target.")
+		return notify(ctx, tx, drone.LaunchedBy, drone.TetherID, "drone_result", "Your drone hit its target.")
 	})
 }

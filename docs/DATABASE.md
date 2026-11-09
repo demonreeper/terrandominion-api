@@ -77,6 +77,13 @@ them: one base per faction within `BaseSpacingSameFactionM` (E1402), and none wi
 `BaseSpacingOtherFactionM` of another faction's base (E1403). An advisory lock serialises base
 inserts so two simultaneous builds cannot both pass.
 
+### notices and push
+`notices` is what happened to a player. `push_state` makes it an outbox: a pushable kind is written as
+`pending` in the action's own transaction, and the sender loop (every 2 s) moves it to `sent`,
+`skipped` or `failed`. `tn_id` is the Tether Node concerned, used to throttle repeats.
+`push_tokens` holds one FCM token per phone, tied to the session that registered it; only tokens with
+a live session receive pushes. `players.push_attacks` and `push_results` are the player's switches.
+
 ## Rules the database enforces itself
 - carried resources and XP never go negative (CHECK)
 - node reserve stays between 0 and 1 (CHECK)

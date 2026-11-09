@@ -47,6 +47,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/settings", s.publicSettings)
 	mux.HandleFunc("GET /v1/me", s.authed(s.me))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
+	mux.HandleFunc("PUT /v1/me/push", s.authed(s.setPushPrefs))
+
+	mux.HandleFunc("PUT /v1/push/token", s.authed(s.registerPushToken))
+	mux.HandleFunc("DELETE /v1/push/token", s.authed(s.removePushToken))
 
 	mux.HandleFunc("POST /v1/craft", s.authed(s.craft))
 	mux.HandleFunc("POST /v1/gear/craft", s.authed(s.craftGear))
@@ -84,6 +88,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/admin/nodes", s.admin(s.adminCreateNode))
 	mux.HandleFunc("POST /v1/admin/nodes/scatter", s.admin(s.adminScatterNodes))
 	mux.HandleFunc("POST /v1/admin/nodes/clear-scatter", s.admin(s.adminClearScatter))
+	mux.HandleFunc("POST /v1/admin/push/test", s.admin(s.adminPushTest))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, r, apperr.NotFound) })
 
@@ -105,13 +110,14 @@ func (d deviceBody) info() service.DeviceInfo {
 func (s *Server) signInGoogle(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		IDToken string `json:"idToken"`
+		Nonce   string `json:"nonce"`
 		deviceBody
 	}
 	if err := decode(w, r, &body); err != nil {
 		fail(w, r, err)
 		return
 	}
-	res, err := s.svc.SignInGoogle(r.Context(), body.IDToken, body.info())
+	res, err := s.svc.SignInGoogle(r.Context(), body.IDToken, body.Nonce, body.info())
 	if err != nil {
 		fail(w, r, err)
 		return
@@ -191,6 +197,61 @@ func (s *Server) publicSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, settings)
+}
+
+// ---- push ------------------------------------------------------------------------------
+
+func (s *Server) registerPushToken(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Token    string `json:"token"`
+		Platform string `json:"platform"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.RegisterPushToken(r.Context(), playerID, sessionFrom(r.Context()), body.Token, body.Platform); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "registered")
+}
+
+func (s *Server) removePushToken(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	if err := s.svc.RemovePushToken(r.Context(), playerID, sessionFrom(r.Context())); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "removed")
+}
+
+func (s *Server) setPushPrefs(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Attacks bool `json:"attacks"`
+		Results bool `json:"results"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.SetPushPrefs(r.Context(), playerID, body.Attacks, body.Results); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, body)
+}
+
+func (s *Server) adminPushTest(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	sent, err := s.svc.AdminPushTest(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]int{"sent": sent})
 }
 
 // ---- crafting --------------------------------------------------------------------------

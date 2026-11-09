@@ -25,6 +25,7 @@ type Settings struct {
 	WelcomeCrystal int
 	WelcomeAlloy   int
 	WelcomeData    int
+	WelcomeCells   int
 
 	BaseSpacingSameFactionM  float64
 	BaseSpacingOtherFactionM float64
@@ -87,6 +88,10 @@ type Settings struct {
 	DroneMinFlightSec float64
 	CellsDrone        int
 
+	PushEnabled               int
+	PushAttackThrottleMinutes int
+	PushMaxAgeMinutes         int
+
 	AccessTokenMinutes int
 	SessionDays        int
 	DeleteGraceDays    int
@@ -110,9 +115,10 @@ func DefaultSettings() Settings {
 		MaxTravelSpeedKmh:   80,
 		NearbyMaxRadiusM:    1500,
 
-		WelcomeCrystal: 80,
-		WelcomeAlloy:   60,
-		WelcomeData:    20,
+		WelcomeCrystal: 800,
+		WelcomeAlloy:   600,
+		WelcomeData:    200,
+		WelcomeCells:   5,
 
 		BaseSpacingSameFactionM:  500,
 		BaseSpacingOtherFactionM: 150,
@@ -175,10 +181,14 @@ func DefaultSettings() Settings {
 		DroneMinFlightSec: 20,
 		CellsDrone:        1,
 
+		PushEnabled:               1,
+		PushAttackThrottleMinutes: 10,
+		PushMaxAgeMinutes:         15,
+
 		AccessTokenMinutes: 15,
 		SessionDays:        60,
 		DeleteGraceDays:    7,
-		InactiveDeleteDays: 90,
+		InactiveDeleteDays: 365,
 	}
 }
 
@@ -214,6 +224,7 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)
 	i("WelcomeData", &s.WelcomeData)
+	i("WelcomeCells", &s.WelcomeCells)
 
 	f("BaseSpacingSameFactionM", &s.BaseSpacingSameFactionM)
 	f("BaseSpacingOtherFactionM", &s.BaseSpacingOtherFactionM)
@@ -275,6 +286,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("DroneSpeedMps", &s.DroneSpeedMps)
 	f("DroneMinFlightSec", &s.DroneMinFlightSec)
 	i("CellsDrone", &s.CellsDrone)
+	i("PushEnabled", &s.PushEnabled)
+	i("PushAttackThrottleMinutes", &s.PushAttackThrottleMinutes)
+	i("PushMaxAgeMinutes", &s.PushMaxAgeMinutes)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
 	i("SessionDays", &s.SessionDays)

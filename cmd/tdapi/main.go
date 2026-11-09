@@ -101,6 +101,7 @@ func serve(ctx context.Context, cfg config.Config, svc *service.Service, devLogi
 	}()
 
 	go svc.RunTetherLoop(ctx)
+	go svc.RunPushLoop(ctx)
 
 	slog.Info("tdapi listening", "addr", cfg.Addr, "env", cfg.Env, "version", version, "devLogin", devLogin && !cfg.IsLive())
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
