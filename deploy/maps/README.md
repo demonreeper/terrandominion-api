@@ -27,6 +27,19 @@ Map data © OpenStreetMap contributors (ODbL); the game must show that credit on
    sudo npm install -g tileserver-gl
    mkdir -p ~/terrandominion-maps/data ~/terrandominion-maps/styles
    ```
+2b. **Give the renderer Ubuntu 24.04's libraries (server, if newer than 24.04).** Its prebuilt binary
+   wants ICU 74 (`libicuuc.so.74: cannot open shared object file`) and exactly libpng 1.6.43
+   (`libpng version mismatch`). Copy both from Ubuntu's archive into a private folder; the service
+   file already points at it:
+   ```bash
+   cd /tmp && sudo mkdir -p /opt/td-maplibs
+   DEB=$(curl -s http://ports.ubuntu.com/pool/main/i/icu/ | grep -o 'libicu74_[^"]*_arm64\.deb' | sort -u | tail -1)
+   curl -LO http://ports.ubuntu.com/pool/main/i/icu/$DEB && dpkg-deb -x $DEB icu74
+   sudo cp -a icu74/usr/lib/aarch64-linux-gnu/libicu*.so.74* /opt/td-maplibs/
+   DEB=$(curl -s http://ports.ubuntu.com/pool/main/libp/libpng1.6/ | grep -o 'libpng16-16t64_1\.6\.43[^"]*_arm64\.deb' | sort -u | tail -1)
+   curl -LO http://ports.ubuntu.com/pool/main/libp/libpng1.6/$DEB && dpkg-deb -x $DEB png143
+   sudo cp -a png143/usr/lib/aarch64-linux-gnu/libpng16.so.16* /opt/td-maplibs/
+   ```
 3. **Copy the files (PC).**
    ```powershell
    scp D:\Development\Github\ProjectAR\References\maps\maldives.mbtiles ubuntu@sshmvepoc.monocity.xyz:/home/ubuntu/terrandominion-maps/data/

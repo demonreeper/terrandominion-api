@@ -6,6 +6,11 @@ Wants=network-online.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/terrandominion-maps
+# The renderer's prebuilt binary targets Ubuntu 24.04: it needs ICU 74 and exactly libpng 1.6.43,
+# copied from 24.04's packages into /opt/td-maplibs (README step 2b). LD_PRELOAD wins over an older
+# libpng another module bundles.
+Environment=LD_LIBRARY_PATH=/opt/td-maplibs
+Environment=LD_PRELOAD=/opt/td-maplibs/libpng16.so.16
 # Rendering needs an OpenGL context; xvfb-run gives the headless server one.
 ExecStart=/usr/bin/xvfb-run -a tileserver-gl --config /home/ubuntu/terrandominion-maps/config.json --bind 127.0.0.1 --port 8095
 Restart=on-failure
