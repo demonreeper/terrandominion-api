@@ -40,6 +40,39 @@ func AddCarried(ctx context.Context, q db.Querier, playerID int64, resource stri
 	return err
 }
 
+// Uploaded returns the player's uploaded inventory, with every resource type present (zero if none).
+func Uploaded(ctx context.Context, q db.Querier, playerID int64) (map[string]int64, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT rt.code, COALESCE(pu.amount, 0)
+		FROM td.resource_types rt
+		LEFT JOIN td.player_uploaded pu ON pu.resource = rt.code AND pu.player_id = $1
+		ORDER BY rt.sort`, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var code string
+		var amount int64
+		if err := rows.Scan(&code, &amount); err != nil {
+			return nil, err
+		}
+		out[code] = amount
+	}
+	return out, rows.Err()
+}
+
+// AddUploaded adds (or with a negative amount, removes) a resource. The table's CHECK refuses to
+// go below zero, as with AddCarried.
+func AddUploaded(ctx context.Context, q db.Querier, playerID int64, resource string, amount int64) error {
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_uploaded (player_id, resource, amount) VALUES ($1, $2, $3)
+		ON CONFLICT (player_id, resource) DO UPDATE SET amount = td.player_uploaded.amount + $3`,
+		playerID, resource, amount)
+	return err
+}
+
 type GearItem struct {
 	ID            int64           `json:"id"`
 	TypeID        string          `json:"typeId"`

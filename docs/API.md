@@ -22,7 +22,7 @@ token expires, or on E1001.
 ## Player
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/me` | Level and XP progress, carried resources, carry capacity, scan range, gear, faction (null = freelancer) |
+| GET | `/me` | Level and XP progress, carried resources, uploaded inventory (`uploaded`, no carry limit), carry capacity, scan range, gear, faction (null = freelancer) |
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
 | GET | `/settings` | Public tunable values (levels, ranges, cooldowns) for the client to display |
 

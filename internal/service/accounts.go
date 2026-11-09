@@ -237,6 +237,7 @@ type MeView struct {
 	IsAdmin     bool              `json:"isAdmin,omitempty"`
 	Progress    game.Progress     `json:"progress"`
 	Carried     map[string]int64  `json:"carried"`
+	Uploaded    map[string]int64  `json:"uploaded"`
 	CarryCap    int64             `json:"carryCapacity"`
 	ScanRangeM  float64           `json:"scanRangeM"`
 	Gear        []store.GearItem  `json:"gear"`
@@ -261,6 +262,10 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
+	uploaded, err := store.Uploaded(ctx, q, playerID)
+	if err != nil {
+		return nil, err
+	}
 	gear, err := store.Gear(ctx, q, playerID)
 	if err != nil {
 		return nil, err
@@ -276,7 +281,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 
 	me := &MeView{
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
-		Progress: game.ProgressFor(player.XP, settings), Carried: carried, CarryCap: stats.CarryCapacity,
+		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Uploaded: uploaded, CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Faction: membership, Freelancer: membership == nil,
 	}
 	if player.DeleteAfter.Valid {
