@@ -117,6 +117,9 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 			if err := store.AddCarried(ctx, tx, playerID, "alloy", int64(settings.WelcomeAlloy)); err != nil {
 				return err
 			}
+			if err := store.AddCarried(ctx, tx, playerID, "data", int64(settings.WelcomeData)); err != nil {
+				return err
+			}
 			if err := store.MarkWelcomeGranted(ctx, tx, deviceHash); err != nil {
 				return err
 			}

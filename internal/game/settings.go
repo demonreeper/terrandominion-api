@@ -24,6 +24,7 @@ type Settings struct {
 
 	WelcomeCrystal int
 	WelcomeAlloy   int
+	WelcomeData    int
 
 	BaseSpacingSameFactionM  float64
 	BaseSpacingOtherFactionM float64
@@ -76,8 +77,9 @@ func DefaultSettings() Settings {
 		MaxTravelSpeedKmh:   80,
 		NearbyMaxRadiusM:    1500,
 
-		WelcomeCrystal: 50,
-		WelcomeAlloy:   30,
+		WelcomeCrystal: 80,
+		WelcomeAlloy:   60,
+		WelcomeData:    20,
 
 		BaseSpacingSameFactionM:  500,
 		BaseSpacingOtherFactionM: 150,
@@ -145,6 +147,7 @@ func SettingsFrom(values map[string]float64) Settings {
 
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)
+	i("WelcomeData", &s.WelcomeData)
 
 	f("BaseSpacingSameFactionM", &s.BaseSpacingSameFactionM)
 	f("BaseSpacingOtherFactionM", &s.BaseSpacingOtherFactionM)
