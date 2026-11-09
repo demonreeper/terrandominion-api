@@ -14,6 +14,11 @@ add a new numbered file.** Applied files are recorded in `td.schema_migrations`.
 players ─┬─ player_identities   sign-in links (google now; apple, nakama later)
          ├─ sessions            one per signed-in device, refresh token stored as a hash
          ├─ player_resources    what the player carries (losing a fight costs a cut)
+         ├─ player_uploaded     stored resources, no carry limit (Tether Node output and uploads)
+         ├─ tether_nodes ── tether_links ── nodes   Tether Nodes and the resource node each slot holds
+         │    ├─ tether_stock       the held half, waiting for the owner
+         │    └─ tether_transfers   every collect and upload with the reported GPS fix
+         ├─ map_drops           what an ended Tether Node held, until picked up or expired
          ├─ player_gear ── gear_types        owned gear; the catalogue of gear
          ├─ harvests ── nodes                every harvest with the reported GPS fix
          ├─ xp_events                        XP ledger: every action that earned XP

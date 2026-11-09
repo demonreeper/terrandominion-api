@@ -100,6 +100,8 @@ func serve(ctx context.Context, cfg config.Config, svc *service.Service, devLogi
 		_ = server.Shutdown(shutdown)
 	}()
 
+	go svc.RunTetherLoop(ctx)
+
 	slog.Info("tdapi listening", "addr", cfg.Addr, "env", cfg.Env, "version", version, "devLogin", devLogin && !cfg.IsLive())
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("E1900 server stopped", "err", err)

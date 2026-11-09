@@ -8,6 +8,7 @@
 //	1300-1399 factions
 //	1400-1499 bases
 //	1500-1599 gear
+//	1600-1699 tether nodes
 //	1900-1999 server
 package apperr
 
@@ -85,6 +86,20 @@ var (
 
 	BaseSpacingSame  = def(1402, http.StatusConflict, "Too close to another of your faction's bases.")
 	BaseSpacingOther = def(1403, http.StatusConflict, "Too close to another faction's base.")
+
+	TetherCap      = def(1600, http.StatusConflict, "You already own the maximum number of Tether Nodes.")
+	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")
+	TetherCost     = def(1602, http.StatusConflict, "Not enough resources to do that.")
+	TetherGone     = def(1603, http.StatusNotFound, "This Tether Node is gone.")
+	TetherNotOwner = def(1604, http.StatusForbidden, "Only the owner can do that.")
+	TetherNothing  = def(1605, http.StatusConflict, "Nothing to move right now.")
+	TetherTooFar   = def(1606, http.StatusConflict, "Move closer to the Tether Node.")
+	TetherNoAccess = def(1607, http.StatusForbidden, "This Tether Node belongs to another faction.")
+	TetherMaxTier  = def(1608, http.StatusConflict, "This Tether Node is already fully upgraded.")
+	DropGone       = def(1609, http.StatusNotFound, "This drop is gone.")
+	DropTooFar     = def(1610, http.StatusConflict, "Move closer to the drop.")
+
+	TetherCantAttack = def(1611, http.StatusForbidden, "You can't attack this Tether Node.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

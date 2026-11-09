@@ -58,16 +58,8 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 		return out, apperr.HarvestTooFar
 	}
 
-	if in.LastAnyFix != nil && s.MaxTravelSpeedKmh > 0 {
-		hours := in.Player.At.Sub(in.LastAnyFix.At).Hours()
-		travelled := DistanceM(in.LastAnyFix.Lat, in.LastAnyFix.Lon, in.Player.Lat, in.Player.Lon)
-		// Ignore jumps inside the combined GPS error; they are noise, not travel.
-		travelled -= in.LastAnyFix.AccuracyM + in.Player.AccuracyM
-		if travelled > 0 {
-			if hours <= 0 || travelled/1000/hours > s.MaxTravelSpeedKmh {
-				return out, apperr.HarvestImplausible.With("travelled %.0fm in %.0fs", travelled, hours*3600)
-			}
-		}
+	if err := checkTravel(s, in.LastAnyFix, in.Player); err != nil {
+		return out, err
 	}
 
 	if in.LastAtNode != nil && s.HarvestCooldownSec > 0 &&
@@ -84,16 +76,7 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 		return out, apperr.HarvestCarryFull
 	}
 
-	mult := in.ExtractorYieldMult
-	if mult <= 0 {
-		mult = 1
-	}
-	// A drained node gives less: full yield above half reserve, tapering to a third near empty.
-	richness := math.Min(1, 0.33+in.NodeReserve*1.34)
-	amount := int(math.Round(float64(in.NodeYield) * mult * richness))
-	if amount < 1 {
-		amount = 1
-	}
+	amount := harvestAmount(in.NodeYield, in.ExtractorYieldMult, in.NodeReserve)
 	if int64(amount) > room {
 		amount = int(room)
 	}
@@ -101,6 +84,47 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 	out.Amount = amount
 	out.ReserveCost = math.Min(in.NodeReserve, s.HarvestReserveCost)
 	return out, nil
+}
+
+// harvestAmount is what one harvest yields. A drained node gives less: full yield above half
+// reserve, tapering to a third near empty.
+func harvestAmount(yield int, mult, reserve float64) int {
+	if mult <= 0 {
+		mult = 1
+	}
+	richness := math.Min(1, 0.33+reserve*1.34)
+	amount := int(math.Round(float64(yield) * mult * richness))
+	if amount < 1 {
+		amount = 1
+	}
+	return amount
+}
+
+// checkTravel rejects a fix the player could not have reached since their last one.
+func checkTravel(s Settings, last *Fix, now Fix) *apperr.Error {
+	if last == nil || s.MaxTravelSpeedKmh <= 0 {
+		return nil
+	}
+	hours := now.At.Sub(last.At).Hours()
+	travelled := DistanceM(last.Lat, last.Lon, now.Lat, now.Lon)
+	// Ignore jumps inside the combined GPS error; they are noise, not travel.
+	travelled -= last.AccuracyM + now.AccuracyM
+	if travelled > 0 && (hours <= 0 || travelled/1000/hours > s.MaxTravelSpeedKmh) {
+		return apperr.HarvestImplausible.With("travelled %.0fm in %.0fs", travelled, hours*3600)
+	}
+	return nil
+}
+
+// RespawnPoint picks where a depleted node's replacement appears, spread evenly over the ring
+// between the two distances. The two random inputs are each 0..1, so the rule stays testable.
+func RespawnPoint(s Settings, lat, lon, randBearing, randDistance float64) (float64, float64) {
+	const metresPerDegree = 111320.0
+	inner, outer := s.NodeRespawnMinM*s.NodeRespawnMinM, s.NodeRespawnMaxM*s.NodeRespawnMaxM
+	distance := math.Sqrt(inner + (outer-inner)*randDistance)
+	bearing := randBearing * 2 * math.Pi
+	north := distance * math.Cos(bearing) / metresPerDegree
+	east := distance * math.Sin(bearing) / (metresPerDegree * math.Cos(lat*math.Pi/180))
+	return lat + north, lon + east
 }
 
 // DistanceM is the great-circle distance in metres. PostGIS does the heavy lifting for queries;
