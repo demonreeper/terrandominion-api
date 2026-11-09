@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/demonreeper/terrandominion/api/internal/db"
 )
@@ -30,9 +31,27 @@ func Carried(ctx context.Context, q db.Querier, playerID int64) (map[string]int6
 	return out, rows.Err()
 }
 
+// spend removes a resource with a plain UPDATE. An upsert can't remove: Postgres checks the row it
+// would insert, with its negative amount, against the CHECK before it looks for a conflict.
+func spend(ctx context.Context, q db.Querier, query string, playerID int64, resource string, amount int64) error {
+	res, err := q.ExecContext(ctx, query, playerID, resource, amount)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err == nil && n == 0 {
+		return fmt.Errorf("player %d holds no %s to spend", playerID, resource)
+	}
+	return err
+}
+
 // AddCarried adds (or with a negative amount, removes) a resource. The table's CHECK refuses to
 // go below zero, so a bad caller fails instead of minting debt.
 func AddCarried(ctx context.Context, q db.Querier, playerID int64, resource string, amount int64) error {
+	if amount < 0 {
+		return spend(ctx, q, `UPDATE td.player_resources SET carried = carried + $3
+			WHERE player_id = $1 AND resource = $2`, playerID, resource, amount)
+	}
 	_, err := q.ExecContext(ctx, `
 		INSERT INTO td.player_resources (player_id, resource, carried) VALUES ($1, $2, $3)
 		ON CONFLICT (player_id, resource) DO UPDATE SET carried = td.player_resources.carried + $3`,
@@ -66,6 +85,10 @@ func Uploaded(ctx context.Context, q db.Querier, playerID int64) (map[string]int
 // AddUploaded adds (or with a negative amount, removes) a resource. The table's CHECK refuses to
 // go below zero, as with AddCarried.
 func AddUploaded(ctx context.Context, q db.Querier, playerID int64, resource string, amount int64) error {
+	if amount < 0 {
+		return spend(ctx, q, `UPDATE td.player_uploaded SET amount = amount + $3
+			WHERE player_id = $1 AND resource = $2`, playerID, resource, amount)
+	}
 	_, err := q.ExecContext(ctx, `
 		INSERT INTO td.player_uploaded (player_id, resource, amount) VALUES ($1, $2, $3)
 		ON CONFLICT (player_id, resource) DO UPDATE SET amount = td.player_uploaded.amount + $3`,
