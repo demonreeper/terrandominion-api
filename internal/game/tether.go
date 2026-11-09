@@ -19,6 +19,60 @@ func TetherBuildCost(s Settings) map[string]int64 {
 	return cost
 }
 
+// TetherUpgradeCost is what the upgrade to tier 2 costs.
+func TetherUpgradeCost(s Settings) map[string]int64 {
+	cost := map[string]int64{}
+	for resource, amount := range map[string]int{
+		"alloy": s.TnUpgradeAlloy, "data": s.TnUpgradeData, "credit": s.TnUpgradeCredit,
+	} {
+		if amount > 0 {
+			cost[resource] = int64(amount)
+		}
+	}
+	return cost
+}
+
+// TetherLinks is how many nodes a Tether Node of this tier tethers.
+func TetherLinks(s Settings, tier int) int {
+	if tier >= 2 {
+		return s.TnLinksTier2
+	}
+	return s.TnLinksTier1
+}
+
+// AddCosts totals two sets of resources without changing either.
+func AddCosts(a, b map[string]int64) map[string]int64 {
+	total := make(map[string]int64, len(a)+len(b))
+	for resource, amount := range a {
+		total[resource] += amount
+	}
+	for resource, amount := range b {
+		total[resource] += amount
+	}
+	return total
+}
+
+// FreeSlots lists the link slots of a Tether Node that hold no node, lowest first.
+func FreeSlots(used []int, links int) []int {
+	taken := make(map[int]bool, len(used))
+	for _, slot := range used {
+		taken[slot] = true
+	}
+	free := make([]int, 0, links)
+	for slot := 0; slot < links; slot++ {
+		if !taken[slot] {
+			free = append(free, slot)
+		}
+	}
+	return free
+}
+
+// WithinTetherInfo says whether a player is close enough to see what a Tether Node collects.
+func WithinTetherInfo(s Settings, player Fix, lat, lon float64) bool {
+	allowance := math.Max(0, math.Min(player.AccuracyM, s.TnInfoRangeM))
+	return DistanceM(player.Lat, player.Lon, lat, lon) <= s.TnInfoRangeM+allowance
+}
+
 // Payment says where a cost is taken from.
 type Payment struct {
 	FromCarried  map[string]int64

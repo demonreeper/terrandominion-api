@@ -31,6 +31,11 @@ type Settings struct {
 	TnMaxPerPlayer      int
 	TnLinkRadiusM       float64
 	TnLinksTier1        int
+	TnLinksTier2        int
+	TnUpgradeAlloy      int
+	TnUpgradeData       int
+	TnUpgradeCredit     int
+	TnInfoRangeM        float64
 	TnLifetimeHours     float64
 	TnMaxHealth         float64
 	TnDismantleRefund   float64
@@ -74,6 +79,11 @@ func DefaultSettings() Settings {
 		TnMaxPerPlayer:      3,
 		TnLinkRadiusM:       150,
 		TnLinksTier1:        1,
+		TnLinksTier2:        4,
+		TnUpgradeAlloy:      120,
+		TnUpgradeData:       60,
+		TnUpgradeCredit:     40,
+		TnInfoRangeM:        40,
 		TnLifetimeHours:     48,
 		TnMaxHealth:         100,
 		TnDismantleRefund:   0.5,
@@ -130,6 +140,11 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("TnMaxPerPlayer", &s.TnMaxPerPlayer)
 	f("TnLinkRadiusM", &s.TnLinkRadiusM)
 	i("TnLinksTier1", &s.TnLinksTier1)
+	i("TnLinksTier2", &s.TnLinksTier2)
+	i("TnUpgradeAlloy", &s.TnUpgradeAlloy)
+	i("TnUpgradeData", &s.TnUpgradeData)
+	i("TnUpgradeCredit", &s.TnUpgradeCredit)
+	f("TnInfoRangeM", &s.TnInfoRangeM)
 	f("TnLifetimeHours", &s.TnLifetimeHours)
 	f("TnMaxHealth", &s.TnMaxHealth)
 	f("TnDismantleRefund", &s.TnDismantleRefund)

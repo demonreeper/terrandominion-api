@@ -174,6 +174,7 @@ type TetherState struct {
 	OwnerID   int64
 	FactionID *int
 	Lat, Lon  float64
+	Tier      int
 	Status    string
 	Spent     map[string]int64
 }
@@ -183,9 +184,9 @@ func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, 
 	var spent []byte
 	var faction sql.NullInt32
 	err := q.QueryRowContext(ctx, `
-		SELECT owner_id, faction_id, ST_Y(location::geometry), ST_X(location::geometry), status, spent
+		SELECT owner_id, faction_id, ST_Y(location::geometry), ST_X(location::geometry), tier, status, spent
 		FROM td.tether_nodes WHERE id = $1 FOR UPDATE`, id).
-		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Status, &spent)
+		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &spent)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -197,6 +198,72 @@ func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, 
 		t.FactionID = &id
 	}
 	return t, json.Unmarshal(spent, &t.Spent)
+}
+
+// UpgradeTether raises the tier and records the new total spent.
+func UpgradeTether(ctx context.Context, q db.Querier, id int64, tier int, spent map[string]int64) error {
+	encoded, err := json.Marshal(spent)
+	if err != nil {
+		return err
+	}
+	_, err = q.ExecContext(ctx,
+		`UPDATE td.tether_nodes SET tier = $2, spent = $3::jsonb WHERE id = $1`, id, tier, string(encoded))
+	return err
+}
+
+// TetherLinkSlots lists the slots that hold a node.
+func TetherLinkSlots(ctx context.Context, q db.Querier, id int64) ([]int, error) {
+	rows, err := q.QueryContext(ctx, `SELECT slot FROM td.tether_links WHERE tn_id = $1 ORDER BY slot`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]int, 0, 4)
+	for rows.Next() {
+		var slot int
+		if err := rows.Scan(&slot); err != nil {
+			return nil, err
+		}
+		out = append(out, slot)
+	}
+	return out, rows.Err()
+}
+
+// MoveTetherLink points a slot at a different node. What was gathered belonged to the old node.
+func MoveTetherLink(ctx context.Context, q db.Querier, id int64, slot int, nodeID int64) error {
+	_, err := q.ExecContext(ctx, `
+		UPDATE td.tether_links SET node_id = $3, gathered = 0, linked_at = now()
+		WHERE tn_id = $1 AND slot = $2`, id, slot, nodeID)
+	return err
+}
+
+// TetherLinkInfo is what a player standing at a Tether Node sees for one link.
+type TetherLinkInfo struct {
+	Slot     int    `json:"slot"`
+	NodeID   int64  `json:"nodeId"`
+	Name     string `json:"name"`
+	Resource string `json:"resource"`
+	Gathered int64  `json:"gathered"`
+}
+
+func TetherLinkInfos(ctx context.Context, q db.Querier, id int64) ([]TetherLinkInfo, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT l.slot, n.id, n.name, n.resource, l.gathered
+		FROM td.tether_links l JOIN td.nodes n ON n.id = l.node_id
+		WHERE l.tn_id = $1 ORDER BY l.slot`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]TetherLinkInfo, 0, 4)
+	for rows.Next() {
+		var l TetherLinkInfo
+		if err := rows.Scan(&l.Slot, &l.NodeID, &l.Name, &l.Resource, &l.Gathered); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
 }
 
 // TetherOwner reads who owns a Tether Node without locking it, so a transaction can lock the

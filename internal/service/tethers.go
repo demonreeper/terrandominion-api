@@ -465,24 +465,201 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 			if err != nil {
 				return err
 			}
+			harvest, ok := game.TetherHarvest{}, false
 			if node.Status == "active" {
-				if harvest, ok := game.EvaluateTetherHarvest(settings, node.Yield, node.Reserve); ok {
-					if _, err := store.DrainNode(ctx, tx, node.ID, harvest.ReserveCost); err != nil {
+				harvest, ok = game.EvaluateTetherHarvest(settings, node.Yield, node.Reserve)
+			}
+			if ok {
+				if _, err := store.DrainNode(ctx, tx, node.ID, harvest.ReserveCost); err != nil {
+					return err
+				}
+				if err := store.AddUploaded(ctx, tx, tether.OwnerID, node.Resource, harvest.ToOwner); err != nil {
+					return err
+				}
+				if err := store.AddTetherStock(ctx, tx, due.ID, node.Resource, harvest.ToStock); err != nil {
+					return err
+				}
+				gathered = harvest.Amount
+			} else {
+				// Depleted or gone: move to another free node, or stay idle if there is none.
+				free, err := store.PickFreeNodes(ctx, tx, tether.Lat, tether.Lon, settings.TnLinkRadiusM,
+					settings.NodeDepletedReserve, 1)
+				if err != nil {
+					return err
+				}
+				if len(free) > 0 {
+					if err := store.MoveTetherLink(ctx, tx, due.ID, link.Slot, free[0]); err != nil {
 						return err
 					}
-					if err := store.AddUploaded(ctx, tx, tether.OwnerID, node.Resource, harvest.ToOwner); err != nil {
-						return err
-					}
-					if err := store.AddTetherStock(ctx, tx, due.ID, node.Resource, harvest.ToStock); err != nil {
-						return err
-					}
-					gathered = harvest.Amount
 				}
 			}
 			if err := store.RecordLinkHarvest(ctx, tx, due.ID, link.Slot, gathered, settings.HarvestCooldownSec); err != nil {
 				return err
 			}
 		}
+		return s.fillTetherLinks(ctx, tx, due.ID, tether, settings)
+	})
+}
+
+// fillTetherLinks links free nodes to any empty slots, so an upgrade made where few nodes were
+// free picks up the rest as they become available.
+func (s *Service) fillTetherLinks(ctx context.Context, tx *sql.Tx, id int64, tether store.TetherState, settings game.Settings) error {
+	used, err := store.TetherLinkSlots(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	slots := game.FreeSlots(used, game.TetherLinks(settings, tether.Tier))
+	if len(slots) == 0 {
+		return nil
+	}
+	nodes, err := store.PickFreeNodes(ctx, tx, tether.Lat, tether.Lon, settings.TnLinkRadiusM,
+		settings.NodeDepletedReserve, len(slots))
+	if err != nil {
+		return err
+	}
+	for i, nodeID := range nodes {
+		if err := store.InsertTetherLink(ctx, tx, id, slots[i], nodeID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type UpgradeTetherOutcome struct {
+	Tether   store.Tether     `json:"tether"`
+	Carried  map[string]int64 `json:"carried"`
+	Uploaded map[string]int64 `json:"uploaded"`
+	XP       int              `json:"xp"`
+	Progress game.Progress    `json:"progress"`
+	LevelUp  bool             `json:"levelUp"`
+}
+
+// UpgradeTether raises the owner's Tether Node to tier 2 and links more nodes. It is refused
+// when no extra node is free, so nobody pays for links that do not exist.
+func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, fix TetherFix) (UpgradeTetherOutcome, error) {
+	if !game.ValidCoordinate(fix.Lat, fix.Lon) {
+		return UpgradeTetherOutcome{}, apperr.BadRequest.With("bad coordinate")
+	}
+	settings := s.Settings(ctx)
+	var out UpgradeTetherOutcome
+
+	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := store.GetPlayerForUpdate(ctx, tx, playerID); err != nil {
+			return err
+		}
+		tether, err := store.TetherForUpdate(ctx, tx, tetherID)
+		if errors.Is(err, store.ErrNotFound) {
+			return apperr.TetherGone
+		}
+		if err != nil {
+			return err
+		}
+		if tether.Status != "active" {
+			return apperr.TetherGone
+		}
+		if tether.OwnerID != playerID {
+			return apperr.TetherNotOwner
+		}
+		if tether.Tier >= 2 {
+			return apperr.TetherMaxTier
+		}
+		if _, err := s.checkAtTether(ctx, tx, playerID, tether, fix, settings); err != nil {
+			return err
+		}
+
+		carried, err := store.Carried(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
+		uploaded, err := store.Uploaded(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
+		cost := game.TetherUpgradeCost(settings)
+		payment, ruleErr := game.PayCost(cost, carried, uploaded)
+		if ruleErr != nil {
+			return ruleErr
+		}
+
+		used, err := store.TetherLinkSlots(ctx, tx, tetherID)
+		if err != nil {
+			return err
+		}
+		slots := game.FreeSlots(used, game.TetherLinks(settings, 2))
+		nodes, err := store.PickFreeNodes(ctx, tx, tether.Lat, tether.Lon, settings.TnLinkRadiusM,
+			settings.NodeDepletedReserve, len(slots))
+		if err != nil {
+			return err
+		}
+		if len(nodes) == 0 {
+			return apperr.TetherNoNode
+		}
+
+		for resource, amount := range payment.FromCarried {
+			if err := store.AddCarried(ctx, tx, playerID, resource, -amount); err != nil {
+				return err
+			}
+			carried[resource] -= amount
+		}
+		for resource, amount := range payment.FromUploaded {
+			if err := store.AddUploaded(ctx, tx, playerID, resource, -amount); err != nil {
+				return err
+			}
+			uploaded[resource] -= amount
+		}
+		if err := store.UpgradeTether(ctx, tx, tetherID, 2, game.AddCosts(tether.Spent, cost)); err != nil {
+			return err
+		}
+		for i, nodeID := range nodes {
+			if err := store.InsertTetherLink(ctx, tx, tetherID, slots[i], nodeID); err != nil {
+				return err
+			}
+		}
+
+		progress, levelUp, err := awardXP(ctx, tx, playerID, "tether_upgrade", settings.XpUpgrade, tetherID, settings)
+		if err != nil {
+			return err
+		}
+		view, err := store.TetherByID(ctx, tx, playerID, tetherID)
+		if err != nil {
+			return err
+		}
+		out = UpgradeTetherOutcome{
+			Tether: view, Carried: carried, Uploaded: uploaded,
+			XP: settings.XpUpgrade, Progress: progress, LevelUp: levelUp,
+		}
 		return nil
 	})
+	return out, err
+}
+
+// TetherDetail is one Tether Node. Per-link names and totals are only given to a player standing
+// close to it.
+type TetherDetail struct {
+	Tether  store.Tether           `json:"tether"`
+	InRange bool                   `json:"inRange"`
+	Links   []store.TetherLinkInfo `json:"links"`
+}
+
+// GetTether reads one Tether Node for a player at the given position.
+func (s *Service) GetTether(ctx context.Context, playerID, tetherID int64, fix TetherFix) (TetherDetail, error) {
+	if !game.ValidCoordinate(fix.Lat, fix.Lon) {
+		return TetherDetail{}, apperr.BadRequest.With("bad coordinate")
+	}
+	tether, err := store.TetherByID(ctx, s.db, playerID, tetherID)
+	if errors.Is(err, store.ErrNotFound) {
+		return TetherDetail{}, apperr.TetherGone
+	}
+	if err != nil {
+		return TetherDetail{}, err
+	}
+	out := TetherDetail{Tether: tether, Links: []store.TetherLinkInfo{}}
+	out.InRange = game.WithinTetherInfo(s.Settings(ctx), game.Fix{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM},
+		tether.Lat, tether.Lon)
+	if out.InRange {
+		if out.Links, err = store.TetherLinkInfos(ctx, s.db, tetherID); err != nil {
+			return TetherDetail{}, err
+		}
+	}
+	return out, nil
 }

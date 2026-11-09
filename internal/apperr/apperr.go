@@ -95,6 +95,7 @@ var (
 	TetherNothing  = def(1605, http.StatusConflict, "Nothing to move right now.")
 	TetherTooFar   = def(1606, http.StatusConflict, "Move closer to the Tether Node.")
 	TetherNoAccess = def(1607, http.StatusForbidden, "This Tether Node belongs to another faction.")
+	TetherMaxTier  = def(1608, http.StatusConflict, "This Tether Node is already fully upgraded.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

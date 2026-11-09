@@ -52,7 +52,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/nodes/{id}/harvest", s.authed(s.harvest))
 
 	mux.HandleFunc("GET /v1/tethers/nearby", s.authed(s.nearbyTethers))
+	mux.HandleFunc("GET /v1/tethers/{id}", s.authed(s.getTether))
 	mux.HandleFunc("POST /v1/tethers", s.authed(s.buildTether))
+	mux.HandleFunc("POST /v1/tethers/{id}/upgrade", s.authed(s.upgradeTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/dismantle", s.authed(s.dismantleTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/collect", s.authed(s.collectTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/upload", s.authed(s.uploadTether))
@@ -293,6 +295,44 @@ func tetherAction(w http.ResponseWriter, r *http.Request) (int64, service.Tether
 		return 0, fix, err
 	}
 	return id, service.TetherFix{Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM}, nil
+}
+
+func (s *Server) getTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("tether id"))
+		return
+	}
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("lat and lon are required"))
+		return
+	}
+	accuracy, _ := strconv.ParseFloat(q.Get("accuracyM"), 64)
+	res, err := s.svc.GetTether(r.Context(), playerID, id, service.TetherFix{Lat: lat, Lon: lon, AccuracyM: accuracy})
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) upgradeTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.UpgradeTether(r.Context(), playerID, id, fix)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
 }
 
 func (s *Server) collectTether(w http.ResponseWriter, r *http.Request) {

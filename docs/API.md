@@ -37,6 +37,8 @@ token expires, or on E1001.
 |---|---|---|---|
 | GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, within the scanner's range, with their links (`nodeId, resource, lat, lon`) |
 | POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then uploaded), and links free nodes in range |
+| GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
+| POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free |
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to the uploaded inventory, and frees its nodes |
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to the uploaded inventory |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's uploaded inventory, less the charge paid to the owner |
@@ -94,6 +96,7 @@ token expires, or on E1001.
 | 1605 | Nothing to collect or upload |
 | 1606 | Too far from the Tether Node |
 | 1607 | Tether Node belongs to another faction |
+| 1608 | Tether Node already fully upgraded |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

@@ -130,6 +130,36 @@ func TestSplitUpload(t *testing.T) {
 	}
 }
 
+func TestUpgradeRefundCoversEverythingSpent(t *testing.T) {
+	s := DefaultSettings()
+	spent := AddCosts(TetherBuildCost(s), TetherUpgradeCost(s))
+	got := TetherRefund(spent, s.TnDismantleRefund)
+	if got["crystal"] != 40 || got["alloy"] != 90 || got["data"] != 40 || got["credit"] != 20 {
+		t.Fatalf("refund should match the design table, got %+v", got)
+	}
+}
+
+func TestFreeSlots(t *testing.T) {
+	got := FreeSlots([]int{0, 2}, 4)
+	if len(got) != 2 || got[0] != 1 || got[1] != 3 {
+		t.Fatalf("expected slots 1 and 3, got %v", got)
+	}
+	if got := FreeSlots([]int{0}, 1); len(got) != 0 {
+		t.Fatalf("a full tier 1 node has no free slot, got %v", got)
+	}
+}
+
+func TestWithinTetherInfo(t *testing.T) {
+	s := DefaultSettings()
+	near := Fix{Lat: 4.1755, Lon: 73.5093, AccuracyM: 5}
+	if !WithinTetherInfo(s, near, 4.1755, 73.5095) {
+		t.Fatal("about 22 m should be close enough")
+	}
+	if WithinTetherInfo(s, near, 4.1755, 73.5110) {
+		t.Fatal("about 190 m should be too far")
+	}
+}
+
 func TestTetherRefund(t *testing.T) {
 	got := TetherRefund(map[string]int64{"crystal": 80, "alloy": 60, "data": 21}, 0.5)
 	if got["crystal"] != 40 || got["alloy"] != 30 || got["data"] != 10 {
