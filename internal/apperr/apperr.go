@@ -102,5 +102,10 @@ var (
 	TetherCantAttack = def(1611, http.StatusForbidden, "You can't attack this Tether Node.")
 	TetherTooClose   = def(1612, http.StatusConflict, "Too close to another Tether Node.")
 
+	CraftUnknown  = def(1700, http.StatusBadRequest, "That can't be crafted.")
+	GearMissing   = def(1701, http.StatusNotFound, "You don't own that gear.")
+	GearNoUpgrade = def(1702, http.StatusConflict, "This gear is already at its top tier.")
+	GearNotWorn   = def(1703, http.StatusConflict, "This gear doesn't need repair.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

@@ -26,6 +26,13 @@ token expires, or on E1001.
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
 | GET | `/settings` | Public tunable values (levels, ranges, cooldowns) for the client to display |
 
+## Crafting
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| POST | `/craft` | `recipe` | Makes one consumable from `recipes` in `/me` (`items` holds the counts). Paid from carried, then uploaded |
+| POST | `/gear/{id}/upgrade` | – | To the next tier in the same slot, at full durability. Needs the tier's level; cost is `upgradeCost` on the gear |
+| POST | `/gear/{id}/repair` | – | To full durability for alloy (`repairCost` on the gear). No XP |
+
 ## World
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
@@ -107,6 +114,10 @@ token expires, or on E1001.
 | 1610 | Too far from the map drop |
 | 1611 | Not allowed to attack this Tether Node |
 | 1612 | Too close to another Tether Node |
+| 1700 | Unknown recipe |
+| 1701 | Gear not owned |
+| 1702 | Gear already at its top tier |
+| 1703 | Gear doesn't need repair |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

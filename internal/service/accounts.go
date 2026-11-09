@@ -247,6 +247,8 @@ type MeView struct {
 	CarryCap     int64             `json:"carryCapacity"`
 	ScanRangeM   float64           `json:"scanRangeM"`
 	Gear         []store.GearItem  `json:"gear"`
+	Items        map[string]int64  `json:"items"`
+	Recipes      []game.Recipe     `json:"recipes"`
 	Faction      *store.Membership `json:"faction"`
 	Freelancer   bool              `json:"freelancer"`
 	DeleteAfter  *time.Time        `json:"deleteAfter,omitempty"`
@@ -280,6 +282,13 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
+	for i := range gear {
+		gear[i].RepairCost = game.RepairCost(settings, gear[i].Durability, gear[i].MaxDurability)
+	}
+	items, err := store.Items(ctx, q, playerID)
+	if err != nil {
+		return nil, err
+	}
 	stats, err := store.Equipped(ctx, q, playerID)
 	if err != nil {
 		return nil, err
@@ -293,7 +302,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Uploaded: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), CarryCap: stats.CarryCapacity,
-		ScanRangeM: stats.ScanRangeM, Gear: gear, Faction: membership, Freelancer: membership == nil,
+		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), Faction: membership, Freelancer: membership == nil,
 	}
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time

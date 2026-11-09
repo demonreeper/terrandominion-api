@@ -54,6 +54,17 @@ type Settings struct {
 	PvpLevelBand        int
 	ProtectionLossDays  float64
 
+	RepairAlloyPerPoint float64
+	CraftCellCrystal    int
+	CraftCellData       int
+	CraftPulseCrystal   int
+	CraftPulseData      int
+	CraftJammerData     int
+	CraftJammerAlloy    int
+	CraftSpikeAlloy     int
+	CraftSpikeCrystal   int
+	CraftSpikeCredit    int
+
 	AccessTokenMinutes int
 	SessionDays        int
 	DeleteGraceDays    int
@@ -108,6 +119,17 @@ func DefaultSettings() Settings {
 		PvpLevelBand:        5,
 		ProtectionLossDays:  3,
 		XpTnBuild:           20,
+
+		RepairAlloyPerPoint: 0.5,
+		CraftCellCrystal:    10,
+		CraftCellData:       5,
+		CraftPulseCrystal:   20,
+		CraftPulseData:      10,
+		CraftJammerData:     15,
+		CraftJammerAlloy:    10,
+		CraftSpikeAlloy:     30,
+		CraftSpikeCrystal:   20,
+		CraftSpikeCredit:    10,
 
 		AccessTokenMinutes: 15,
 		SessionDays:        60,
@@ -176,6 +198,17 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("PvpLevelBand", &s.PvpLevelBand)
 	f("ProtectionLossDays", &s.ProtectionLossDays)
 	i("XpTnBuild", &s.XpTnBuild)
+
+	f("RepairAlloyPerPoint", &s.RepairAlloyPerPoint)
+	i("CraftCellCrystal", &s.CraftCellCrystal)
+	i("CraftCellData", &s.CraftCellData)
+	i("CraftPulseCrystal", &s.CraftPulseCrystal)
+	i("CraftPulseData", &s.CraftPulseData)
+	i("CraftJammerData", &s.CraftJammerData)
+	i("CraftJammerAlloy", &s.CraftJammerAlloy)
+	i("CraftSpikeAlloy", &s.CraftSpikeAlloy)
+	i("CraftSpikeCrystal", &s.CraftSpikeCrystal)
+	i("CraftSpikeCredit", &s.CraftSpikeCredit)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
 	i("SessionDays", &s.SessionDays)

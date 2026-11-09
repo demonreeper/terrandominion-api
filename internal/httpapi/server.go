@@ -48,6 +48,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/me", s.authed(s.me))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 
+	mux.HandleFunc("POST /v1/craft", s.authed(s.craft))
+	mux.HandleFunc("POST /v1/gear/{id}/upgrade", s.authed(s.upgradeGear))
+	mux.HandleFunc("POST /v1/gear/{id}/repair", s.authed(s.repairGear))
+
 	mux.HandleFunc("GET /v1/nodes/nearby", s.authed(s.nearbyNodes))
 	mux.HandleFunc("POST /v1/nodes/{id}/harvest", s.authed(s.harvest))
 
@@ -178,6 +182,54 @@ func (s *Server) publicSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, settings)
+}
+
+// ---- crafting --------------------------------------------------------------------------
+
+func (s *Server) craft(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Recipe string `json:"recipe"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.Craft(r.Context(), playerID, body.Recipe)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) upgradeGear(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("gear id"))
+		return
+	}
+	res, err := s.svc.UpgradeGear(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) repairGear(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("gear id"))
+		return
+	}
+	if err := s.svc.RepairGear(r.Context(), playerID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "repaired")
 }
 
 // ---- world -----------------------------------------------------------------------------
