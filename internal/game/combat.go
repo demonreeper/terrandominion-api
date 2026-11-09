@@ -40,6 +40,19 @@ func WeaponByID(s Settings, id string) (Weapon, bool) {
 	return Weapon{}, false
 }
 
+// CraftableGearIDs is the gear made from nothing on the Craft tab. The rig and shield join it when
+// they do something.
+var CraftableGearIDs = []string{"drone_bay_mk1"}
+
+// DroneFlight is how long a strike over this distance takes.
+func DroneFlight(s Settings, distanceM float64) time.Duration {
+	seconds := s.DroneMinFlightSec
+	if s.DroneSpeedMps > 0 {
+		seconds = math.Max(seconds, distanceM/s.DroneSpeedMps)
+	}
+	return time.Duration(seconds * float64(time.Second))
+}
+
 // CheckInRange applies the harvest's checks (GPS quality, distance, travel speed) at a range of
 // the caller's choosing, and reports the distance.
 func CheckInRange(s Settings, player Fix, last *Fix, lat, lon, rangeM float64) (float64, *apperr.Error) {

@@ -119,5 +119,8 @@ var (
 	ContestOver     = def(1719, http.StatusConflict, "That contest is over.")
 	ContestNotYours = def(1720, http.StatusForbidden, "You can't join this contest.")
 
+	NoDroneBay = def(1730, http.StatusConflict, "You need a working Drone Bay for that.")
+	DroneBusy  = def(1731, http.StatusConflict, "Your drone is already in flight.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

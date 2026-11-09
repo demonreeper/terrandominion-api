@@ -30,6 +30,7 @@ token expires, or on E1001.
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/craft` | `recipe` | Makes one consumable from `recipes` in `/me` (`items` holds the counts). Paid from carried, then uploaded |
+| POST | `/gear/craft` | `type` | Makes a piece of gear from `craftableGear` in `/me`, equipped in its empty slot. Needs its level |
 | POST | `/gear/{id}/upgrade` | – | To the next tier in the same slot, at full durability. Needs the tier's level; cost is `upgradeCost` on the gear |
 | POST | `/gear/{id}/repair` | – | To full durability for alloy (`repairCost` on the gear). No XP |
 
@@ -49,6 +50,7 @@ token expires, or on E1001.
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to the uploaded inventory, and frees its nodes |
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to the uploaded inventory |
 | POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. Returns `health`, `destroyed`, `jammedUntil`, `spikeFiresAt` |
+| POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay, range from its stats, attack rules apply, uses `CellsDrone`. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `arrivesAt, distanceM` |
 | POST | `/tethers/{id}/defuse` | `lat, lon, accuracyM` | Owner only, in range, before the fuse ends |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's uploaded inventory, less the charge paid to the owner |
 
@@ -59,7 +61,7 @@ token expires, or on E1001.
 | POST | `/contests/{id}/join` | `lat, lon, accuracyM` | In range: the defender, or a faction ally of either side |
 | GET | `/notices` | `after?` | What happened to the player after that notice id, newest first (50 at most) |
 
-`/nodes/nearby` also gives `contestId, contestEndsAt, contestRole, canContest, heldByMe, heldByOther`. `/tethers/*` gives `jammedUntil, attackedAt, spikeFiresAt`.
+`/nodes/nearby` also gives `contestId, contestEndsAt, contestRole, canContest, heldByMe, heldByOther`. `/tethers/*` gives `jammedUntil, attackedAt, spikeFiresAt, droneArrivesAt`.
 
 ## Map drops
 | Method | Path | Body / query | Notes |
@@ -140,6 +142,8 @@ token expires, or on E1001.
 | 1718 | Nobody to contest the node with |
 | 1719 | Contest over |
 | 1720 | Can't join this contest |
+| 1730 | No working Drone Bay |
+| 1731 | Drone already in flight |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

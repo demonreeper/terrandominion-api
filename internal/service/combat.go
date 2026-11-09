@@ -58,6 +58,58 @@ func spendCells(ctx context.Context, tx *sql.Tx, playerID int64, cells int) erro
 	return nil
 }
 
+// prepareAttack locks both players (lowest id first) and then the Tether Node, the same order as
+// the tick and uploads, and applies the attack rules.
+func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tetherID int64,
+	settings game.Settings) (int64, store.TetherState, bool, error) {
+	ownerID, err := store.TetherOwner(ctx, tx, tetherID)
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, store.TetherState{}, false, apperr.TetherGone
+	}
+	if err != nil {
+		return 0, store.TetherState{}, false, err
+	}
+	first, second := min(attackerID, ownerID), max(attackerID, ownerID)
+	firstPlayer, err := store.GetPlayerForUpdate(ctx, tx, first)
+	if err != nil {
+		return 0, store.TetherState{}, false, err
+	}
+	secondPlayer := firstPlayer
+	if second != first {
+		if secondPlayer, err = store.GetPlayerForUpdate(ctx, tx, second); err != nil {
+			return 0, store.TetherState{}, false, err
+		}
+	}
+	attacker, owner := firstPlayer, secondPlayer
+	if attackerID != first {
+		attacker, owner = secondPlayer, firstPlayer
+	}
+
+	tether, err := store.TetherForUpdate(ctx, tx, tetherID)
+	if err != nil {
+		return 0, tether, false, err
+	}
+	if tether.Status != "active" {
+		return 0, tether, false, apperr.TetherGone
+	}
+	membership, err := store.MembershipOf(ctx, tx, attackerID)
+	if err != nil {
+		return 0, tether, false, err
+	}
+	var attackerFaction *int
+	if membership != nil {
+		attackerFaction = &membership.FactionID
+	}
+	losesProtection, ruleErr := game.CanAttackTether(settings, game.TetherAttack{
+		AttackerID: attackerID, AttackerFaction: attackerFaction, AttackerLevel: attacker.Level,
+		OwnerID: ownerID, OwnerLevel: owner.Level, TetherFaction: tether.FactionID,
+	})
+	if ruleErr != nil {
+		return 0, tether, false, ruleErr
+	}
+	return ownerID, tether, losesProtection, nil
+}
+
 // AttackTether uses one weapon on a Tether Node. Players are locked lowest id first, then the node,
 // the same order as the tick and uploads.
 func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, weaponID string, fix TetherFix) (AttackTetherOutcome, error) {
@@ -72,50 +124,9 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 	var out AttackTetherOutcome
 
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		ownerID, err := store.TetherOwner(ctx, tx, tetherID)
-		if errors.Is(err, store.ErrNotFound) {
-			return apperr.TetherGone
-		}
+		ownerID, tether, losesProtection, err := s.prepareAttack(ctx, tx, attackerID, tetherID, settings)
 		if err != nil {
 			return err
-		}
-		first, second := min(attackerID, ownerID), max(attackerID, ownerID)
-		firstPlayer, err := store.GetPlayerForUpdate(ctx, tx, first)
-		if err != nil {
-			return err
-		}
-		secondPlayer := firstPlayer
-		if second != first {
-			if secondPlayer, err = store.GetPlayerForUpdate(ctx, tx, second); err != nil {
-				return err
-			}
-		}
-		attacker, owner := firstPlayer, secondPlayer
-		if attackerID != first {
-			attacker, owner = secondPlayer, firstPlayer
-		}
-
-		tether, err := store.TetherForUpdate(ctx, tx, tetherID)
-		if err != nil {
-			return err
-		}
-		if tether.Status != "active" {
-			return apperr.TetherGone
-		}
-		membership, err := store.MembershipOf(ctx, tx, attackerID)
-		if err != nil {
-			return err
-		}
-		var attackerFaction *int
-		if membership != nil {
-			attackerFaction = &membership.FactionID
-		}
-		losesProtection, ruleErr := game.CanAttackTether(settings, game.TetherAttack{
-			AttackerID: attackerID, AttackerFaction: attackerFaction, AttackerLevel: attacker.Level,
-			OwnerID: ownerID, OwnerLevel: owner.Level, TetherFaction: tether.FactionID,
-		})
-		if ruleErr != nil {
-			return ruleErr
 		}
 
 		last, err := lastFix(ctx, tx, attackerID)
@@ -267,6 +278,8 @@ func (s *Service) resolveCombat(ctx context.Context, settings game.Settings) {
 			slog.Error("E1900 spike failed", "spike", spike.ID, "err", err)
 		}
 	}
+
+	s.landDrones(ctx, settings)
 
 	if err := store.EndRunOutHolds(ctx, s.db); err != nil && ctx.Err() == nil {
 		slog.Error("E1900 hold expiry failed", "err", err)

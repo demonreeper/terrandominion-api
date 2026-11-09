@@ -29,6 +29,12 @@ func (s *Service) NearbyTethers(ctx context.Context, playerID int64, lat, lon, r
 	if stats.ScanRangeM > 0 {
 		limit = math.Min(limit, stats.ScanRangeM)
 	}
+	// A drone bay can only target what the player can see, so it extends the view of Tether Nodes.
+	if bay, err := store.EquippedDroneBay(ctx, s.db, playerID); err == nil {
+		limit = math.Max(limit, bay.RangeM)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
 	if radiusM <= 0 || radiusM > limit {
 		radiusM = limit
 	}
@@ -412,7 +418,7 @@ func (s *Service) UploadTether(ctx context.Context, playerID, tetherID int64, fi
 const (
 	tetherTickInterval = time.Minute
 	// Spike fuses and contests are shown to the second, so they resolve much sooner than the tick.
-	combatTickInterval = 5 * time.Second
+	combatTickInterval = 2 * time.Second
 )
 
 // RunTetherLoop harvests ready links once a minute until ctx ends. A tick that overruns simply

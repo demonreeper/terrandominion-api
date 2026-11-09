@@ -34,9 +34,10 @@ type Tether struct {
 	DistanceM float64      `json:"distanceM"`
 	Links     []TetherLink `json:"links"`
 
-	JammedUntil  *time.Time `json:"jammedUntil,omitempty"`
-	AttackedAt   *time.Time `json:"attackedAt,omitempty"`
-	SpikeFiresAt *time.Time `json:"spikeFiresAt,omitempty"`
+	JammedUntil    *time.Time `json:"jammedUntil,omitempty"`
+	AttackedAt     *time.Time `json:"attackedAt,omitempty"`
+	SpikeFiresAt   *time.Time `json:"spikeFiresAt,omitempty"`
+	DroneArrivesAt *time.Time `json:"droneArrivesAt,omitempty"`
 	// Stock is the held half. Only the owner is told what is inside.
 	Stock map[string]int64 `json:"stock,omitempty"`
 }
@@ -53,18 +54,20 @@ const tetherColumns = `
 	    WHERE l.tn_id = t.id), '[]'::jsonb),
 	COALESCE((SELECT jsonb_object_agg(s.resource, s.amount) FROM td.tether_stock s WHERE s.tn_id = t.id), '{}'::jsonb),
 	t.jammed_until, t.attacked_at,
-	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed')`
+	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
+	(SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying')`
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether
 	var faction sql.NullInt32
 	var links, stock []byte
-	var jammed, attacked, spike sql.NullTime
+	var jammed, attacked, spike, drone sql.NullTime
 	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
-		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &t.DistanceM); err != nil {
+		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &drone, &t.DistanceM); err != nil {
 		return t, err
 	}
 	t.JammedUntil, t.AttackedAt, t.SpikeFiresAt = timePtr(jammed), timePtr(attacked), timePtr(spike)
+	t.DroneArrivesAt = timePtr(drone)
 	if faction.Valid {
 		id := int(faction.Int32)
 		t.FactionID = &id
@@ -496,6 +499,9 @@ func EndTether(ctx context.Context, q db.Querier, id int64, status string) error
 		return err
 	}
 	if _, err := q.ExecContext(ctx, `UPDATE td.tether_spikes SET status = 'void' WHERE tn_id = $1 AND status = 'armed'`, id); err != nil {
+		return err
+	}
+	if _, err := q.ExecContext(ctx, `UPDATE td.drone_strikes SET status = 'void' WHERE tn_id = $1 AND status = 'flying'`, id); err != nil {
 		return err
 	}
 	_, err := q.ExecContext(ctx, `DELETE FROM td.tether_links WHERE tn_id = $1`, id)
