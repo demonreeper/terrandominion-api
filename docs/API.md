@@ -22,7 +22,7 @@ token expires, or on E1001.
 ## Player
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/me` | Level and XP progress, carried resources, uploaded inventory (`uploaded`, no carry limit), carry capacity, scan range, gear, faction (null = freelancer) |
+| GET | `/me` | Level and XP progress, carried resources, uploaded inventory (`uploaded`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer) |
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
 | GET | `/settings` | Public tunable values (levels, ranges, cooldowns) for the client to display |
 
@@ -31,6 +31,13 @@ token expires, or on E1001.
 |---|---|---|---|
 | GET | `/nodes/nearby` | `lat, lon, radius?` | Active nodes nearest first, within the scanner's range. `readyInS` = seconds until this player can harvest it again |
 | POST | `/nodes/{id}/harvest` | `lat, lon, accuracyM` | Server checks GPS accuracy, distance, travel speed, cooldown, reserve and carry room |
+
+## Tether Nodes
+| Method | Path | Body / query | Notes |
+|---|---|---|---|
+| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, within the scanner's range, with their links (`nodeId, resource, lat, lon`) |
+| POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then uploaded), and links free nodes in range |
+| POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent to the uploaded inventory and frees its nodes |
 
 ## Factions
 | Method | Path | Notes |
@@ -77,6 +84,11 @@ token expires, or on E1001.
 | 1305 | (log only) account cleanup skipped a faction head |
 | 1402 | Base too close to the same faction's base |
 | 1403 | Base too close to another faction's base |
+| 1600 | Tether Node limit reached |
+| 1601 | No free resource node in range of the build |
+| 1602 | Not enough resources |
+| 1603 | Tether Node gone |
+| 1604 | Only the Tether Node's owner can do that |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

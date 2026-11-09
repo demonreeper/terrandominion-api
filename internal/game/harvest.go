@@ -58,16 +58,8 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 		return out, apperr.HarvestTooFar
 	}
 
-	if in.LastAnyFix != nil && s.MaxTravelSpeedKmh > 0 {
-		hours := in.Player.At.Sub(in.LastAnyFix.At).Hours()
-		travelled := DistanceM(in.LastAnyFix.Lat, in.LastAnyFix.Lon, in.Player.Lat, in.Player.Lon)
-		// Ignore jumps inside the combined GPS error; they are noise, not travel.
-		travelled -= in.LastAnyFix.AccuracyM + in.Player.AccuracyM
-		if travelled > 0 {
-			if hours <= 0 || travelled/1000/hours > s.MaxTravelSpeedKmh {
-				return out, apperr.HarvestImplausible.With("travelled %.0fm in %.0fs", travelled, hours*3600)
-			}
-		}
+	if err := checkTravel(s, in.LastAnyFix, in.Player); err != nil {
+		return out, err
 	}
 
 	if in.LastAtNode != nil && s.HarvestCooldownSec > 0 &&
@@ -101,6 +93,21 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 	out.Amount = amount
 	out.ReserveCost = math.Min(in.NodeReserve, s.HarvestReserveCost)
 	return out, nil
+}
+
+// checkTravel rejects a fix the player could not have reached since their last one.
+func checkTravel(s Settings, last *Fix, now Fix) *apperr.Error {
+	if last == nil || s.MaxTravelSpeedKmh <= 0 {
+		return nil
+	}
+	hours := now.At.Sub(last.At).Hours()
+	travelled := DistanceM(last.Lat, last.Lon, now.Lat, now.Lon)
+	// Ignore jumps inside the combined GPS error; they are noise, not travel.
+	travelled -= last.AccuracyM + now.AccuracyM
+	if travelled > 0 && (hours <= 0 || travelled/1000/hours > s.MaxTravelSpeedKmh) {
+		return apperr.HarvestImplausible.With("travelled %.0fm in %.0fs", travelled, hours*3600)
+	}
+	return nil
 }
 
 // DistanceM is the great-circle distance in metres. PostGIS does the heavy lifting for queries;

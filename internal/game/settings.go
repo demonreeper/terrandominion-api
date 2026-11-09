@@ -28,6 +28,18 @@ type Settings struct {
 	BaseSpacingSameFactionM  float64
 	BaseSpacingOtherFactionM float64
 
+	TnMaxPerPlayer      int
+	TnLinkRadiusM       float64
+	TnLinksTier1        int
+	TnLifetimeHours     float64
+	TnMaxHealth         float64
+	TnDismantleRefund   float64
+	TnBuildCrystal      int
+	TnBuildAlloy        int
+	TnBuildData         int
+	NodeDepletedReserve float64
+	XpTnBuild           int
+
 	AccessTokenMinutes int
 	SessionDays        int
 	DeleteGraceDays    int
@@ -56,6 +68,18 @@ func DefaultSettings() Settings {
 
 		BaseSpacingSameFactionM:  500,
 		BaseSpacingOtherFactionM: 150,
+
+		TnMaxPerPlayer:      3,
+		TnLinkRadiusM:       150,
+		TnLinksTier1:        1,
+		TnLifetimeHours:     48,
+		TnMaxHealth:         100,
+		TnDismantleRefund:   0.5,
+		TnBuildCrystal:      80,
+		TnBuildAlloy:        60,
+		TnBuildData:         20,
+		NodeDepletedReserve: 0.10,
+		XpTnBuild:           20,
 
 		AccessTokenMinutes: 15,
 		SessionDays:        60,
@@ -98,6 +122,18 @@ func SettingsFrom(values map[string]float64) Settings {
 
 	f("BaseSpacingSameFactionM", &s.BaseSpacingSameFactionM)
 	f("BaseSpacingOtherFactionM", &s.BaseSpacingOtherFactionM)
+
+	i("TnMaxPerPlayer", &s.TnMaxPerPlayer)
+	f("TnLinkRadiusM", &s.TnLinkRadiusM)
+	i("TnLinksTier1", &s.TnLinksTier1)
+	f("TnLifetimeHours", &s.TnLifetimeHours)
+	f("TnMaxHealth", &s.TnMaxHealth)
+	f("TnDismantleRefund", &s.TnDismantleRefund)
+	i("TnBuildCrystal", &s.TnBuildCrystal)
+	i("TnBuildAlloy", &s.TnBuildAlloy)
+	i("TnBuildData", &s.TnBuildData)
+	f("NodeDepletedReserve", &s.NodeDepletedReserve)
+	i("XpTnBuild", &s.XpTnBuild)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
 	i("SessionDays", &s.SessionDays)

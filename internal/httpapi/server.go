@@ -51,6 +51,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/nodes/nearby", s.authed(s.nearbyNodes))
 	mux.HandleFunc("POST /v1/nodes/{id}/harvest", s.authed(s.harvest))
 
+	mux.HandleFunc("GET /v1/tethers/nearby", s.authed(s.nearbyTethers))
+	mux.HandleFunc("POST /v1/tethers", s.authed(s.buildTether))
+	mux.HandleFunc("POST /v1/tethers/{id}/dismantle", s.authed(s.dismantleTether))
+
 	mux.HandleFunc("GET /v1/factions", s.authed(s.factions))
 	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.leadFaction))
 	mux.HandleFunc("POST /v1/factions/{code}/join", s.authed(s.joinFaction))
@@ -208,6 +212,62 @@ func (s *Server) harvest(w http.ResponseWriter, r *http.Request) {
 	res, err := s.svc.Harvest(r.Context(), playerID, service.HarvestRequest{
 		NodeID: nodeID, Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM,
 	})
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+// ---- tether nodes ----------------------------------------------------------------------
+
+func (s *Server) nearbyTethers(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("lat and lon are required"))
+		return
+	}
+	radius, _ := strconv.ParseFloat(q.Get("radius"), 64)
+	tethers, err := s.svc.NearbyTethers(r.Context(), playerID, lat, lon, radius)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, tethers)
+}
+
+func (s *Server) buildTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Lat       float64 `json:"lat"`
+		Lon       float64 `json:"lon"`
+		AccuracyM float64 `json:"accuracyM"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.BuildTether(r.Context(), playerID, service.BuildTetherRequest{
+		Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM,
+	})
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) dismantleTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("tether id"))
+		return
+	}
+	res, err := s.svc.DismantleTether(r.Context(), playerID, id)
 	if err != nil {
 		fail(w, r, err)
 		return
