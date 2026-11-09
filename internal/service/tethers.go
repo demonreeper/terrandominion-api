@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"math"
+	"math/rand/v2"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
@@ -418,8 +419,48 @@ func (s *Service) RunTetherLoop(ctx context.Context) {
 	}
 }
 
-// tetherTick gives each Tether Node its own transaction, so one failure costs only that node.
+// respawnDepletedNodes replaces every depleted node, each in its own transaction. Links still on
+// a retired node move away on their next harvest.
+func (s *Service) respawnDepletedNodes(ctx context.Context, settings game.Settings) {
+	depleted, err := store.DepletedNodes(ctx, s.db, settings.NodeDepletedReserve)
+	if err != nil {
+		if ctx.Err() == nil {
+			slog.Error("E1900 node respawn failed", "err", err)
+		}
+		return
+	}
+	for _, id := range depleted {
+		if ctx.Err() != nil {
+			return
+		}
+		err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+			node, err := store.NodeForUpdate(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			// A player's harvest or the regrow job may have got there first.
+			if node.Status != "active" || node.Reserve >= settings.NodeDepletedReserve {
+				return nil
+			}
+			lat, lon := game.RespawnPoint(settings, node.Lat, node.Lon, rand.Float64(), rand.Float64())
+			newID, err := store.ReplaceNode(ctx, tx, id, lat, lon)
+			if err == nil {
+				slog.Info("node respawned", "old", id, "new", newID, "resource", node.Resource)
+			}
+			return err
+		})
+		if err != nil {
+			slog.Error("E1900 node respawn failed", "node", id, "err", err)
+		}
+	}
+}
+
+// tetherTick does the world's once-a-minute work: depleted nodes first, so links can move onto
+// the new ones. Each Tether Node gets its own transaction, so one failure costs only that node.
 func (s *Service) tetherTick(ctx context.Context) {
+	s.respawnDepletedNodes(ctx, s.Settings(ctx))
+	s.decayTethers(ctx, s.Settings(ctx))
+
 	due, err := store.DueTethers(ctx, s.db)
 	if err != nil {
 		if ctx.Err() == nil {

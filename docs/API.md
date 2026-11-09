@@ -43,6 +43,12 @@ token expires, or on E1001.
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to the uploaded inventory |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's uploaded inventory, less the charge paid to the owner |
 
+## Map drops
+| Method | Path | Body / query | Notes |
+|---|---|---|---|
+| GET | `/drops/nearby` | `lat, lon` | What ended Tether Nodes left on the map, within the scanner's range |
+| POST | `/drops/{id}/pick` | `lat, lon, accuracyM` | In range. Moves what fits into carried; the rest stays on the map |
+
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
@@ -97,6 +103,9 @@ token expires, or on E1001.
 | 1606 | Too far from the Tether Node |
 | 1607 | Tether Node belongs to another faction |
 | 1608 | Tether Node already fully upgraded |
+| 1609 | Map drop gone |
+| 1610 | Too far from the map drop |
+| 1611 | Not allowed to attack this Tether Node |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

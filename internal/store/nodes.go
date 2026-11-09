@@ -125,6 +125,43 @@ func LastHarvestFix(ctx context.Context, q db.Querier, playerID int64) (*LastFix
 	return &f, nil
 }
 
+// DepletedNodes lists active nodes whose reserve has fallen below the threshold.
+func DepletedNodes(ctx context.Context, q db.Querier, threshold float64) ([]int64, error) {
+	rows, err := q.QueryContext(ctx,
+		`SELECT id FROM td.nodes WHERE status = 'active' AND reserve < $1 ORDER BY id`, threshold)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]int64, 0, 16)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// ReplaceNode retires a node and creates its replacement at a new spot, full, with the same
+// resource, yield and origin. The old row stays, so harvest history still points at it.
+func ReplaceNode(ctx context.Context, q db.Querier, id int64, lat, lon float64) (int64, error) {
+	if _, err := q.ExecContext(ctx,
+		`UPDATE td.nodes SET status = 'retired', updated_at = now() WHERE id = $1`, id); err != nil {
+		return 0, err
+	}
+	var newID int64
+	err := q.QueryRowContext(ctx, `
+		INSERT INTO td.nodes (name, resource, location, country_code, region_code, yield_per_harvest,
+		                      regen_per_hour, source, source_ref, created_by)
+		SELECT name, resource, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, country_code, region_code,
+		       yield_per_harvest, regen_per_hour, source, source_ref, created_by
+		FROM td.nodes WHERE id = $1
+		RETURNING id`, id, lat, lon).Scan(&newID)
+	return newID, err
+}
+
 type NewNode struct {
 	Name         string  `json:"name"`
 	Resource     string  `json:"resource"`

@@ -115,6 +115,18 @@ func checkTravel(s Settings, last *Fix, now Fix) *apperr.Error {
 	return nil
 }
 
+// RespawnPoint picks where a depleted node's replacement appears, spread evenly over the ring
+// between the two distances. The two random inputs are each 0..1, so the rule stays testable.
+func RespawnPoint(s Settings, lat, lon, randBearing, randDistance float64) (float64, float64) {
+	const metresPerDegree = 111320.0
+	inner, outer := s.NodeRespawnMinM*s.NodeRespawnMinM, s.NodeRespawnMaxM*s.NodeRespawnMaxM
+	distance := math.Sqrt(inner + (outer-inner)*randDistance)
+	bearing := randBearing * 2 * math.Pi
+	north := distance * math.Cos(bearing) / metresPerDegree
+	east := distance * math.Sin(bearing) / (metresPerDegree * math.Cos(lat*math.Pi/180))
+	return lat + north, lon + east
+}
+
 // DistanceM is the great-circle distance in metres. PostGIS does the heavy lifting for queries;
 // this is for rule checks on a handful of points.
 func DistanceM(lat1, lon1, lat2, lon2 float64) float64 {

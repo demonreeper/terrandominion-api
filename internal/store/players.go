@@ -51,6 +51,12 @@ func GetPlayerForUpdate(ctx context.Context, q db.Querier, id int64) (Player, er
 	return scanPlayer(q.QueryRowContext(ctx, `SELECT `+playerColumns+` FROM td.players WHERE id = $1 FOR UPDATE`, id))
 }
 
+// LoseProtection marks a freelancer as unprotected until the given time.
+func LoseProtection(ctx context.Context, q db.Querier, id int64, until time.Time) error {
+	_, err := q.ExecContext(ctx, `UPDATE td.players SET protection_lost_until = $2 WHERE id = $1`, id, until)
+	return err
+}
+
 func FindIdentity(ctx context.Context, q db.Querier, provider, subject string) (int64, error) {
 	var id int64
 	err := q.QueryRowContext(ctx,

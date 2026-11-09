@@ -45,7 +45,12 @@ type Settings struct {
 	TnBuildAlloy        int
 	TnBuildData         int
 	NodeDepletedReserve float64
+	NodeRespawnMinM     float64
+	NodeRespawnMaxM     float64
 	XpTnBuild           int
+	DropLifetimeHours   float64
+	PvpLevelBand        int
+	ProtectionLossDays  float64
 
 	AccessTokenMinutes int
 	SessionDays        int
@@ -93,6 +98,11 @@ func DefaultSettings() Settings {
 		TnBuildAlloy:        60,
 		TnBuildData:         20,
 		NodeDepletedReserve: 0.10,
+		NodeRespawnMinM:     100,
+		NodeRespawnMaxM:     300,
+		DropLifetimeHours:   24,
+		PvpLevelBand:        5,
+		ProtectionLossDays:  3,
 		XpTnBuild:           20,
 
 		AccessTokenMinutes: 15,
@@ -154,6 +164,11 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("TnBuildAlloy", &s.TnBuildAlloy)
 	i("TnBuildData", &s.TnBuildData)
 	f("NodeDepletedReserve", &s.NodeDepletedReserve)
+	f("NodeRespawnMinM", &s.NodeRespawnMinM)
+	f("NodeRespawnMaxM", &s.NodeRespawnMaxM)
+	f("DropLifetimeHours", &s.DropLifetimeHours)
+	i("PvpLevelBand", &s.PvpLevelBand)
+	f("ProtectionLossDays", &s.ProtectionLossDays)
 	i("XpTnBuild", &s.XpTnBuild)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)

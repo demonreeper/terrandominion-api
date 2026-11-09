@@ -160,6 +160,69 @@ func TestWithinTetherInfo(t *testing.T) {
 	}
 }
 
+func TestRespawnPointStaysInTheRing(t *testing.T) {
+	s := DefaultSettings()
+	const lat, lon = 4.1755, 73.5093
+	for b := 0.0; b < 1; b += 0.125 {
+		for _, r := range []float64{0, 0.5, 1} {
+			newLat, newLon := RespawnPoint(s, lat, lon, b, r)
+			d := DistanceM(lat, lon, newLat, newLon)
+			if d < s.NodeRespawnMinM-1 || d > s.NodeRespawnMaxM+1 {
+				t.Fatalf("bearing %.3f, spread %.1f landed %.1f m away", b, r, d)
+			}
+		}
+	}
+}
+
+func TestDecayEmptiesOverTheLifetime(t *testing.T) {
+	s := DefaultSettings()
+	if got := TetherDecayPerHour(s) * s.TnLifetimeHours; got != s.TnMaxHealth {
+		t.Fatalf("decay over a lifetime should equal max health, got %v", got)
+	}
+	s.TnLifetimeHours = 0
+	if TetherDecayPerHour(s) != 0 {
+		t.Fatal("no lifetime should mean no decay, not a division by zero")
+	}
+}
+
+func TestTakeDrop(t *testing.T) {
+	contents := map[string]int64{"crystal": 30, "alloy": 50}
+	taken, left := TakeDrop(contents, 60)
+	if taken["alloy"] != 50 || taken["crystal"] != 10 || left["crystal"] != 20 || len(left) != 1 {
+		t.Fatalf("expected all alloy and 10 crystal, got %v left %v", taken, left)
+	}
+	taken, left = TakeDrop(contents, 0)
+	if len(taken) != 0 || left["alloy"] != 50 || left["crystal"] != 30 {
+		t.Fatalf("a full player should take nothing, got %v left %v", taken, left)
+	}
+}
+
+func TestCanAttackTether(t *testing.T) {
+	s := DefaultSettings()
+	one := 1
+	cases := []struct {
+		name    string
+		attack  TetherAttack
+		allowed bool
+		loses   bool
+	}{
+		{"own node", TetherAttack{AttackerID: 1, OwnerID: 1}, false, false},
+		{"faction player, owner above join level", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 21}, true, false},
+		{"faction player, owner at join level", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 20}, false, false},
+		{"freelancer within band", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerLevel: 15, OwnerLevel: 10}, true, false},
+		{"freelancer outside band", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerLevel: 16, OwnerLevel: 10}, false, false},
+		{"freelancer outside band, lower", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerLevel: 4, OwnerLevel: 10}, false, false},
+		{"freelancer attacks a faction node", TetherAttack{AttackerID: 2, OwnerID: 1, TetherFaction: &one}, true, true},
+		{"faction player attacks a faction node", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, TetherFaction: &one}, true, false},
+	}
+	for _, c := range cases {
+		loses, err := CanAttackTether(s, c.attack)
+		if (err == nil) != c.allowed || loses != c.loses {
+			t.Errorf("%s: got loses=%v err=%v", c.name, loses, err)
+		}
+	}
+}
+
 func TestTetherRefund(t *testing.T) {
 	got := TetherRefund(map[string]int64{"crystal": 80, "alloy": 60, "data": 21}, 0.5)
 	if got["crystal"] != 40 || got["alloy"] != 30 || got["data"] != 10 {

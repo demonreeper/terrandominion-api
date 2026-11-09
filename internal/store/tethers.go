@@ -27,6 +27,7 @@ type Tether struct {
 	Lat       float64      `json:"lat"`
 	Lon       float64      `json:"lon"`
 	Tier      int          `json:"tier"`
+	Status    string       `json:"status"`
 	Health    float64      `json:"health"`
 	BuiltAt   time.Time    `json:"builtAt"`
 	ExpiresAt time.Time    `json:"expiresAt"`
@@ -39,7 +40,7 @@ type Tether struct {
 // tetherColumns must stay in step with scanTether; the distance column is added by each query.
 const tetherColumns = `
 	t.id, t.owner_id, p.display_name, t.faction_id, ST_Y(t.location::geometry), ST_X(t.location::geometry),
-	t.tier, t.health, t.built_at, t.expires_at,
+	t.tier, t.status, t.health, t.built_at, t.expires_at,
 	COALESCE((
 	    SELECT jsonb_agg(jsonb_build_object(
 	        'slot', l.slot, 'nodeId', n.id, 'resource', n.resource,
@@ -52,7 +53,7 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 	var t Tether
 	var faction sql.NullInt32
 	var links, stock []byte
-	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Health,
+	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
 		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &t.DistanceM); err != nil {
 		return t, err
 	}
@@ -266,6 +267,45 @@ func TetherLinkInfos(ctx context.Context, q db.Querier, id int64) ([]TetherLinkI
 	return out, rows.Err()
 }
 
+// DecayTethers takes the health lost since each active Tether Node last decayed. Running it twice
+// in a row takes nothing extra.
+func DecayTethers(ctx context.Context, q db.Querier, perHour float64) error {
+	_, err := q.ExecContext(ctx, `
+		UPDATE td.tether_nodes
+		SET health = GREATEST(0, health - $1 * EXTRACT(EPOCH FROM now() - decayed_at) / 3600), decayed_at = now()
+		WHERE status = 'active'`, perHour)
+	return err
+}
+
+// SpentTethers lists active Tether Nodes out of health or past their lifetime.
+func SpentTethers(ctx context.Context, q db.Querier) ([]int64, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT id FROM td.tether_nodes
+		WHERE status = 'active' AND (health <= 0 OR expires_at <= now()) ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]int64, 0, 8)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// DamageTether takes health from a Tether Node and returns what is left.
+func DamageTether(ctx context.Context, q db.Querier, id int64, damage float64) (float64, error) {
+	var health float64
+	err := q.QueryRowContext(ctx,
+		`UPDATE td.tether_nodes SET health = GREATEST(0, health - $2) WHERE id = $1 RETURNING health`,
+		id, damage).Scan(&health)
+	return health, err
+}
+
 // TetherOwner reads who owns a Tether Node without locking it, so a transaction can lock the
 // players involved before the node. Ownership never changes.
 func TetherOwner(ctx context.Context, q db.Querier, id int64) (int64, error) {
@@ -286,7 +326,7 @@ type DueTether struct {
 func DueTethers(ctx context.Context, q db.Querier) ([]DueTether, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT t.id, t.owner_id FROM td.tether_nodes t
-		WHERE t.status = 'active' AND t.expires_at > now()
+		WHERE t.status = 'active' AND t.expires_at > now() AND t.health > 0
 		  AND EXISTS (SELECT 1 FROM td.tether_links l WHERE l.tn_id = t.id AND l.next_harvest_at <= now())
 		ORDER BY t.id`)
 	if err != nil {

@@ -59,6 +59,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tethers/{id}/collect", s.authed(s.collectTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/upload", s.authed(s.uploadTether))
 
+	mux.HandleFunc("GET /v1/drops/nearby", s.authed(s.nearbyDrops))
+	mux.HandleFunc("POST /v1/drops/{id}/pick", s.authed(s.pickDrop))
+
 	mux.HandleFunc("GET /v1/factions", s.authed(s.factions))
 	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.leadFaction))
 	mux.HandleFunc("POST /v1/factions/{code}/join", s.authed(s.joinFaction))
@@ -358,6 +361,40 @@ func (s *Server) uploadTether(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.svc.UploadTether(r.Context(), playerID, id, fix)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+// ---- map drops -------------------------------------------------------------------------
+
+func (s *Server) nearbyDrops(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("lat and lon are required"))
+		return
+	}
+	drops, err := s.svc.NearbyDrops(r.Context(), playerID, lat, lon)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, drops)
+}
+
+func (s *Server) pickDrop(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.PickDrop(r.Context(), playerID, id, fix)
 	if err != nil {
 		fail(w, r, err)
 		return

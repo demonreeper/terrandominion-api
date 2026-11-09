@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"sort"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 )
@@ -160,14 +161,85 @@ func CanUseTether(ownerID int64, tetherFaction *int, playerID int64, playerFacti
 // CheckAtTether confirms a player's fix puts them at a Tether Node, on the same terms as a harvest,
 // and returns how far away they are.
 func CheckAtTether(s Settings, player Fix, last *Fix, lat, lon float64) (float64, *apperr.Error) {
+	return checkAtSpot(s, player, last, lat, lon, apperr.TetherTooFar)
+}
+
+// CheckAtDrop is the same check for a map drop.
+func CheckAtDrop(s Settings, player Fix, last *Fix, lat, lon float64) (float64, *apperr.Error) {
+	return checkAtSpot(s, player, last, lat, lon, apperr.DropTooFar)
+}
+
+func checkAtSpot(s Settings, player Fix, last *Fix, lat, lon float64, tooFar *apperr.Error) (float64, *apperr.Error) {
 	if player.AccuracyM <= 0 || player.AccuracyM > s.HarvestMaxAccuracyM {
 		return 0, apperr.HarvestGPSWeak
 	}
 	distance := DistanceM(player.Lat, player.Lon, lat, lon)
 	if distance > s.HarvestRangeM+math.Min(player.AccuracyM, s.HarvestRangeM) {
-		return distance, apperr.TetherTooFar
+		return distance, tooFar
 	}
 	return distance, checkTravel(s, last, player)
+}
+
+// TetherDecayPerHour is how fast health falls so a full Tether Node empties over its lifetime.
+func TetherDecayPerHour(s Settings) float64 {
+	if s.TnLifetimeHours <= 0 {
+		return 0
+	}
+	return s.TnMaxHealth / s.TnLifetimeHours
+}
+
+// TakeDrop moves as much of a drop as fits in the player's free carry room, resources in name
+// order. What does not fit stays on the map.
+func TakeDrop(contents map[string]int64, room int64) (taken, left map[string]int64) {
+	taken, left = map[string]int64{}, map[string]int64{}
+	resources := make([]string, 0, len(contents))
+	for resource := range contents {
+		resources = append(resources, resource)
+	}
+	sort.Strings(resources)
+	for _, resource := range resources {
+		amount := contents[resource]
+		take := min(amount, max(room, 0))
+		if take > 0 {
+			taken[resource] = take
+			room -= take
+		}
+		if amount > take {
+			left[resource] = amount - take
+		}
+	}
+	return taken, left
+}
+
+// TetherAttack is who is attacking whose Tether Node.
+type TetherAttack struct {
+	AttackerID      int64
+	AttackerFaction *int
+	AttackerLevel   int
+	OwnerID         int64
+	OwnerLevel      int
+	TetherFaction   *int
+}
+
+// CanAttackTether applies the attack rules. It reports whether the attacker loses their freelancer
+// protection for doing it.
+func CanAttackTether(s Settings, a TetherAttack) (losesProtection bool, err *apperr.Error) {
+	if a.AttackerID == a.OwnerID {
+		return false, apperr.TetherCantAttack
+	}
+	if a.TetherFaction != nil {
+		return a.AttackerFaction == nil, nil
+	}
+	if a.AttackerFaction != nil {
+		if a.OwnerLevel > s.JoinFactionLevel {
+			return false, nil
+		}
+		return false, apperr.TetherCantAttack
+	}
+	if diff := a.AttackerLevel - a.OwnerLevel; diff > s.PvpLevelBand || -diff > s.PvpLevelBand {
+		return false, apperr.TetherCantAttack
+	}
+	return false, nil
 }
 
 // SplitUpload divides carried resources into what the player keeps and the owner's charge. The
