@@ -25,18 +25,23 @@ type Config struct {
 	GoogleClientIDs []string
 	// TrustProxy reads the client IP from X-Real-IP (set by nginx). Only enable behind nginx.
 	TrustProxy bool
+	// FCMProjectID and FCMCredentialsFile enable phone notifications. The file holds a private key.
+	FCMProjectID       string
+	FCMCredentialsFile string
 }
 
 func (c Config) IsLive() bool { return c.Env == "live" }
 
 func Load() (Config, error) {
 	c := Config{
-		Env:             getenv("TD_ENV", "dev"),
-		Addr:            getenv("TD_ADDR", "127.0.0.1:8090"),
-		DatabaseURL:     os.Getenv("TD_DATABASE_URL"),
-		JWTSecret:       []byte(os.Getenv("TD_JWT_SECRET")),
-		DevicePepper:    []byte(os.Getenv("TD_DEVICE_PEPPER")),
-		GoogleClientIDs: splitList(os.Getenv("TD_GOOGLE_CLIENT_IDS")),
+		Env:                getenv("TD_ENV", "dev"),
+		Addr:               getenv("TD_ADDR", "127.0.0.1:8090"),
+		DatabaseURL:        os.Getenv("TD_DATABASE_URL"),
+		JWTSecret:          []byte(os.Getenv("TD_JWT_SECRET")),
+		DevicePepper:       []byte(os.Getenv("TD_DEVICE_PEPPER")),
+		GoogleClientIDs:    splitList(os.Getenv("TD_GOOGLE_CLIENT_IDS")),
+		FCMProjectID:       os.Getenv("TD_FCM_PROJECT_ID"),
+		FCMCredentialsFile: os.Getenv("TD_FCM_CREDENTIALS_FILE"),
 	}
 
 	trust, err := strconv.ParseBool(getenv("TD_TRUST_PROXY", "true"))

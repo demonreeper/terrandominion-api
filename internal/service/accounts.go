@@ -46,13 +46,18 @@ func (d DeviceInfo) validate() *apperr.Error {
 // SignInGoogle verifies a Google ID token and signs the player in, creating the account on first
 // sign-in. A new account gets starter gear, and the welcome resources only if this phone has not
 // already had them.
-func (s *Service) SignInGoogle(ctx context.Context, idToken string, device DeviceInfo) (AuthResult, error) {
+func (s *Service) SignInGoogle(ctx context.Context, idToken, nonce string, device DeviceInfo) (AuthResult, error) {
 	if err := device.validate(); err != nil {
 		return AuthResult{}, err
 	}
 	identity, err := s.google.Verify(ctx, idToken)
 	if err != nil {
 		return AuthResult{}, apperr.GoogleTokenInvalid.With("%v", err)
+	}
+	// The app asks Google to put its own random nonce in the token, so a token lifted from
+	// elsewhere can't be replayed here. Older apps send none.
+	if nonce != "" && identity.Nonce != nonce {
+		return AuthResult{}, apperr.GoogleTokenInvalid.With("nonce does not match")
 	}
 	return s.signIn(ctx, "google", identity.Subject, identity.Email, identity.Name, device)
 }
@@ -111,14 +116,18 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 			return err
 		}
 		if isNew && !granted {
-			if err := store.AddCarried(ctx, tx, playerID, "crystal", int64(settings.WelcomeCrystal)); err != nil {
-				return err
+			// Uploaded, so it doesn't fill the carry limit: building and crafting pay from there.
+			for resource, amount := range map[string]int{
+				"crystal": settings.WelcomeCrystal, "alloy": settings.WelcomeAlloy, "data": settings.WelcomeData,
+			} {
+				if err := store.AddUploaded(ctx, tx, playerID, resource, int64(amount)); err != nil {
+					return err
+				}
 			}
-			if err := store.AddCarried(ctx, tx, playerID, "alloy", int64(settings.WelcomeAlloy)); err != nil {
-				return err
-			}
-			if err := store.AddCarried(ctx, tx, playerID, "data", int64(settings.WelcomeData)); err != nil {
-				return err
+			if settings.WelcomeCells > 0 {
+				if err := store.AddItem(ctx, tx, playerID, "energy_cell", settings.WelcomeCells); err != nil {
+					return err
+				}
 			}
 			if err := store.MarkWelcomeGranted(ctx, tx, deviceHash); err != nil {
 				return err
@@ -215,7 +224,12 @@ func (s *Service) Refresh(ctx context.Context, refreshToken, appVersion string) 
 }
 
 func (s *Service) Logout(ctx context.Context, playerID, sessionID int64) error {
-	return store.RevokeSession(ctx, s.db, sessionID, playerID)
+	return db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := store.DeleteSessionPushTokens(ctx, tx, sessionID, playerID); err != nil {
+			return err
+		}
+		return store.RevokeSession(ctx, tx, sessionID, playerID)
+	})
 }
 
 // RequestDeletion starts the grace period and signs every device out. Signing in again within
@@ -225,6 +239,9 @@ func (s *Service) RequestDeletion(ctx context.Context, playerID int64) (time.Tim
 	after := s.now().Add(time.Duration(settings.DeleteGraceDays) * 24 * time.Hour)
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
 		if err := store.ScheduleDeletion(ctx, tx, playerID, after); err != nil {
+			return err
+		}
+		if err := store.DeletePlayerPushTokens(ctx, tx, playerID); err != nil {
 			return err
 		}
 		return store.RevokeAllSessions(ctx, tx, playerID)
@@ -253,6 +270,8 @@ type MeView struct {
 	CraftableGear     []store.CraftableGear `json:"craftableGear"`
 	Faction           *store.Membership     `json:"faction"`
 	Freelancer        bool                  `json:"freelancer"`
+	PushAttacks       bool                  `json:"pushAttacks"`
+	PushResults       bool                  `json:"pushResults"`
 	DeleteAfter       *time.Time            `json:"deleteAfter,omitempty"`
 }
 
@@ -304,7 +323,13 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		return nil, err
 	}
 
+	pushAttacks, pushResults, err := store.PushPrefs(ctx, q, playerID)
+	if err != nil {
+		return nil, err
+	}
+
 	me := &MeView{
+		PushAttacks: pushAttacks, PushResults: pushResults,
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Uploaded: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,

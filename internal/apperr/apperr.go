@@ -122,5 +122,10 @@ var (
 	NoDroneBay = def(1730, http.StatusConflict, "You need a working Drone Bay for that.")
 	DroneBusy  = def(1731, http.StatusConflict, "Your drone is already in flight.")
 
+	PushTokenBad      = def(1740, http.StatusBadRequest, "That notification token isn't valid.")
+	PushNotConfigured = def(1741, http.StatusServiceUnavailable, "Notifications aren't set up on this server.")
+	PushNoToken       = def(1742, http.StatusConflict, "No phone is registered for notifications.")
+	PushFailed        = def(1743, http.StatusBadGateway, "The notification could not be sent.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

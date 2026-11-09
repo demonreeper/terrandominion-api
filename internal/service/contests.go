@@ -73,7 +73,7 @@ func (s *Service) StartContest(ctx context.Context, playerID, nodeID int64, fix 
 			return err
 		}
 		body := fmt.Sprintf("%s is being contested. Be within %.0f m in the next minute to defend it.", node.Name, settings.ContestRangeM)
-		if err := store.InsertNotice(ctx, tx, defender, "contest", body); err != nil {
+		if err := notify(ctx, tx, defender, 0, "contest", body); err != nil {
 			return err
 		}
 		out = ContestOutcome{ID: id, EndsAt: endsAt}
@@ -211,10 +211,10 @@ func (s *Service) finishContest(ctx context.Context, contestID, nodeID int64, se
 
 		score := fmt.Sprintf("%d to %d", max(challengerScore, defenderScore), min(challengerScore, defenderScore))
 		won := fmt.Sprintf("You won the contest for %s, %s. Its next %d harvests are yours.", node.Name, score, settings.ContestPrizeHarvests)
-		if err := store.InsertNotice(ctx, tx, winner, "contest_won", won); err != nil {
+		if err := notify(ctx, tx, winner, 0, "contest_won", won); err != nil {
 			return err
 		}
-		return store.InsertNotice(ctx, tx, loser, "contest_lost", fmt.Sprintf("You lost the contest for %s, %s.", node.Name, score))
+		return notify(ctx, tx, loser, 0, "contest_lost", fmt.Sprintf("You lost the contest for %s, %s.", node.Name, score))
 	})
 }
 

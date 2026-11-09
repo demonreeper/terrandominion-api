@@ -27,6 +27,7 @@ type GoogleIdentity struct {
 	Subject string
 	Email   string
 	Name    string
+	Nonce   string
 }
 
 // GoogleVerifier checks Google ID tokens against Google's published signing keys, which it
@@ -49,6 +50,7 @@ type googleClaims struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
 	Name          string `json:"name"`
+	Nonce         string `json:"nonce"`
 	jwt.RegisteredClaims
 }
 
@@ -95,7 +97,7 @@ func (v *GoogleVerifier) Verify(ctx context.Context, idToken string) (GoogleIden
 	if claims.EmailVerified {
 		email = claims.Email
 	}
-	return GoogleIdentity{Subject: claims.Subject, Email: email, Name: claims.Name}, nil
+	return GoogleIdentity{Subject: claims.Subject, Email: email, Name: claims.Name, Nonce: claims.Nonce}, nil
 }
 
 func (v *GoogleVerifier) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {

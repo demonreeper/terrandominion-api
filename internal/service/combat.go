@@ -172,10 +172,10 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 				if err := s.endTether(ctx, tx, tetherID, tether, "destroyed", settings); err != nil {
 					return err
 				}
-				if err := store.InsertNotice(ctx, tx, ownerID, "destroyed", capitalize(place)+" was destroyed."); err != nil {
+				if err := notify(ctx, tx, ownerID, tetherID, "destroyed", capitalize(place)+" was destroyed."); err != nil {
 					return err
 				}
-			} else if err := store.InsertNotice(ctx, tx, ownerID, "attacked", capitalize(place)+" is under attack."); err != nil {
+			} else if err := notify(ctx, tx, ownerID, tetherID, "attacked", capitalize(place)+" is under attack."); err != nil {
 				return err
 			}
 		case game.WeaponJammer:
@@ -187,7 +187,7 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
-			if err := store.InsertNotice(ctx, tx, ownerID, "jammed", capitalize(place)+" was jammed."); err != nil {
+			if err := notify(ctx, tx, ownerID, tetherID, "jammed", capitalize(place)+" was jammed."); err != nil {
 				return err
 			}
 		case game.WeaponSpike:
@@ -200,7 +200,7 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 				return err
 			}
 			body := fmt.Sprintf("A spike was planted on %s. %d min to defuse.", place, int(weapon.Fuse.Minutes()))
-			if err := store.InsertNotice(ctx, tx, ownerID, "spike", body); err != nil {
+			if err := notify(ctx, tx, ownerID, tetherID, "spike", body); err != nil {
 				return err
 			}
 		}
@@ -257,7 +257,7 @@ func (s *Service) DefuseSpike(ctx context.Context, playerID, tetherID int64, fix
 		if err != nil {
 			return err
 		}
-		return store.InsertNotice(ctx, tx, planter, "defused", "Your spike was defused.")
+		return notify(ctx, tx, planter, tetherID, "defused", "Your spike was defused.")
 	})
 }
 
@@ -329,15 +329,15 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 			if err := s.endTether(ctx, tx, spike.TetherID, tether, "destroyed", settings); err != nil {
 				return err
 			}
-			if err := store.InsertNotice(ctx, tx, spike.OwnerID, "destroyed", capitalize(place)+" was destroyed by a spike."); err != nil {
+			if err := notify(ctx, tx, spike.OwnerID, spike.TetherID, "destroyed", capitalize(place)+" was destroyed by a spike."); err != nil {
 				return err
 			}
-			return store.InsertNotice(ctx, tx, spike.PlantedBy, "spike_result", "Your spike destroyed the Tether Node.")
+			return notify(ctx, tx, spike.PlantedBy, spike.TetherID, "spike_result", "Your spike destroyed the Tether Node.")
 		}
-		if err := store.InsertNotice(ctx, tx, spike.OwnerID, "spike_fired", "A spike went off on "+place+"."); err != nil {
+		if err := notify(ctx, tx, spike.OwnerID, spike.TetherID, "spike_fired", "A spike went off on "+place+"."); err != nil {
 			return err
 		}
-		return store.InsertNotice(ctx, tx, spike.PlantedBy, "spike_result", "Your spike went off.")
+		return notify(ctx, tx, spike.PlantedBy, spike.TetherID, "spike_result", "Your spike went off.")
 	})
 }
 

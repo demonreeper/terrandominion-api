@@ -365,8 +365,11 @@ type Notice struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func InsertNotice(ctx context.Context, q db.Querier, playerID int64, kind, body string) error {
-	_, err := q.ExecContext(ctx, `INSERT INTO td.notices (player_id, kind, body) VALUES ($1, $2, $3)`, playerID, kind, body)
+// InsertNotice writes a notice; tetherID 0 means it is not about a Tether Node.
+func InsertNotice(ctx context.Context, q db.Querier, playerID, tetherID int64, kind, body, pushState string) error {
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.notices (player_id, tn_id, kind, body, push_state) VALUES ($1, NULLIF($2::bigint, 0), $3, $4, $5)`,
+		playerID, tetherID, kind, body, pushState)
 	return err
 }
 

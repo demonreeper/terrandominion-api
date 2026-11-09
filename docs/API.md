@@ -10,7 +10,7 @@ Request bodies are strict: unknown fields are rejected (E1000), so client typos 
 ## Auth
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/auth/google` | `idToken, deviceId, platform, appVersion` | Signs in or creates the account. `platform`: android, ios, editor, pc |
+| POST | `/auth/google` | `idToken, nonce, deviceId, platform, appVersion` | Signs in or creates the account. `platform`: android, ios, editor, pc. `nonce` (optional) must match the one in the token. A new account gets the welcome grant once per phone: 800 crystal, 600 alloy, 200 data uploaded, and 5 energy cells |
 | POST | `/auth/dev` | `name, deviceId, platform, appVersion` | Dev only (`TD_ENV=dev` and `TD_DEV_LOGIN=true`) |
 | POST | `/auth/refresh` | `refreshToken, appVersion` | Returns a new pair; the old refresh token stops working |
 | POST | `/auth/logout` | – | Signs this device out |
@@ -25,6 +25,15 @@ token expires, or on E1001.
 | GET | `/me` | Level and XP progress, carried resources, uploaded inventory (`uploaded`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer) |
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
 | GET | `/settings` | Public tunable values (levels, ranges, cooldowns) for the client to display |
+| PUT | `/me/push` | Body `attacks, results` (booleans): the player's notification switches, also in `/me` as `pushAttacks`, `pushResults` |
+
+## Push notifications
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| PUT | `/push/token` | `token, platform (android, ios)` | Registers this phone's FCM token against the signed-in session |
+| DELETE | `/push/token` | – | Forgets this session's phones. Signing out does the same |
+
+Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Tether Node.
 
 ## Crafting
 | Method | Path | Body | Notes |
@@ -84,6 +93,7 @@ token expires, or on E1001.
 | POST | `/admin/nodes` | `name, resource, lat, lon, regionCode, yield, regenPerHour` | Places a node by hand |
 | POST | `/admin/nodes/scatter` | `lat, lon, count (1-40), radiusM (30-3000)` | Test nodes at random around a point (source `scatter`, fast regrowth) |
 | POST | `/admin/nodes/clear-scatter` | – | Retires every scattered test node |
+| POST | `/admin/push/test` | – | Sends "Test push" to your own phones; returns `sent` |
 
 ## Error codes
 | Code | Meaning |
@@ -144,6 +154,10 @@ token expires, or on E1001.
 | 1720 | Can't join this contest |
 | 1730 | No working Drone Bay |
 | 1731 | Drone already in flight |
+| 1740 | Push token not valid |
+| 1741 | Push not set up on this server |
+| 1742 | No phone registered for push |
+| 1743 | Push could not be sent |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.
