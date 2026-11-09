@@ -32,6 +32,8 @@ type Tether struct {
 	ExpiresAt time.Time    `json:"expiresAt"`
 	DistanceM float64      `json:"distanceM"`
 	Links     []TetherLink `json:"links"`
+	// Stock is the held half. Only the owner is told what is inside.
+	Stock map[string]int64 `json:"stock,omitempty"`
 }
 
 // tetherColumns must stay in step with scanTether; the distance column is added by each query.
@@ -43,14 +45,15 @@ const tetherColumns = `
 	        'slot', l.slot, 'nodeId', n.id, 'resource', n.resource,
 	        'lat', ST_Y(n.location::geometry), 'lon', ST_X(n.location::geometry)) ORDER BY l.slot)
 	    FROM td.tether_links l JOIN td.nodes n ON n.id = l.node_id
-	    WHERE l.tn_id = t.id), '[]'::jsonb)`
+	    WHERE l.tn_id = t.id), '[]'::jsonb),
+	COALESCE((SELECT jsonb_object_agg(s.resource, s.amount) FROM td.tether_stock s WHERE s.tn_id = t.id), '{}'::jsonb)`
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether
 	var faction sql.NullInt32
-	var links []byte
+	var links, stock []byte
 	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Health,
-		&t.BuiltAt, &t.ExpiresAt, &links, &t.DistanceM); err != nil {
+		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &t.DistanceM); err != nil {
 		return t, err
 	}
 	if faction.Valid {
@@ -58,6 +61,11 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 		t.FactionID = &id
 	}
 	t.Mine = t.OwnerID == viewerID
+	if t.Mine {
+		if err := json.Unmarshal(stock, &t.Stock); err != nil {
+			return t, err
+		}
+	}
 	return t, json.Unmarshal(links, &t.Links)
 }
 
@@ -163,24 +171,157 @@ func InsertTetherLink(ctx context.Context, q db.Querier, tetherID int64, slot in
 
 // TetherState is the part of a Tether Node that decisions depend on.
 type TetherState struct {
-	OwnerID int64
-	Status  string
-	Spent   map[string]int64
+	OwnerID   int64
+	FactionID *int
+	Lat, Lon  float64
+	Status    string
+	Spent     map[string]int64
 }
 
 func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, error) {
 	var t TetherState
 	var spent []byte
-	err := q.QueryRowContext(ctx,
-		`SELECT owner_id, status, spent FROM td.tether_nodes WHERE id = $1 FOR UPDATE`, id).
-		Scan(&t.OwnerID, &t.Status, &spent)
+	var faction sql.NullInt32
+	err := q.QueryRowContext(ctx, `
+		SELECT owner_id, faction_id, ST_Y(location::geometry), ST_X(location::geometry), status, spent
+		FROM td.tether_nodes WHERE id = $1 FOR UPDATE`, id).
+		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Status, &spent)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, ErrNotFound
 	}
 	if err != nil {
 		return t, err
 	}
+	if faction.Valid {
+		id := int(faction.Int32)
+		t.FactionID = &id
+	}
 	return t, json.Unmarshal(spent, &t.Spent)
+}
+
+// TetherOwner reads who owns a Tether Node without locking it, so a transaction can lock the
+// players involved before the node. Ownership never changes.
+func TetherOwner(ctx context.Context, q db.Querier, id int64) (int64, error) {
+	var owner int64
+	err := q.QueryRowContext(ctx, `SELECT owner_id FROM td.tether_nodes WHERE id = $1`, id).Scan(&owner)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return owner, err
+}
+
+// DueTether is a Tether Node with at least one link ready to harvest.
+type DueTether struct {
+	ID, OwnerID int64
+}
+
+// DueTethers lists Tether Nodes with a link ready. One past its lifetime gathers nothing more.
+func DueTethers(ctx context.Context, q db.Querier) ([]DueTether, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT t.id, t.owner_id FROM td.tether_nodes t
+		WHERE t.status = 'active' AND t.expires_at > now()
+		  AND EXISTS (SELECT 1 FROM td.tether_links l WHERE l.tn_id = t.id AND l.next_harvest_at <= now())
+		ORDER BY t.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]DueTether, 0, 16)
+	for rows.Next() {
+		var d DueTether
+		if err := rows.Scan(&d.ID, &d.OwnerID); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// DueLink is one link ready to harvest.
+type DueLink struct {
+	Slot   int
+	NodeID int64
+}
+
+func DueLinksForUpdate(ctx context.Context, q db.Querier, tetherID int64) ([]DueLink, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT slot, node_id FROM td.tether_links
+		WHERE tn_id = $1 AND next_harvest_at <= now()
+		ORDER BY slot FOR UPDATE`, tetherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]DueLink, 0, 4)
+	for rows.Next() {
+		var l DueLink
+		if err := rows.Scan(&l.Slot, &l.NodeID); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
+}
+
+// RecordLinkHarvest adds to the link's total and starts its next cooldown.
+func RecordLinkHarvest(ctx context.Context, q db.Querier, tetherID int64, slot int, amount int64, cooldownSec int) error {
+	_, err := q.ExecContext(ctx, `
+		UPDATE td.tether_links
+		SET gathered = gathered + $3, next_harvest_at = now() + make_interval(secs => $4)
+		WHERE tn_id = $1 AND slot = $2`, tetherID, slot, amount, cooldownSec)
+	return err
+}
+
+func AddTetherStock(ctx context.Context, q db.Querier, tetherID int64, resource string, amount int64) error {
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.tether_stock (tn_id, resource, amount) VALUES ($1, $2, $3)
+		ON CONFLICT (tn_id, resource) DO UPDATE SET amount = td.tether_stock.amount + $3`,
+		tetherID, resource, amount)
+	return err
+}
+
+// TakeTetherStock empties a Tether Node's held half and returns what was in it.
+func TakeTetherStock(ctx context.Context, q db.Querier, tetherID int64) (map[string]int64, error) {
+	rows, err := q.QueryContext(ctx,
+		`DELETE FROM td.tether_stock WHERE tn_id = $1 AND amount > 0 RETURNING resource, amount`, tetherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var resource string
+		var amount int64
+		if err := rows.Scan(&resource, &amount); err != nil {
+			return nil, err
+		}
+		out[resource] = amount
+	}
+	return out, rows.Err()
+}
+
+// TetherTransfer is the evidence kept for one collect or upload.
+type TetherTransfer struct {
+	TetherID, PlayerID             int64
+	Kind                           string
+	Amounts, Fees                  map[string]int64
+	Lat, Lon, AccuracyM, DistanceM float64
+}
+
+func InsertTetherTransfer(ctx context.Context, q db.Querier, t TetherTransfer) error {
+	amounts, err := json.Marshal(t.Amounts)
+	if err != nil {
+		return err
+	}
+	fees, err := json.Marshal(t.Fees)
+	if err != nil {
+		return err
+	}
+	_, err = q.ExecContext(ctx, `
+		INSERT INTO td.tether_transfers (tn_id, player_id, kind, amounts, fees, reported, accuracy_m, distance_m)
+		VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, ST_SetSRID(ST_MakePoint($7, $6), 4326)::geography, $8, $9)`,
+		t.TetherID, t.PlayerID, t.Kind, string(amounts), string(fees), t.Lat, t.Lon, t.AccuracyM, t.DistanceM)
+	return err
 }
 
 // EndTether closes a Tether Node with a final status and frees the nodes it held.

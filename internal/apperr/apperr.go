@@ -92,6 +92,9 @@ var (
 	TetherCost     = def(1602, http.StatusConflict, "Not enough resources to do that.")
 	TetherGone     = def(1603, http.StatusNotFound, "This Tether Node is gone.")
 	TetherNotOwner = def(1604, http.StatusForbidden, "Only the owner can do that.")
+	TetherNothing  = def(1605, http.StatusConflict, "Nothing to move right now.")
+	TetherTooFar   = def(1606, http.StatusConflict, "Move closer to the Tether Node.")
+	TetherNoAccess = def(1607, http.StatusForbidden, "This Tether Node belongs to another faction.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

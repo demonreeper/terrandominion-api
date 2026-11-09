@@ -72,6 +72,72 @@ func EvaluateTetherBuild(in TetherBuildInput) (Payment, *apperr.Error) {
 	return PayCost(TetherBuildCost(s), in.Carried, in.Uploaded)
 }
 
+// TetherHarvest is one link's collection. A Tether Node has no extractor, so it gets base yield.
+type TetherHarvest struct {
+	Amount      int64
+	ToOwner     int64
+	ToStock     int64
+	ReserveCost float64
+}
+
+// EvaluateTetherHarvest applies the player harvest's yield and reserve rules to one link. It
+// reports false when the node is too depleted to give anything this time.
+func EvaluateTetherHarvest(s Settings, yield int, reserve float64) (TetherHarvest, bool) {
+	if reserve < s.NodeDepletedReserve {
+		return TetherHarvest{}, false
+	}
+	amount := int64(harvestAmount(yield, 1, reserve))
+	toOwner := int64(math.Round(float64(amount) * s.TnOwnerShare))
+	return TetherHarvest{
+		Amount: amount, ToOwner: toOwner, ToStock: amount - toOwner,
+		ReserveCost: math.Min(reserve, s.HarvestReserveCost),
+	}, true
+}
+
+// CanUseTether says who may upload through a Tether Node: anyone at a freelancer's, only the
+// faction's members at a faction's. The owner may always use their own.
+func CanUseTether(ownerID int64, tetherFaction *int, playerID int64, playerFaction *int) bool {
+	if playerID == ownerID || tetherFaction == nil {
+		return true
+	}
+	return playerFaction != nil && *playerFaction == *tetherFaction
+}
+
+// CheckAtTether confirms a player's fix puts them at a Tether Node, on the same terms as a harvest,
+// and returns how far away they are.
+func CheckAtTether(s Settings, player Fix, last *Fix, lat, lon float64) (float64, *apperr.Error) {
+	if player.AccuracyM <= 0 || player.AccuracyM > s.HarvestMaxAccuracyM {
+		return 0, apperr.HarvestGPSWeak
+	}
+	distance := DistanceM(player.Lat, player.Lon, lat, lon)
+	if distance > s.HarvestRangeM+math.Min(player.AccuracyM, s.HarvestRangeM) {
+		return distance, apperr.TetherTooFar
+	}
+	return distance, checkTravel(s, last, player)
+}
+
+// SplitUpload divides carried resources into what the player keeps and the owner's charge. The
+// owner uploading through their own Tether Node pays nothing.
+func SplitUpload(carried map[string]int64, fee float64, isOwner bool) (kept, fees map[string]int64) {
+	kept, fees = map[string]int64{}, map[string]int64{}
+	for resource, amount := range carried {
+		if amount <= 0 {
+			continue
+		}
+		var charge int64
+		if !isOwner {
+			charge = int64(math.Round(float64(amount) * fee))
+		}
+		if amount > charge {
+			kept[resource] = amount - charge
+		}
+		if charge > 0 {
+			fees[resource] = charge
+		}
+	}
+	return kept, fees
+}
+
 // TetherRefund is what dismantling returns, rounded down.
 func TetherRefund(spent map[string]int64, share float64) map[string]int64 {
 	refund := map[string]int64{}

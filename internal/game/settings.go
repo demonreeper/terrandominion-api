@@ -34,6 +34,8 @@ type Settings struct {
 	TnLifetimeHours     float64
 	TnMaxHealth         float64
 	TnDismantleRefund   float64
+	TnOwnerShare        float64
+	TnUploadFee         float64
 	TnBuildCrystal      int
 	TnBuildAlloy        int
 	TnBuildData         int
@@ -75,6 +77,8 @@ func DefaultSettings() Settings {
 		TnLifetimeHours:     48,
 		TnMaxHealth:         100,
 		TnDismantleRefund:   0.5,
+		TnOwnerShare:        0.5,
+		TnUploadFee:         0.05,
 		TnBuildCrystal:      80,
 		TnBuildAlloy:        60,
 		TnBuildData:         20,
@@ -129,6 +133,8 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("TnLifetimeHours", &s.TnLifetimeHours)
 	f("TnMaxHealth", &s.TnMaxHealth)
 	f("TnDismantleRefund", &s.TnDismantleRefund)
+	f("TnOwnerShare", &s.TnOwnerShare)
+	f("TnUploadFee", &s.TnUploadFee)
 	i("TnBuildCrystal", &s.TnBuildCrystal)
 	i("TnBuildAlloy", &s.TnBuildAlloy)
 	i("TnBuildData", &s.TnBuildData)

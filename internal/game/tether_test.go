@@ -62,6 +62,74 @@ func TestTetherBuildRules(t *testing.T) {
 	}
 }
 
+func TestTetherHarvestSplitsEverything(t *testing.T) {
+	s := DefaultSettings()
+	h, ok := EvaluateTetherHarvest(s, 21, 1)
+	if !ok || h.Amount != 21 || h.ToOwner+h.ToStock != 21 || h.ReserveCost != s.HarvestReserveCost {
+		t.Fatalf("unexpected harvest %+v", h)
+	}
+	if _, ok := EvaluateTetherHarvest(s, 20, s.NodeDepletedReserve-0.01); ok {
+		t.Fatal("a depleted node should give nothing")
+	}
+}
+
+func TestCanUseTether(t *testing.T) {
+	one, two := 1, 2
+	cases := []struct {
+		name          string
+		tetherFaction *int
+		player        int64
+		playerFaction *int
+		want          bool
+	}{
+		{"owner of a faction node", &one, 10, nil, true},
+		{"anyone at a freelancer node", nil, 20, &two, true},
+		{"same faction", &one, 20, &one, true},
+		{"other faction", &one, 20, &two, false},
+		{"freelancer at a faction node", &one, 20, nil, false},
+	}
+	for _, c := range cases {
+		if got := CanUseTether(10, c.tetherFaction, c.player, c.playerFaction); got != c.want {
+			t.Errorf("%s: got %v", c.name, got)
+		}
+	}
+}
+
+func TestCheckAtTether(t *testing.T) {
+	s := DefaultSettings()
+	at := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	near := Fix{Lat: 4.1755, Lon: 73.5093, AccuracyM: 10, At: at}
+	if _, err := CheckAtTether(s, near, nil, 4.1755, 73.5094); err != nil {
+		t.Fatalf("should be in range: %v", err)
+	}
+	if _, err := CheckAtTether(s, near, nil, 4.1755, 73.5110); err != apperr.TetherTooFar {
+		t.Fatalf("expected too far, got %v", err)
+	}
+	weak := near
+	weak.AccuracyM = 120
+	if _, err := CheckAtTether(s, weak, nil, 4.1755, 73.5094); err != apperr.HarvestGPSWeak {
+		t.Fatalf("expected weak GPS, got %v", err)
+	}
+}
+
+func TestSplitUpload(t *testing.T) {
+	carried := map[string]int64{"crystal": 100, "alloy": 0, "data": 5}
+	kept, fees := SplitUpload(carried, 0.05, false)
+	if kept["crystal"] != 95 || fees["crystal"] != 5 {
+		t.Fatalf("crystal should split 95/5, got %v %v", kept, fees)
+	}
+	if _, ok := kept["alloy"]; ok {
+		t.Fatalf("empty resources should be left out, got %v", kept)
+	}
+	if kept["data"]+fees["data"] != 5 {
+		t.Fatalf("nothing should be lost to rounding, got %v %v", kept, fees)
+	}
+	kept, fees = SplitUpload(carried, 0.05, true)
+	if kept["crystal"] != 100 || len(fees) != 0 {
+		t.Fatalf("the owner should pay nothing, got %v %v", kept, fees)
+	}
+}
+
 func TestTetherRefund(t *testing.T) {
 	got := TetherRefund(map[string]int64{"crystal": 80, "alloy": 60, "data": 21}, 0.5)
 	if got["crystal"] != 40 || got["alloy"] != 30 || got["data"] != 10 {

@@ -76,16 +76,7 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 		return out, apperr.HarvestCarryFull
 	}
 
-	mult := in.ExtractorYieldMult
-	if mult <= 0 {
-		mult = 1
-	}
-	// A drained node gives less: full yield above half reserve, tapering to a third near empty.
-	richness := math.Min(1, 0.33+in.NodeReserve*1.34)
-	amount := int(math.Round(float64(in.NodeYield) * mult * richness))
-	if amount < 1 {
-		amount = 1
-	}
+	amount := harvestAmount(in.NodeYield, in.ExtractorYieldMult, in.NodeReserve)
 	if int64(amount) > room {
 		amount = int(room)
 	}
@@ -93,6 +84,20 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 	out.Amount = amount
 	out.ReserveCost = math.Min(in.NodeReserve, s.HarvestReserveCost)
 	return out, nil
+}
+
+// harvestAmount is what one harvest yields. A drained node gives less: full yield above half
+// reserve, tapering to a third near empty.
+func harvestAmount(yield int, mult, reserve float64) int {
+	if mult <= 0 {
+		mult = 1
+	}
+	richness := math.Min(1, 0.33+reserve*1.34)
+	amount := int(math.Round(float64(yield) * mult * richness))
+	if amount < 1 {
+		amount = 1
+	}
+	return amount
 }
 
 // checkTravel rejects a fix the player could not have reached since their last one.

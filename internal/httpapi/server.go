@@ -54,6 +54,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/tethers/nearby", s.authed(s.nearbyTethers))
 	mux.HandleFunc("POST /v1/tethers", s.authed(s.buildTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/dismantle", s.authed(s.dismantleTether))
+	mux.HandleFunc("POST /v1/tethers/{id}/collect", s.authed(s.collectTether))
+	mux.HandleFunc("POST /v1/tethers/{id}/upload", s.authed(s.uploadTether))
 
 	mux.HandleFunc("GET /v1/factions", s.authed(s.factions))
 	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.leadFaction))
@@ -268,6 +270,54 @@ func (s *Server) dismantleTether(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.svc.DismantleTether(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+// tetherAction reads the Tether Node id and GPS fix shared by collect and upload.
+func tetherAction(w http.ResponseWriter, r *http.Request) (int64, service.TetherFix, error) {
+	var fix service.TetherFix
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		return 0, fix, apperr.BadRequest.With("tether id")
+	}
+	var body struct {
+		Lat       float64 `json:"lat"`
+		Lon       float64 `json:"lon"`
+		AccuracyM float64 `json:"accuracyM"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		return 0, fix, err
+	}
+	return id, service.TetherFix{Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM}, nil
+}
+
+func (s *Server) collectTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.CollectTether(r.Context(), playerID, id, fix)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) uploadTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.UploadTether(r.Context(), playerID, id, fix)
 	if err != nil {
 		fail(w, r, err)
 		return
