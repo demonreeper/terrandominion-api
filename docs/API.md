@@ -48,7 +48,18 @@ token expires, or on E1001.
 | POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free |
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to the uploaded inventory, and frees its nodes |
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to the uploaded inventory |
+| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. Returns `health`, `destroyed`, `jammedUntil`, `spikeFiresAt` |
+| POST | `/tethers/{id}/defuse` | `lat, lon, accuracyM` | Owner only, in range, before the fuse ends |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's uploaded inventory, less the charge paid to the owner |
+
+## Node contests and notices
+| Method | Path | Body / query | Notes |
+|---|---|---|---|
+| POST | `/nodes/{id}/contest` | `lat, lon, accuracyM` | In range, one energy cell. Needs another player's recent harvest or hold (`canContest` in `/nodes/nearby`). Returns `id, endsAt` |
+| POST | `/contests/{id}/join` | `lat, lon, accuracyM` | In range: the defender, or a faction ally of either side |
+| GET | `/notices` | `after?` | What happened to the player after that notice id, newest first (50 at most) |
+
+`/nodes/nearby` also gives `contestId, contestEndsAt, contestRole, canContest, heldByMe, heldByOther`. `/tethers/*` gives `jammedUntil, attackedAt, spikeFiresAt`.
 
 ## Map drops
 | Method | Path | Body / query | Notes |
@@ -118,6 +129,17 @@ token expires, or on E1001.
 | 1701 | Gear not owned |
 | 1702 | Gear already at its top tier |
 | 1703 | Gear doesn't need repair |
+| 1710 | No energy cell |
+| 1711 | Item missing |
+| 1712 | Out of range |
+| 1713 | Tether Node already jammed |
+| 1714 | Spike already planted |
+| 1715 | No spike to defuse |
+| 1716 | Node contested: another player holds its next harvests |
+| 1717 | Contest already running |
+| 1718 | Nobody to contest the node with |
+| 1719 | Contest over |
+| 1720 | Can't join this contest |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

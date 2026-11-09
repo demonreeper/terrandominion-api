@@ -409,19 +409,27 @@ func (s *Service) UploadTether(ctx context.Context, playerID, tetherID int64, fi
 	return out, err
 }
 
-const tetherTickInterval = time.Minute
+const (
+	tetherTickInterval = time.Minute
+	// Spike fuses and contests are shown to the second, so they resolve much sooner than the tick.
+	combatTickInterval = 5 * time.Second
+)
 
 // RunTetherLoop harvests ready links once a minute until ctx ends. A tick that overruns simply
 // delays the next one, because this is a single goroutine and the ticker drops what it misses.
 func (s *Service) RunTetherLoop(ctx context.Context) {
 	ticker := time.NewTicker(tetherTickInterval)
 	defer ticker.Stop()
+	combat := time.NewTicker(combatTickInterval)
+	defer combat.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			s.tetherTick(ctx)
+		case <-combat.C:
+			s.resolveCombat(ctx, s.Settings(ctx))
 		}
 	}
 }
@@ -467,6 +475,9 @@ func (s *Service) respawnDepletedNodes(ctx context.Context, settings game.Settin
 func (s *Service) tetherTick(ctx context.Context) {
 	s.respawnDepletedNodes(ctx, s.Settings(ctx))
 	s.decayTethers(ctx, s.Settings(ctx))
+	if err := store.DeleteOldNotices(ctx, s.db, s.now().AddDate(0, 0, -noticeKeepDays)); err != nil && ctx.Err() == nil {
+		slog.Error("E1900 notice cleanup failed", "err", err)
+	}
 
 	due, err := store.DueTethers(ctx, s.db)
 	if err != nil {

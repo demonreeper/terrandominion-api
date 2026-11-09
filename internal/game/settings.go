@@ -65,6 +65,24 @@ type Settings struct {
 	CraftSpikeCrystal   int
 	CraftSpikeCredit    int
 
+	WeaponRangeM         float64
+	EmPulseDamage        float64
+	JammerMinutes        float64
+	SpikeDamage          float64
+	SpikeFuseMinutes     float64
+	CellsEmPulse         int
+	CellsJammer          int
+	CellsSpike           int
+	ContestSeconds       int
+	ContestPrizeHarvests int
+	CellsContest         int
+	ContestRangeM        float64
+	ContestRecentMinutes float64
+	ContestHoldMinutes   float64
+	ContestGearPerTier   int
+	ContestAllyPoints    int
+	ContestJoinPoints    int
+
 	AccessTokenMinutes int
 	SessionDays        int
 	DeleteGraceDays    int
@@ -130,6 +148,24 @@ func DefaultSettings() Settings {
 		CraftSpikeAlloy:     30,
 		CraftSpikeCrystal:   20,
 		CraftSpikeCredit:    10,
+
+		WeaponRangeM:         40,
+		EmPulseDamage:        25,
+		JammerMinutes:        30,
+		SpikeDamage:          40,
+		SpikeFuseMinutes:     10,
+		CellsEmPulse:         1,
+		CellsJammer:          1,
+		CellsSpike:           1,
+		ContestSeconds:       60,
+		ContestPrizeHarvests: 3,
+		CellsContest:         1,
+		ContestRangeM:        40,
+		ContestRecentMinutes: 5,
+		ContestHoldMinutes:   30,
+		ContestGearPerTier:   5,
+		ContestAllyPoints:    5,
+		ContestJoinPoints:    5,
 
 		AccessTokenMinutes: 15,
 		SessionDays:        60,
@@ -209,6 +245,24 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("CraftSpikeAlloy", &s.CraftSpikeAlloy)
 	i("CraftSpikeCrystal", &s.CraftSpikeCrystal)
 	i("CraftSpikeCredit", &s.CraftSpikeCredit)
+
+	f("WeaponRangeM", &s.WeaponRangeM)
+	f("EmPulseDamage", &s.EmPulseDamage)
+	f("JammerMinutes", &s.JammerMinutes)
+	f("SpikeDamage", &s.SpikeDamage)
+	f("SpikeFuseMinutes", &s.SpikeFuseMinutes)
+	i("CellsEmPulse", &s.CellsEmPulse)
+	i("CellsJammer", &s.CellsJammer)
+	i("CellsSpike", &s.CellsSpike)
+	i("ContestSeconds", &s.ContestSeconds)
+	i("ContestPrizeHarvests", &s.ContestPrizeHarvests)
+	i("CellsContest", &s.CellsContest)
+	f("ContestRangeM", &s.ContestRangeM)
+	f("ContestRecentMinutes", &s.ContestRecentMinutes)
+	f("ContestHoldMinutes", &s.ContestHoldMinutes)
+	i("ContestGearPerTier", &s.ContestGearPerTier)
+	i("ContestAllyPoints", &s.ContestAllyPoints)
+	i("ContestJoinPoints", &s.ContestJoinPoints)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
 	i("SessionDays", &s.SessionDays)

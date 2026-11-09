@@ -107,5 +107,17 @@ var (
 	GearNoUpgrade = def(1702, http.StatusConflict, "This gear is already at its top tier.")
 	GearNotWorn   = def(1703, http.StatusConflict, "This gear doesn't need repair.")
 
+	NoCells         = def(1710, http.StatusConflict, "You need an energy cell for that.")
+	ItemMissing     = def(1711, http.StatusConflict, "You don't have that item.")
+	OutOfRange      = def(1712, http.StatusConflict, "Move closer.")
+	AlreadyJammed   = def(1713, http.StatusConflict, "This Tether Node is already jammed.")
+	SpikeArmed      = def(1714, http.StatusConflict, "A spike is already planted here.")
+	NoSpike         = def(1715, http.StatusConflict, "There is no spike to defuse.")
+	NodeContested   = def(1716, http.StatusConflict, "This node is contested. Another player holds its next harvests.")
+	ContestRunning  = def(1717, http.StatusConflict, "A contest is already running here.")
+	ContestNobody   = def(1718, http.StatusConflict, "There is nobody to contest this node with.")
+	ContestOver     = def(1719, http.StatusConflict, "That contest is over.")
+	ContestNotYours = def(1720, http.StatusForbidden, "You can't join this contest.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )
