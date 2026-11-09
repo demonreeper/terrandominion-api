@@ -103,8 +103,7 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 			return apperr.TetherTooClose
 		}
 
-		nodes, err := store.PickFreeNodes(ctx, tx, req.Lat, req.Lon, settings.TnLinkRadiusM,
-			settings.NodeDepletedReserve, settings.TnLinksTier1)
+		nodes, err := s.pickLinks(ctx, tx, req.Lat, req.Lon, nil, settings.TnLinksTier1, settings)
 		if err != nil {
 			return err
 		}
@@ -531,8 +530,11 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 				gathered = harvest.Amount
 			} else {
 				// Depleted or gone: move to another free node, or stay idle if there is none.
-				free, err := store.PickFreeNodes(ctx, tx, tether.Lat, tether.Lon, settings.TnLinkRadiusM,
-					settings.NodeDepletedReserve, 1)
+				others, err := store.TetherLinkResources(ctx, tx, due.ID, link.Slot)
+				if err != nil {
+					return err
+				}
+				free, err := s.pickLinks(ctx, tx, tether.Lat, tether.Lon, others, 1, settings)
 				if err != nil {
 					return err
 				}
@@ -561,8 +563,11 @@ func (s *Service) fillTetherLinks(ctx context.Context, tx *sql.Tx, id int64, tet
 	if len(slots) == 0 {
 		return nil
 	}
-	nodes, err := store.PickFreeNodes(ctx, tx, tether.Lat, tether.Lon, settings.TnLinkRadiusM,
-		settings.NodeDepletedReserve, len(slots))
+	linked, err := store.TetherLinkResources(ctx, tx, id, -1)
+	if err != nil {
+		return err
+	}
+	nodes, err := s.pickLinks(ctx, tx, tether.Lat, tether.Lon, linked, len(slots), settings)
 	if err != nil {
 		return err
 	}
@@ -572,6 +577,20 @@ func (s *Service) fillTetherLinks(ctx context.Context, tx *sql.Tx, id int64, tet
 		}
 	}
 	return nil
+}
+
+// pickLinks chooses free nodes around a point, one of each resource first.
+func (s *Service) pickLinks(ctx context.Context, tx *sql.Tx, lat, lon float64, linked []string, count int,
+	settings game.Settings) ([]int64, error) {
+	candidates, err := store.FreeNodes(ctx, tx, lat, lon, settings.TnLinkRadiusM, settings.NodeDepletedReserve)
+	if err != nil {
+		return nil, err
+	}
+	options := make([]game.LinkCandidate, len(candidates))
+	for i, c := range candidates {
+		options[i] = game.LinkCandidate{NodeID: c.NodeID, Resource: c.Resource}
+	}
+	return game.PickLinks(options, linked, count), nil
 }
 
 type UpgradeTetherOutcome struct {
@@ -635,8 +654,11 @@ func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, f
 			return err
 		}
 		slots := game.FreeSlots(used, game.TetherLinks(settings, 2))
-		nodes, err := store.PickFreeNodes(ctx, tx, tether.Lat, tether.Lon, settings.TnLinkRadiusM,
-			settings.NodeDepletedReserve, len(slots))
+		linked, err := store.TetherLinkResources(ctx, tx, tetherID, -1)
+		if err != nil {
+			return err
+		}
+		nodes, err := s.pickLinks(ctx, tx, tether.Lat, tether.Lon, linked, len(slots), settings)
 		if err != nil {
 			return err
 		}

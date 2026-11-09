@@ -126,28 +126,58 @@ func CountActiveTethers(ctx context.Context, q db.Querier, ownerID int64) (int, 
 	return n, err
 }
 
-// PickFreeNodes chooses random active nodes in range that no Tether Node holds. Chosen nodes are
+// FreeNode is an active node no Tether Node holds.
+type FreeNode struct {
+	NodeID   int64
+	Resource string
+}
+
+// freeNodeCandidates caps how many free nodes one pick looks at and locks.
+const freeNodeCandidates = 200
+
+// FreeNodes lists active nodes in range that no Tether Node holds, in random order. They are
 // locked and locked ones skipped, so two simultaneous builds cannot pick the same node.
-func PickFreeNodes(ctx context.Context, q db.Querier, lat, lon, radiusM, minReserve float64, limit int) ([]int64, error) {
+func FreeNodes(ctx context.Context, q db.Querier, lat, lon, radiusM, minReserve float64) ([]FreeNode, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT n.id FROM td.nodes n
+		SELECT n.id, n.resource FROM td.nodes n
 		WHERE n.status = 'active' AND n.reserve >= $4
 		  AND ST_DWithin(n.location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
 		  AND NOT EXISTS (SELECT 1 FROM td.tether_links l WHERE l.node_id = n.id)
 		ORDER BY random()
 		LIMIT $5
-		FOR UPDATE OF n SKIP LOCKED`, lat, lon, radiusM, minReserve, limit)
+		FOR UPDATE OF n SKIP LOCKED`, lat, lon, radiusM, minReserve, freeNodeCandidates)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := make([]int64, 0, limit)
+	out := make([]FreeNode, 0, 16)
 	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var c FreeNode
+		if err := rows.Scan(&c.NodeID, &c.Resource); err != nil {
 			return nil, err
 		}
-		out = append(out, id)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// TetherLinkResources lists the resource of each linked node, leaving out one slot (use -1 for
+// none), which is how a link being moved ignores the depleted node it is leaving.
+func TetherLinkResources(ctx context.Context, q db.Querier, id int64, exceptSlot int) ([]string, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT n.resource FROM td.tether_links l JOIN td.nodes n ON n.id = l.node_id
+		WHERE l.tn_id = $1 AND l.slot <> $2`, id, exceptSlot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0, 4)
+	for rows.Next() {
+		var resource string
+		if err := rows.Scan(&resource); err != nil {
+			return nil, err
+		}
+		out = append(out, resource)
 	}
 	return out, rows.Err()
 }
