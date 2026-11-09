@@ -53,6 +53,16 @@ func TestCheckInRange(t *testing.T) {
 	}
 }
 
+func TestDroneFlight(t *testing.T) {
+	s := DefaultSettings()
+	if got := DroneFlight(s, 900); got != 60*time.Second {
+		t.Errorf("900 m took %v, want 60s", got)
+	}
+	if got := DroneFlight(s, 30); got != 20*time.Second {
+		t.Errorf("a short hop took %v, want the 20s minimum", got)
+	}
+}
+
 func TestContestScore(t *testing.T) {
 	s := DefaultSettings()
 	base := ContestSide{Level: 3, GearTiers: 2}

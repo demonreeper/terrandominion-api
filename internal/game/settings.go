@@ -83,6 +83,10 @@ type Settings struct {
 	ContestAllyPoints    int
 	ContestJoinPoints    int
 
+	DroneSpeedMps     float64
+	DroneMinFlightSec float64
+	CellsDrone        int
+
 	AccessTokenMinutes int
 	SessionDays        int
 	DeleteGraceDays    int
@@ -166,6 +170,10 @@ func DefaultSettings() Settings {
 		ContestGearPerTier:   5,
 		ContestAllyPoints:    5,
 		ContestJoinPoints:    5,
+
+		DroneSpeedMps:     15,
+		DroneMinFlightSec: 20,
+		CellsDrone:        1,
 
 		AccessTokenMinutes: 15,
 		SessionDays:        60,
@@ -263,6 +271,10 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("ContestGearPerTier", &s.ContestGearPerTier)
 	i("ContestAllyPoints", &s.ContestAllyPoints)
 	i("ContestJoinPoints", &s.ContestJoinPoints)
+
+	f("DroneSpeedMps", &s.DroneSpeedMps)
+	f("DroneMinFlightSec", &s.DroneMinFlightSec)
+	i("CellsDrone", &s.CellsDrone)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
 	i("SessionDays", &s.SessionDays)

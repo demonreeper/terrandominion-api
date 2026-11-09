@@ -49,6 +49,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 
 	mux.HandleFunc("POST /v1/craft", s.authed(s.craft))
+	mux.HandleFunc("POST /v1/gear/craft", s.authed(s.craftGear))
 	mux.HandleFunc("POST /v1/gear/{id}/upgrade", s.authed(s.upgradeGear))
 	mux.HandleFunc("POST /v1/gear/{id}/repair", s.authed(s.repairGear))
 
@@ -64,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tethers/{id}/upload", s.authed(s.uploadTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/attack", s.authed(s.attackTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/defuse", s.authed(s.defuseSpike))
+	mux.HandleFunc("POST /v1/tethers/{id}/drone", s.authed(s.launchDrone))
 
 	mux.HandleFunc("POST /v1/nodes/{id}/contest", s.authed(s.startContest))
 	mux.HandleFunc("POST /v1/contests/{id}/join", s.authed(s.joinContest))
@@ -203,6 +205,38 @@ func (s *Server) craft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.svc.Craft(r.Context(), playerID, body.Recipe)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) craftGear(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Type string `json:"type"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.CraftGear(r.Context(), playerID, body.Type)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) launchDrone(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.LaunchDrone(r.Context(), playerID, id, fix)
 	if err != nil {
 		fail(w, r, err)
 		return

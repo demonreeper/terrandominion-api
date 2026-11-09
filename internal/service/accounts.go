@@ -234,25 +234,26 @@ func (s *Service) RequestDeletion(ctx context.Context, playerID int64) (time.Tim
 
 // MeView is the signed-in player's own view of their account.
 type MeView struct {
-	ID                int64             `json:"id"`
-	DisplayName       string            `json:"displayName"`
-	Type              string            `json:"type"`
-	IsAdmin           bool              `json:"isAdmin,omitempty"`
-	Progress          game.Progress     `json:"progress"`
-	Carried           map[string]int64  `json:"carried"`
-	Uploaded          map[string]int64  `json:"uploaded"`
-	TethersOwned      int               `json:"tethersOwned"`
-	TetherMax         int               `json:"tetherMax"`
-	TetherCost        map[string]int64  `json:"tetherCost"`
-	TetherUpgradeCost map[string]int64  `json:"tetherUpgradeCost"`
-	CarryCap          int64             `json:"carryCapacity"`
-	ScanRangeM        float64           `json:"scanRangeM"`
-	Gear              []store.GearItem  `json:"gear"`
-	Items             map[string]int64  `json:"items"`
-	Recipes           []game.Recipe     `json:"recipes"`
-	Faction           *store.Membership `json:"faction"`
-	Freelancer        bool              `json:"freelancer"`
-	DeleteAfter       *time.Time        `json:"deleteAfter,omitempty"`
+	ID                int64                 `json:"id"`
+	DisplayName       string                `json:"displayName"`
+	Type              string                `json:"type"`
+	IsAdmin           bool                  `json:"isAdmin,omitempty"`
+	Progress          game.Progress         `json:"progress"`
+	Carried           map[string]int64      `json:"carried"`
+	Uploaded          map[string]int64      `json:"uploaded"`
+	TethersOwned      int                   `json:"tethersOwned"`
+	TetherMax         int                   `json:"tetherMax"`
+	TetherCost        map[string]int64      `json:"tetherCost"`
+	TetherUpgradeCost map[string]int64      `json:"tetherUpgradeCost"`
+	CarryCap          int64                 `json:"carryCapacity"`
+	ScanRangeM        float64               `json:"scanRangeM"`
+	Gear              []store.GearItem      `json:"gear"`
+	Items             map[string]int64      `json:"items"`
+	Recipes           []game.Recipe         `json:"recipes"`
+	CraftableGear     []store.CraftableGear `json:"craftableGear"`
+	Faction           *store.Membership     `json:"faction"`
+	Freelancer        bool                  `json:"freelancer"`
+	DeleteAfter       *time.Time            `json:"deleteAfter,omitempty"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -290,6 +291,10 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
+	craftable, err := store.CraftableGearFor(ctx, q, playerID, game.CraftableGearIDs)
+	if err != nil {
+		return nil, err
+	}
 	stats, err := store.Equipped(ctx, q, playerID)
 	if err != nil {
 		return nil, err
@@ -303,7 +308,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Uploaded: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,
-		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), Faction: membership, Freelancer: membership == nil,
+		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Freelancer: membership == nil,
 	}
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time
