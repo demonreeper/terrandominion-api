@@ -60,7 +60,8 @@ is the anti-spoofing record, and the source of the travel-speed check (`MaxTrave
 level, stats as JSON (so new stats need no migration), craft cost as JSON, durability and the type
 it upgrades to. `player_gear` is what a player owns; a partial unique index allows only one
 equipped item per slot. Gear at durability 0 contributes nothing until repaired. New players get a
-Mk I scanner and extractor.
+Mk I scanner and extractor. `player_items` holds the consumables a player has crafted (energy
+cells and weapons) as a count per item; their costs are settings (`Craft*`).
 
 ### factions
 Six placeholder factions are seeded, all `locked` with a lore reason. The first player at

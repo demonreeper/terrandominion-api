@@ -33,6 +33,10 @@ type Tether struct {
 	ExpiresAt time.Time    `json:"expiresAt"`
 	DistanceM float64      `json:"distanceM"`
 	Links     []TetherLink `json:"links"`
+
+	JammedUntil  *time.Time `json:"jammedUntil,omitempty"`
+	AttackedAt   *time.Time `json:"attackedAt,omitempty"`
+	SpikeFiresAt *time.Time `json:"spikeFiresAt,omitempty"`
 	// Stock is the held half. Only the owner is told what is inside.
 	Stock map[string]int64 `json:"stock,omitempty"`
 }
@@ -47,16 +51,20 @@ const tetherColumns = `
 	        'lat', ST_Y(n.location::geometry), 'lon', ST_X(n.location::geometry)) ORDER BY l.slot)
 	    FROM td.tether_links l JOIN td.nodes n ON n.id = l.node_id
 	    WHERE l.tn_id = t.id), '[]'::jsonb),
-	COALESCE((SELECT jsonb_object_agg(s.resource, s.amount) FROM td.tether_stock s WHERE s.tn_id = t.id), '{}'::jsonb)`
+	COALESCE((SELECT jsonb_object_agg(s.resource, s.amount) FROM td.tether_stock s WHERE s.tn_id = t.id), '{}'::jsonb),
+	t.jammed_until, t.attacked_at,
+	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed')`
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether
 	var faction sql.NullInt32
 	var links, stock []byte
+	var jammed, attacked, spike sql.NullTime
 	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
-		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &t.DistanceM); err != nil {
+		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &t.DistanceM); err != nil {
 		return t, err
 	}
+	t.JammedUntil, t.AttackedAt, t.SpikeFiresAt = timePtr(jammed), timePtr(attacked), timePtr(spike)
 	if faction.Valid {
 		id := int(faction.Int32)
 		t.FactionID = &id
@@ -68,6 +76,14 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 		}
 	}
 	return t, json.Unmarshal(links, &t.Links)
+}
+
+func timePtr(t sql.NullTime) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	v := t.Time
+	return &v
 }
 
 // NearbyTethers lists active Tether Nodes around a point, nearest first.
@@ -368,6 +384,7 @@ func DueTethers(ctx context.Context, q db.Querier) ([]DueTether, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT t.id, t.owner_id FROM td.tether_nodes t
 		WHERE t.status = 'active' AND t.expires_at > now() AND t.health > 0
+		  AND (t.jammed_until IS NULL OR t.jammed_until <= now())
 		  AND EXISTS (SELECT 1 FROM td.tether_links l WHERE l.tn_id = t.id AND l.next_harvest_at <= now())
 		ORDER BY t.id`)
 	if err != nil {
@@ -476,6 +493,9 @@ func InsertTetherTransfer(ctx context.Context, q db.Querier, t TetherTransfer) e
 func EndTether(ctx context.Context, q db.Querier, id int64, status string) error {
 	if _, err := q.ExecContext(ctx, `
 		UPDATE td.tether_nodes SET status = $2::td.tether_status, ended_at = now() WHERE id = $1`, id, status); err != nil {
+		return err
+	}
+	if _, err := q.ExecContext(ctx, `UPDATE td.tether_spikes SET status = 'void' WHERE tn_id = $1 AND status = 'armed'`, id); err != nil {
 		return err
 	}
 	_, err := q.ExecContext(ctx, `DELETE FROM td.tether_links WHERE tn_id = $1`, id)

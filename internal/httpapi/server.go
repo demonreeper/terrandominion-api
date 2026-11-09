@@ -48,6 +48,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/me", s.authed(s.me))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 
+	mux.HandleFunc("POST /v1/craft", s.authed(s.craft))
+	mux.HandleFunc("POST /v1/gear/{id}/upgrade", s.authed(s.upgradeGear))
+	mux.HandleFunc("POST /v1/gear/{id}/repair", s.authed(s.repairGear))
+
 	mux.HandleFunc("GET /v1/nodes/nearby", s.authed(s.nearbyNodes))
 	mux.HandleFunc("POST /v1/nodes/{id}/harvest", s.authed(s.harvest))
 
@@ -58,6 +62,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tethers/{id}/dismantle", s.authed(s.dismantleTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/collect", s.authed(s.collectTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/upload", s.authed(s.uploadTether))
+	mux.HandleFunc("POST /v1/tethers/{id}/attack", s.authed(s.attackTether))
+	mux.HandleFunc("POST /v1/tethers/{id}/defuse", s.authed(s.defuseSpike))
+
+	mux.HandleFunc("POST /v1/nodes/{id}/contest", s.authed(s.startContest))
+	mux.HandleFunc("POST /v1/contests/{id}/join", s.authed(s.joinContest))
+
+	mux.HandleFunc("GET /v1/notices", s.authed(s.notices))
 
 	mux.HandleFunc("GET /v1/drops/nearby", s.authed(s.nearbyDrops))
 	mux.HandleFunc("POST /v1/drops/{id}/pick", s.authed(s.pickDrop))
@@ -178,6 +189,54 @@ func (s *Server) publicSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, settings)
+}
+
+// ---- crafting --------------------------------------------------------------------------
+
+func (s *Server) craft(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Recipe string `json:"recipe"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.Craft(r.Context(), playerID, body.Recipe)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) upgradeGear(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("gear id"))
+		return
+	}
+	res, err := s.svc.UpgradeGear(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) repairGear(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("gear id"))
+		return
+	}
+	if err := s.svc.RepairGear(r.Context(), playerID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "repaired")
 }
 
 // ---- world -----------------------------------------------------------------------------
@@ -366,6 +425,88 @@ func (s *Server) uploadTether(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, res)
+}
+
+// ---- combat ----------------------------------------------------------------------------
+
+func (s *Server) attackTether(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("tether id"))
+		return
+	}
+	var body struct {
+		Weapon    string  `json:"weapon"`
+		Lat       float64 `json:"lat"`
+		Lon       float64 `json:"lon"`
+		AccuracyM float64 `json:"accuracyM"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.AttackTether(r.Context(), playerID, id, body.Weapon,
+		service.TetherFix{Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM})
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) defuseSpike(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.DefuseSpike(r.Context(), playerID, id, fix); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "defused")
+}
+
+func (s *Server) startContest(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.StartContest(r.Context(), playerID, id, fix)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) joinContest(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.JoinContest(r.Context(), playerID, id, fix); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "joined")
+}
+
+func (s *Server) notices(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	after, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
+	list, err := s.svc.Notices(r.Context(), playerID, after)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, list)
 }
 
 // ---- map drops -------------------------------------------------------------------------

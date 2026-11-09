@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -106,6 +107,12 @@ type GearItem struct {
 	MaxDurability int             `json:"maxDurability"`
 	Equipped      bool            `json:"equipped"`
 	Stats         json.RawMessage `json:"stats"`
+
+	// The next tier, when there is one. RepairCost is filled by the service, which has the settings.
+	UpgradeName     string           `json:"upgradeName,omitempty"`
+	UpgradeMinLevel int              `json:"upgradeMinLevel,omitempty"`
+	UpgradeCost     map[string]int64 `json:"upgradeCost,omitempty"`
+	RepairCost      map[string]int64 `json:"repairCost,omitempty"`
 }
 
 // GrantStarterGear gives a new player the Mk I scanner and extractor, equipped.
@@ -119,8 +126,10 @@ func GrantStarterGear(ctx context.Context, q db.Querier, playerID int64) error {
 
 func Gear(ctx context.Context, q db.Querier, playerID int64) ([]GearItem, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT pg.id, gt.id, gt.name, gt.slot, gt.tier, pg.durability, gt.max_durability, pg.equipped, gt.stats
+		SELECT pg.id, gt.id, gt.name, gt.slot, gt.tier, pg.durability, gt.max_durability, pg.equipped, gt.stats,
+		       nx.name, nx.min_level, nx.craft_cost
 		FROM td.player_gear pg JOIN td.gear_types gt ON gt.id = pg.gear_type_id
+		LEFT JOIN td.gear_types nx ON nx.id = gt.upgrades_to
 		WHERE pg.player_id = $1
 		ORDER BY pg.equipped DESC, gt.slot, gt.tier DESC`, playerID)
 	if err != nil {
@@ -130,12 +139,21 @@ func Gear(ctx context.Context, q db.Querier, playerID int64) ([]GearItem, error)
 	out := make([]GearItem, 0, 8)
 	for rows.Next() {
 		var g GearItem
-		var stats []byte
+		var stats, upgradeCost []byte
+		var upgradeName sql.NullString
+		var upgradeLevel sql.NullInt64
 		if err := rows.Scan(&g.ID, &g.TypeID, &g.Name, &g.Slot, &g.Tier, &g.Durability, &g.MaxDurability,
-			&g.Equipped, &stats); err != nil {
+			&g.Equipped, &stats, &upgradeName, &upgradeLevel, &upgradeCost); err != nil {
 			return nil, err
 		}
 		g.Stats = stats
+		if upgradeName.Valid {
+			g.UpgradeName = upgradeName.String
+			g.UpgradeMinLevel = int(upgradeLevel.Int64)
+			if err := json.Unmarshal(upgradeCost, &g.UpgradeCost); err != nil {
+				return nil, err
+			}
+		}
 		out = append(out, g)
 	}
 	return out, rows.Err()

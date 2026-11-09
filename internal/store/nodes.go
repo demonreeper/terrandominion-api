@@ -20,6 +20,14 @@ type Node struct {
 	// ReadyInS is how long until this player may harvest the node again (0 = ready now).
 	ReadyInS int `json:"readyInS"`
 
+	// Contest state for this viewer, filled by the service.
+	ContestID     int64      `json:"contestId,omitempty"`
+	ContestEndsAt *time.Time `json:"contestEndsAt,omitempty"`
+	ContestRole   string     `json:"contestRole,omitempty"`
+	CanContest    bool       `json:"canContest,omitempty"`
+	HeldByMe      bool       `json:"heldByMe,omitempty"`
+	HeldByOther   bool       `json:"heldByOther,omitempty"`
+
 	Yield  int    `json:"-"`
 	Status string `json:"-"`
 }
@@ -57,6 +65,20 @@ func NearbyNodes(ctx context.Context, q db.Querier, playerID int64, lat, lon, ra
 		out = append(out, n)
 	}
 	return out, rows.Err()
+}
+
+// NodeByID reads a node without locking it.
+func NodeByID(ctx context.Context, q db.Querier, id int64) (Node, error) {
+	var n Node
+	err := q.QueryRowContext(ctx, `
+		SELECT id, name, resource, ST_Y(location::geometry), ST_X(location::geometry), reserve,
+		       yield_per_harvest, status
+		FROM td.nodes WHERE id = $1`, id).
+		Scan(&n.ID, &n.Name, &n.Resource, &n.Lat, &n.Lon, &n.Reserve, &n.Yield, &n.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return n, ErrNotFound
+	}
+	return n, err
 }
 
 // NodeForUpdate locks the node so simultaneous harvests by different players drain it correctly.

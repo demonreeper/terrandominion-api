@@ -30,7 +30,11 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 	if radiusM <= 0 || radiusM > limit {
 		radiusM = limit
 	}
-	return store.NearbyNodes(ctx, s.db, playerID, lat, lon, radiusM, 100, settings.HarvestCooldownSec)
+	nodes, err := store.NearbyNodes(ctx, s.db, playerID, lat, lon, radiusM, 100, settings.HarvestCooldownSec)
+	if err != nil {
+		return nil, err
+	}
+	return nodes, s.addContestInfo(ctx, playerID, nodes, settings)
 }
 
 type HarvestRequest struct {
@@ -114,6 +118,10 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		result, ruleErr := game.EvaluateHarvest(in)
 		if ruleErr != nil {
 			return ruleErr
+		}
+
+		if err := checkNodeHold(ctx, tx, playerID, node.ID); err != nil {
+			return err
 		}
 
 		reserve, err := store.DrainNode(ctx, tx, node.ID, result.ReserveCost)
