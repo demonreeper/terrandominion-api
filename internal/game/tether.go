@@ -68,6 +68,42 @@ func FreeSlots(used []int, links int) []int {
 	return free
 }
 
+// LinkCandidate is a free node a Tether Node could link to.
+type LinkCandidate struct {
+	NodeID   int64
+	Resource string
+}
+
+// PickLinks chooses up to count candidates, one of each resource first, starting with resources
+// the Tether Node doesn't already link. Duplicates are only used to fill slots once every resource
+// on offer is taken, so a slot isn't left idle because a resource has no node nearby.
+func PickLinks(candidates []LinkCandidate, linked []string, count int) []int64 {
+	seen := make(map[string]bool, len(linked))
+	for _, resource := range linked {
+		seen[resource] = true
+	}
+
+	picked := make([]int64, 0, count)
+	used := make(map[int64]bool, count)
+	take := func(c LinkCandidate) {
+		picked = append(picked, c.NodeID)
+		used[c.NodeID] = true
+		seen[c.Resource] = true
+	}
+
+	for _, c := range candidates {
+		if len(picked) < count && !seen[c.Resource] {
+			take(c)
+		}
+	}
+	for _, c := range candidates {
+		if len(picked) < count && !used[c.NodeID] {
+			take(c)
+		}
+	}
+	return picked
+}
+
 // WithinTetherInfo says whether a player is close enough to see what a Tether Node collects.
 func WithinTetherInfo(s Settings, player Fix, lat, lon float64) bool {
 	allowance := math.Max(0, math.Min(player.AccuracyM, s.TnInfoRangeM))

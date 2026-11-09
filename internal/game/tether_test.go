@@ -223,6 +223,41 @@ func TestCanAttackTether(t *testing.T) {
 	}
 }
 
+func TestPickLinksTakesOneOfEach(t *testing.T) {
+	candidates := []LinkCandidate{
+		{1, "crystal"}, {2, "crystal"}, {3, "alloy"}, {4, "crystal"}, {5, "data"}, {6, "credit"}, {7, "alloy"},
+	}
+	got := PickLinks(candidates, nil, 4)
+	want := []int64{1, 3, 5, 6}
+	if len(got) != 4 {
+		t.Fatalf("expected 4 links, got %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected one of each resource %v, got %v", want, got)
+		}
+	}
+}
+
+func TestPickLinksSkipsResourcesAlreadyLinked(t *testing.T) {
+	candidates := []LinkCandidate{{1, "crystal"}, {2, "alloy"}, {3, "data"}, {4, "credit"}}
+	got := PickLinks(candidates, []string{"crystal"}, 3)
+	if len(got) != 3 || got[0] != 2 || got[1] != 3 || got[2] != 4 {
+		t.Fatalf("an upgrade should add the missing resources, got %v", got)
+	}
+}
+
+func TestPickLinksFillsWithDuplicatesWhenATypeIsMissing(t *testing.T) {
+	candidates := []LinkCandidate{{1, "crystal"}, {2, "crystal"}, {3, "alloy"}}
+	got := PickLinks(candidates, nil, 3)
+	if len(got) != 3 || got[0] != 1 || got[1] != 3 || got[2] != 2 {
+		t.Fatalf("expected distinct types first, then a duplicate, got %v", got)
+	}
+	if got := PickLinks(candidates, nil, 9); len(got) != 3 {
+		t.Fatalf("can't link more than exist, got %v", got)
+	}
+}
+
 func TestTetherRefund(t *testing.T) {
 	got := TetherRefund(map[string]int64{"crystal": 80, "alloy": 60, "data": 21}, 0.5)
 	if got["crystal"] != 40 || got["alloy"] != 30 || got["data"] != 10 {
