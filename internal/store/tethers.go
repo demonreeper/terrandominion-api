@@ -108,6 +108,17 @@ func TetherByID(ctx context.Context, q db.Querier, viewerID, id int64) (Tether, 
 	return t, err
 }
 
+// TetherNearby says whether an active Tether Node stands within the distance of a point.
+func TetherNearby(ctx context.Context, q db.Querier, lat, lon, distanceM float64) (bool, error) {
+	var found bool
+	err := q.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM td.tether_nodes
+		WHERE status = 'active'
+		  AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3))`,
+		lat, lon, distanceM).Scan(&found)
+	return found, err
+}
+
 func CountActiveTethers(ctx context.Context, q db.Querier, ownerID int64) (int, error) {
 	var n int
 	err := q.QueryRowContext(ctx,

@@ -95,6 +95,14 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 			return ruleErr
 		}
 
+		tooClose, err := store.TetherNearby(ctx, tx, req.Lat, req.Lon, settings.TnMinSpacingM)
+		if err != nil {
+			return err
+		}
+		if tooClose {
+			return apperr.TetherTooClose
+		}
+
 		nodes, err := store.PickFreeNodes(ctx, tx, req.Lat, req.Lon, settings.TnLinkRadiusM,
 			settings.NodeDepletedReserve, settings.TnLinksTier1)
 		if err != nil {

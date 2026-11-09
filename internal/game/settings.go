@@ -30,6 +30,7 @@ type Settings struct {
 
 	TnMaxPerPlayer      int
 	TnLinkRadiusM       float64
+	TnMinSpacingM       float64
 	TnLinksTier1        int
 	TnLinksTier2        int
 	TnUpgradeAlloy      int
@@ -83,6 +84,7 @@ func DefaultSettings() Settings {
 
 		TnMaxPerPlayer:      3,
 		TnLinkRadiusM:       150,
+		TnMinSpacingM:       10,
 		TnLinksTier1:        1,
 		TnLinksTier2:        4,
 		TnUpgradeAlloy:      120,
@@ -149,6 +151,7 @@ func SettingsFrom(values map[string]float64) Settings {
 
 	i("TnMaxPerPlayer", &s.TnMaxPerPlayer)
 	f("TnLinkRadiusM", &s.TnLinkRadiusM)
+	f("TnMinSpacingM", &s.TnMinSpacingM)
 	i("TnLinksTier1", &s.TnLinksTier1)
 	i("TnLinksTier2", &s.TnLinksTier2)
 	i("TnUpgradeAlloy", &s.TnUpgradeAlloy)

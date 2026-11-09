@@ -100,6 +100,7 @@ var (
 	DropTooFar     = def(1610, http.StatusConflict, "Move closer to the drop.")
 
 	TetherCantAttack = def(1611, http.StatusForbidden, "You can't attack this Tether Node.")
+	TetherTooClose   = def(1612, http.StatusConflict, "Too close to another Tether Node.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

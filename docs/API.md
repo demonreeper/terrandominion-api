@@ -106,6 +106,7 @@ token expires, or on E1001.
 | 1609 | Map drop gone |
 | 1610 | Too far from the map drop |
 | 1611 | Not allowed to attack this Tether Node |
+| 1612 | Too close to another Tether Node |
 | 1900 | Server error |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.
