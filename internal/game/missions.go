@@ -146,8 +146,9 @@ func MissionTitle(goal, key string, count int) string {
 	}
 	switch goal {
 	case GoalHarvest:
+		// Missions count harvests, not amounts: "Harvest crystal 20 times".
 		if key != "" {
-			return fmt.Sprintf("Harvest %d %s", count, key)
+			return times("Harvest a "+key+" node", "Harvest "+key+" %d times")
 		}
 		return times("Harvest a node", "Harvest %d times")
 	case GoalBuildTether:

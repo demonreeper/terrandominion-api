@@ -166,7 +166,7 @@ Contest notices have `tnId` null.
 
 Each mission: `{id, persona, factionCode, color, audience, goal, goalKey, count, progress, status (active, done, claimed),
 reward {xp, credits, item, itemCount}, line, title}`. `persona` is the lore power that gave it (Signum, Shingō,
-Sēma, Ishaaraath, Tohu, Merki); `line` is its message; `title` says what to do ("Harvest 3 crystal"). Progress counts
+Sēma, Ishaaraath, Tohu, Merki); `line` is its message; `title` says what to do ("Harvest crystal 3 times"; harvest missions count harvests, not amounts). Progress counts
 on the server inside each action (harvest, build, upgrade and collect at a Tether Node, upload, craft, gear upgrade and
 repair, attack, drone, intercept, shield, appoint a Warden). `invitation` (`factionCode, factionName, persona, color,
 line`) is set once a freelancer reaches `LeadFactionLevel`: the lore power whose missions they finished most invites
