@@ -109,21 +109,6 @@ func (s *Service) AdminCreateNode(ctx context.Context, adminID int64, n store.Ne
 // ScatterSource marks nodes made by AdminScatterNodes, so they can all be cleared at once.
 const ScatterSource = "scatter"
 
-type scatterKind struct {
-	resource string
-	label    string
-	yield    int
-	weight   int
-}
-
-// Crystal is the common find, credit the rare one, matching what the client expects to see.
-var scatterKinds = []scatterKind{
-	{"crystal", "Crystal Seam", 12, 4},
-	{"alloy", "Alloy Cache", 10, 3},
-	{"data", "Data Relay", 6, 2},
-	{"credit", "Credit Drop", 8, 1},
-}
-
 type ScatterResult struct {
 	Created int     `json:"created"`
 	IDs     []int64 `json:"ids"`
@@ -143,10 +128,8 @@ func (s *Service) AdminScatterNodes(ctx context.Context, adminID int64, lat, lon
 		return ScatterResult{}, apperr.BadRequest.With("radiusM must be 30 to 3000")
 	}
 
-	totalWeight := 0
-	for _, k := range scatterKinds {
-		totalWeight += k.weight
-	}
+	// The same mix and yields as the seeder (game.SeedKinds), with fast regrowth for testing.
+	kinds := game.SeedKinds(s.Settings(ctx))
 	minGap := math.Min(25, radiusM/math.Sqrt(float64(count))/2)
 	metresPerDegLat := 111320.0
 	metresPerDegLon := 111320.0 * math.Cos(lat*math.Pi/180)
@@ -176,22 +159,13 @@ func (s *Service) AdminScatterNodes(ctx context.Context, adminID int64, lat, lon
 			}
 			placed = append(placed, p)
 
-			pick := rand.IntN(totalWeight)
-			kind := scatterKinds[0]
-			for _, k := range scatterKinds {
-				if pick < k.weight {
-					kind = k
-					break
-				}
-				pick -= k.weight
-			}
-
+			kind := game.PickSeedKind(kinds, rand.Float64())
 			node := store.NewNode{
-				Name:         fmt.Sprintf("%s %c-%02d", kind.label, 'A'+rand.IntN(26), rand.IntN(100)),
-				Resource:     kind.resource,
+				Name:         game.SeedName(kind.Label, rand.IntN(26), rand.IntN(100)),
+				Resource:     kind.Resource,
 				Lat:          lat + p.y/metresPerDegLat,
 				Lon:          lon + p.x/metresPerDegLon,
-				Yield:        kind.yield,
+				Yield:        kind.Yield,
 				RegenPerHour: 0.5,
 				Source:       ScatterSource,
 			}

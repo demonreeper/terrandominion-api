@@ -3,6 +3,8 @@
 //	tdapi serve         run the HTTP API (applies pending migrations first)
 //	tdapi migrate       apply pending migrations and exit
 //	tdapi job <name>    run one scheduled job and exit (node-regrow, account-cleanup, session-prune)
+//	tdapi import-osm <file>  load the node seeder's map layers (scripts/import-osm.ps1 makes the file)
+//	tdapi seed <area|all>    pre-seed the nodes of an area in td.seed_areas
 //	tdapi version       print the build version
 package main
 
@@ -70,6 +72,51 @@ func main() {
 			slog.Error("E1900 job failed", "job", os.Args[2], "err", err)
 			os.Exit(1)
 		}
+	case "import-osm":
+		// The seeder's land, walkways and blocked areas, from deploy/maps/osm_extract.py.
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: tdapi import-osm <extract.json>")
+			os.Exit(2)
+		}
+		f, err := os.Open(os.Args[2])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		land, walk, blocked, err := service.New(conn, cfg).ImportOSM(ctx, f)
+		if err != nil {
+			slog.Error("E1900 OSM import failed", "err", err)
+			os.Exit(1)
+		}
+		fmt.Printf("imported %d land, %d walkway and %d blocked shapes\n", land, walk, blocked)
+	case "seed":
+		// Pre-seeds one area from td.seed_areas, or every area with "all".
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: tdapi seed <area id | all>")
+			os.Exit(2)
+		}
+		svc := service.New(conn, cfg)
+		ids := []string{os.Args[2]}
+		if os.Args[2] == "all" {
+			areas, err := svc.SeedAreaIDs(ctx)
+			if err != nil {
+				slog.Error("E1900 seed areas unavailable", "err", err)
+				os.Exit(1)
+			}
+			ids = ids[:0]
+			for _, a := range areas {
+				ids = append(ids, a.ID)
+			}
+		}
+		for _, id := range ids {
+			res, err := svc.SeedArea(ctx, 0, id)
+			if err != nil {
+				slog.Error("E1900 seeding failed", "area", id, "err", err)
+				os.Exit(1)
+			}
+			fmt.Printf("%s: %d cells, %d nodes placed\n", res.Area, res.Cells, res.Created)
+		}
 	case "serve":
 		if err := db.Migrate(ctx, conn); err != nil {
 			slog.Error("E1900 migration failed", "err", err)
@@ -122,5 +169,5 @@ func setupLogging(cfg config.Config) {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: tdapi serve | migrate | job <name> | version")
+	fmt.Fprintln(os.Stderr, "usage: tdapi serve | migrate | job <name> | import-osm <file> | seed <area|all> | version")
 }

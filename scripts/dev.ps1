@@ -3,6 +3,7 @@
 #   .\scripts\dev.ps1 migrate      create or upgrade the database tables
 #   .\scripts\dev.ps1 serve        start the API on TD_ADDR (default 127.0.0.1:8090)
 #   .\scripts\dev.ps1 job node-regrow
+#   .\scripts\dev.ps1 seed all      pre-seed the test areas' nodes (after scripts\import-osm.ps1)
 #
 # The variables are set for this run only; nothing is written to your Windows environment.
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Command)

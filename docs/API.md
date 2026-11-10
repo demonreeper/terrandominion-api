@@ -59,7 +59,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## World
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/nodes/nearby` | `lat, lon, radius?` | Active nodes nearest first, within the scanner's range. `readyInS` = seconds until this player can harvest it again |
+| GET | `/nodes/nearby` | `lat, lon, radius?` | Active nodes nearest first, within the scanner's range. `readyInS` = seconds until this player can harvest it again. `rare: true` and `expiresAt` on rare roaming nodes. Seeds the cells the scan touches for the first time (nearest first, at most `SeedCellsPerScan`), so the next scan may show more |
 | POST | `/nodes/{id}/harvest` | `lat, lon, accuracyM` | Server checks GPS accuracy, distance, travel speed, cooldown, reserve and carry room. Returns `resource, amount, nodeReserve, carried, xp, progress, levelUp, readyInSec` (seconds until this player may harvest this node again) |
 
 ## Tether Nodes
@@ -164,6 +164,9 @@ Contest notices have `tnId` null.
 | POST | `/admin/nodes/scatter` | `lat, lon, count (1-40), radiusM (30-3000)` | Test nodes at random around a point (source `scatter`, fast regrowth) |
 | POST | `/admin/nodes/clear-scatter` | – | Retires every scattered test node |
 | POST | `/admin/push/test` | – | Sends "Test push" to your own phones; returns `sent` |
+| GET | `/admin/seed` | `lat, lon` (query) | Seeding readout: `cell` `{osmLoaded, cellId, seeded, target, seedNodes, walkM, totalCells, totalNodes}` for the cell at that point, and `areas` `[{id, name}]` |
+| POST | `/admin/seed` | `areaId` | Pre-seeds every cell of an area in `td.seed_areas` (`male`, `hulhumale`, `villimale`) in the background, one transaction per cell; cells already seeded are left alone. Returns `started`. Command line: `tdapi seed <area or all>` |
+| POST | `/admin/seed/cell` | `lat, lon` | Retires the seed nodes in the cell at that point and seeds it again. Returns `cellId, target, created, retired` |
 
 ## Error codes
 `data` values are whole numbers unless noted. Distances are metres (`distanceM` rounded up, so it
@@ -232,6 +235,7 @@ never reads as inside the range).
 | 1741 | Push not set up on this server | |
 | 1742 | No phone registered for push | |
 | 1743 | Push could not be sent | |
+| 1750 | Seeding map data not imported (admin seed calls; run `scripts/import-osm.ps1`) | |
 | 1900 | Server error | |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.

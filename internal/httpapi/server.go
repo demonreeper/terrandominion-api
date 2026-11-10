@@ -3,8 +3,11 @@
 package httpapi
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 	"github.com/demonreeper/terrandominion/api/internal/config"
@@ -90,6 +93,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/admin/nodes/scatter", s.admin(s.adminScatterNodes))
 	mux.HandleFunc("POST /v1/admin/nodes/clear-scatter", s.admin(s.adminClearScatter))
 	mux.HandleFunc("POST /v1/admin/push/test", s.admin(s.adminPushTest))
+	mux.HandleFunc("GET /v1/admin/seed", s.admin(s.adminSeedStatus))
+	mux.HandleFunc("POST /v1/admin/seed", s.admin(s.adminSeedArea))
+	mux.HandleFunc("POST /v1/admin/seed/cell", s.admin(s.adminReseedCell))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, r, apperr.NotFound) })
 
@@ -735,6 +741,75 @@ func (s *Server) adminScatterNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.svc.AdminScatterNodes(r.Context(), playerID, body.Lat, body.Lon, body.Count, body.RadiusM)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+// adminSeedStatus is the Field Ops readout for the cell at lat, lon, plus the seed areas.
+func (s *Server) adminSeedStatus(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("lat and lon are required"))
+		return
+	}
+	status, err := s.svc.AdminSeedStatus(r.Context(), lat, lon)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	areas, err := s.svc.SeedAreaIDs(r.Context())
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"cell": status, "areas": areas})
+}
+
+// adminSeedArea starts pre-seeding an area in the background (a big area takes longer than one
+// request may); progress shows in GET /admin/seed's totals and in the server log.
+func (s *Server) adminSeedArea(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		AreaID string `json:"areaId"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if body.AreaID == "" {
+		fail(w, r, apperr.BadRequest.With("areaId is required"))
+		return
+	}
+	if _, err := s.svc.SeedAreaCheck(r.Context(), body.AreaID); err != nil {
+		fail(w, r, err)
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		if _, err := s.svc.SeedArea(ctx, playerID, body.AreaID); err != nil {
+			slog.Error("E1900 area seeding failed", "area", body.AreaID, "err", err)
+		}
+	}()
+	ok(w, map[string]any{"started": body.AreaID})
+}
+
+func (s *Server) adminReseedCell(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Lat float64 `json:"lat"`
+		Lon float64 `json:"lon"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.AdminReseedCell(r.Context(), playerID, body.Lat, body.Lon)
 	if err != nil {
 		fail(w, r, err)
 		return

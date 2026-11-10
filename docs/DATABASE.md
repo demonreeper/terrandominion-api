@@ -27,6 +27,9 @@ players ─┬─ player_identities   sign-in links (google now; apple, nakama l
 devices          anti-farming: welcome grant once per phone (stored as a keyed hash)
 settings         every tunable number; edited with the admin API, cached for a minute
 resource_types   crystal, alloy, data, credit
+osm_land, osm_walkways, osm_blocked   the node seeder's map layers (tdapi import-osm)
+seed_cells       every seeding cell looked at: its target, path length, when seeded and topped up
+seed_areas       areas an admin pre-seeds (Malé, Hulhumalé, Villimalé)
 admin_actions    who changed what, and when
 ```
 
@@ -49,8 +52,18 @@ next refresh, so it takes effect within one access-token lifetime (15 minutes by
 ### nodes and harvests
 Fixed resource sites with a PostGIS `geography` point and a GiST index. `reserve` (0 to 1) drains
 by `HarvestReserveCost` per harvest and regrows at `regen_per_hour` (the `node-regrow` job; safe at
-any interval). `source`/`source_ref` say whether a node was placed by hand or generated from
-OpenStreetMap.
+any interval). `source` says where a node came from: `manual` (by hand), `scatter` (admin test
+nodes), `seed` (the seeder; `source_ref` is its cell id) or `rare` (rare roaming nodes, which end
+at `expires_at` and don't respawn).
+
+**Seeding.** The world is cut into `SeedCellM` (250 m) square cells, id `<metres>:<row>:<col>`: rows
+are latitude bands, each cut into columns by the cosine of its centre latitude. A cell's row in
+`seed_cells` is locked `FOR UPDATE` while it is seeded, so two scans can't both fill it. Seed nodes
+count toward the cell they stand in (a respawn can move one across), scatter nodes don't count. Spots
+come from walkable ways in `osm_walkways` moved up to `SeedSnapM`, kept only on `osm_land`, outside
+`osm_blocked` (buildings, inland water, runways, taxiways, aprons) and away from other nodes and
+Tether Nodes. `scripts/import-osm.ps1` replaces the three OSM tables and clears every cell's
+`seeded_at`, so each is looked at again.
 
 Every harvest stores the position and accuracy the phone reported and the computed distance. That
 is the anti-spoofing record, and the source of the travel-speed check (`MaxTravelSpeedKmh`).

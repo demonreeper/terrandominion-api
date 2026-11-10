@@ -467,10 +467,20 @@ func (s *Service) respawnDepletedNodes(ctx context.Context, settings game.Settin
 			}
 			lat, lon := game.RespawnPoint(settings, node.Lat, node.Lon, rand.Float64(), rand.Float64())
 			newID, err := store.ReplaceNode(ctx, tx, id, lat, lon)
-			if err == nil {
-				slog.Info("node respawned", "old", id, "new", newID, "resource", node.Resource)
+			if err != nil {
+				return err
 			}
-			return err
+			// A seed node keeps counting toward the cell it now stands in.
+			if source, err := store.NodeSource(ctx, tx, newID); err != nil {
+				return err
+			} else if source == SeedSource {
+				cell := game.SeedCellAt(settings.SeedCellM, lat, lon)
+				if err := store.SetNodeSourceRef(ctx, tx, newID, cell.ID(settings.SeedCellM)); err != nil {
+					return err
+				}
+			}
+			slog.Info("node respawned", "old", id, "new", newID, "resource", node.Resource)
+			return nil
 		})
 		if err != nil {
 			slog.Error("E1900 node respawn failed", "node", id, "err", err)
@@ -482,6 +492,7 @@ func (s *Service) respawnDepletedNodes(ctx context.Context, settings game.Settin
 // the new ones. Each Tether Node gets its own transaction, so one failure costs only that node.
 func (s *Service) tetherTick(ctx context.Context) {
 	s.respawnDepletedNodes(ctx, s.Settings(ctx))
+	s.seedTick(ctx, s.Settings(ctx), tetherTickInterval)
 	s.decayTethers(ctx, s.Settings(ctx))
 	if err := store.DeleteOldNotices(ctx, s.db, s.now().AddDate(0, 0, -noticeKeepDays)); err != nil && ctx.Err() == nil {
 		slog.Error("E1900 notice cleanup failed", "err", err)

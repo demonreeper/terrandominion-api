@@ -30,6 +30,8 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 	if radiusM <= 0 || radiusM > limit {
 		radiusM = limit
 	}
+	// Cells this scan touches for the first time get their nodes now (drone strike plan, milestone 0).
+	s.seedScan(ctx, settings, lat, lon, radiusM)
 	nodes, err := store.NearbyNodes(ctx, s.db, playerID, lat, lon, radiusM, 100, settings.HarvestCooldownSec)
 	if err != nil {
 		return nil, err

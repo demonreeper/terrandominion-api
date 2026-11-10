@@ -98,6 +98,30 @@ type Settings struct {
 	DroneMinFlightSec float64
 	CellsDrone        int
 
+	// Node seeding (drone strike plan, milestone 0).
+	SeedCellM         float64
+	SeedPerCell       int
+	SeedPathPerNodeM  float64
+	SeedSnapM         float64
+	SeedMinGapM       float64
+	SeedTnGapM        float64
+	SeedRegenPerHour  float64
+	SeedWeightCrystal int
+	SeedWeightAlloy   int
+	SeedWeightData    int
+	SeedWeightCredit  int
+	SeedYieldCrystal  int
+	SeedYieldAlloy    int
+	SeedYieldData     int
+	SeedYieldCredit   int
+	SeedCellsPerScan  int
+	SeedTopUpPerTick  int
+	SeedTopUpMinutes  float64
+	RarePerKm2Day     float64
+	RareMinHours      float64
+	RareMaxHours      float64
+	RareYieldMult     float64
+
 	PushEnabled               int
 	PushAttackThrottleMinutes int
 	PushMaxAgeMinutes         int
@@ -192,6 +216,29 @@ func DefaultSettings() Settings {
 		DroneSpeedMps:     15,
 		DroneMinFlightSec: 20,
 		CellsDrone:        1,
+
+		SeedCellM:         250,
+		SeedPerCell:       4,
+		SeedPathPerNodeM:  40,
+		SeedSnapM:         15,
+		SeedMinGapM:       25,
+		SeedTnGapM:        10,
+		SeedRegenPerHour:  0.05,
+		SeedWeightCrystal: 4,
+		SeedWeightAlloy:   3,
+		SeedWeightData:    2,
+		SeedWeightCredit:  1,
+		SeedYieldCrystal:  12,
+		SeedYieldAlloy:    10,
+		SeedYieldData:     6,
+		SeedYieldCredit:   8,
+		SeedCellsPerScan:  4,
+		SeedTopUpPerTick:  10,
+		SeedTopUpMinutes:  30,
+		RarePerKm2Day:     0.25,
+		RareMinHours:      2,
+		RareMaxHours:      4,
+		RareYieldMult:     3,
 
 		PushEnabled:               1,
 		PushAttackThrottleMinutes: 10,
@@ -302,6 +349,28 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("DroneSpeedMps", &s.DroneSpeedMps)
 	f("DroneMinFlightSec", &s.DroneMinFlightSec)
 	i("CellsDrone", &s.CellsDrone)
+	f("SeedCellM", &s.SeedCellM)
+	i("SeedPerCell", &s.SeedPerCell)
+	f("SeedPathPerNodeM", &s.SeedPathPerNodeM)
+	f("SeedSnapM", &s.SeedSnapM)
+	f("SeedMinGapM", &s.SeedMinGapM)
+	f("SeedTnGapM", &s.SeedTnGapM)
+	f("SeedRegenPerHour", &s.SeedRegenPerHour)
+	i("SeedWeightCrystal", &s.SeedWeightCrystal)
+	i("SeedWeightAlloy", &s.SeedWeightAlloy)
+	i("SeedWeightData", &s.SeedWeightData)
+	i("SeedWeightCredit", &s.SeedWeightCredit)
+	i("SeedYieldCrystal", &s.SeedYieldCrystal)
+	i("SeedYieldAlloy", &s.SeedYieldAlloy)
+	i("SeedYieldData", &s.SeedYieldData)
+	i("SeedYieldCredit", &s.SeedYieldCredit)
+	i("SeedCellsPerScan", &s.SeedCellsPerScan)
+	i("SeedTopUpPerTick", &s.SeedTopUpPerTick)
+	f("SeedTopUpMinutes", &s.SeedTopUpMinutes)
+	f("RarePerKm2Day", &s.RarePerKm2Day)
+	f("RareMinHours", &s.RareMinHours)
+	f("RareMaxHours", &s.RareMaxHours)
+	f("RareYieldMult", &s.RareYieldMult)
 	i("PushEnabled", &s.PushEnabled)
 	i("PushAttackThrottleMinutes", &s.PushAttackThrottleMinutes)
 	i("PushMaxAgeMinutes", &s.PushMaxAgeMinutes)

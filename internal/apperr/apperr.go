@@ -152,5 +152,7 @@ var (
 	PushNoToken       = def(1742, http.StatusConflict, "No phone is registered for notifications.")
 	PushFailed        = def(1743, http.StatusBadGateway, "The notification could not be sent.")
 
+	SeedNoMap = def(1750, http.StatusServiceUnavailable, "The map data for seeding hasn't been imported yet.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

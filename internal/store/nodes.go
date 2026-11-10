@@ -28,6 +28,10 @@ type Node struct {
 	HeldByMe      bool       `json:"heldByMe,omitempty"`
 	HeldByOther   bool       `json:"heldByOther,omitempty"`
 
+	// Rare roaming nodes: higher yield, gone at ExpiresAt.
+	Rare      bool       `json:"rare,omitempty"`
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+
 	Yield  int    `json:"-"`
 	Status string `json:"-"`
 }
@@ -39,7 +43,7 @@ func NearbyNodes(ctx context.Context, q db.Querier, playerID int64, lat, lon, ra
 	rows, err := q.QueryContext(ctx, `
 		WITH here AS (SELECT ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography AS g)
 		SELECT n.id, n.name, n.resource, ST_Y(n.location::geometry), ST_X(n.location::geometry),
-		       n.reserve, ST_Distance(n.location, here.g),
+		       n.reserve, ST_Distance(n.location, here.g), n.source = 'rare', n.expires_at,
 		       COALESCE(GREATEST(0, CEIL(EXTRACT(EPOCH FROM
 		           (h.last_at + make_interval(secs => $6)) - now())))::int, 0)
 		FROM td.nodes n
@@ -59,7 +63,7 @@ func NearbyNodes(ctx context.Context, q db.Querier, playerID int64, lat, lon, ra
 	out := make([]Node, 0, limit)
 	for rows.Next() {
 		var n Node
-		if err := rows.Scan(&n.ID, &n.Name, &n.Resource, &n.Lat, &n.Lon, &n.Reserve, &n.DistanceM, &n.ReadyInS); err != nil {
+		if err := rows.Scan(&n.ID, &n.Name, &n.Resource, &n.Lat, &n.Lon, &n.Reserve, &n.DistanceM, &n.Rare, &n.ExpiresAt, &n.ReadyInS); err != nil {
 			return nil, err
 		}
 		out = append(out, n)
@@ -147,10 +151,11 @@ func LastHarvestFix(ctx context.Context, q db.Querier, playerID int64) (*LastFix
 	return &f, nil
 }
 
-// DepletedNodes lists active nodes whose reserve has fallen below the threshold.
+// DepletedNodes lists active nodes whose reserve has fallen below the threshold. Rare nodes are
+// left out: they end instead of respawning (RetireEndedNodes).
 func DepletedNodes(ctx context.Context, q db.Querier, threshold float64) ([]int64, error) {
 	rows, err := q.QueryContext(ctx,
-		`SELECT id FROM td.nodes WHERE status = 'active' AND reserve < $1 ORDER BY id`, threshold)
+		`SELECT id FROM td.nodes WHERE status = 'active' AND reserve < $1 AND source <> 'rare' ORDER BY id`, threshold)
 	if err != nil {
 		return nil, err
 	}
@@ -192,19 +197,22 @@ type NewNode struct {
 	RegionCode   string  `json:"regionCode"`
 	Yield        int     `json:"yield"`
 	RegenPerHour float64 `json:"regenPerHour"`
-	// Source records where a node came from: manual (default), scatter (test nodes), osm.
-	Source string `json:"-"`
+	// Source records where a node came from: manual (default), scatter (test nodes), seed (the
+	// seeder; SourceRef is its cell), rare (rare roaming nodes, which end at ExpiresAt).
+	Source    string     `json:"-"`
+	SourceRef string     `json:"-"`
+	ExpiresAt *time.Time `json:"-"`
 }
 
 func CreateNode(ctx context.Context, q db.Querier, n NewNode, adminID int64) (int64, error) {
 	var id int64
 	err := q.QueryRowContext(ctx, `
 		INSERT INTO td.nodes (name, resource, location, region_code, yield_per_harvest, regen_per_hour,
-		                      created_by, source)
-		VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, NULLIF($5, ''), $6, $7, $8,
-		        COALESCE(NULLIF($9, ''), 'manual'))
+		                      created_by, source, source_ref, expires_at)
+		VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, NULLIF($5, ''), $6, $7,
+		        NULLIF($8, 0), COALESCE(NULLIF($9, ''), 'manual'), NULLIF($10, ''), $11)
 		RETURNING id`, n.Name, n.Resource, n.Lat, n.Lon, n.RegionCode, n.Yield, n.RegenPerHour, adminID,
-		n.Source).Scan(&id)
+		n.Source, n.SourceRef, n.ExpiresAt).Scan(&id)
 	return id, err
 }
 
