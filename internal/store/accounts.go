@@ -41,10 +41,12 @@ func DueDeletions(ctx context.Context, q db.Querier, limit int) ([]int64, error)
 	return out, rows.Err()
 }
 
+// LeadsFaction says whether the player commands a region of a faction (their branch's leader).
 func LeadsFaction(ctx context.Context, q db.Querier, playerID int64) (bool, error) {
 	var leads bool
-	err := q.QueryRowContext(ctx,
-		`SELECT EXISTS (SELECT 1 FROM td.factions WHERE leader_player_id = $1)`, playerID).Scan(&leads)
+	err := q.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM td.faction_branches WHERE leader_player_id = $1)
+		    OR EXISTS (SELECT 1 FROM td.factions WHERE leader_player_id = $1)`, playerID).Scan(&leads)
 	return leads, err
 }
 

@@ -158,9 +158,14 @@ Contest notices have `tnId` null.
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/factions` | All factions with status, leader and member count |
-| POST | `/factions/{code}/lead` | Claim a dormant faction (first to claim leads) |
-| POST | `/factions/{code}/join` | Join an active faction |
+| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leaderName` (the Regional Commander here, empty when nobody holds it), `members` (here), `region` |
+| POST | `/factions/{code}/lead` | Claim regional command of the faction in your region (one Regional Commander per faction per country; first to claim wins). Rank 90. Returns the membership |
+| POST | `/factions/{code}/join` | Join the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership |
+
+Memberships (here and `faction` on `/me`) carry `factionId, factionCode, factionName, rank, branchId,
+region, rankTitle`. `/me` also lists `badges`: `[{badge, factionCode, factionName, region}]`; `founder`
+goes to the first player ever to command a faction's branch in a country, and is permanent. Ranks: 1 Member, 50 Warden, 90 Regional Commander; 100 is the shared lore AI
+above every faction (internal name `signal`; players see a separate commander per faction), never a player.
 
 ## Admin (admin accounts only)
 | Method | Path | Body | Notes |
@@ -200,11 +205,11 @@ never reads as inside the range).
 | 1204 | Carry capacity full | |
 | 1205 | Location implausible (travel speed) | |
 | 1206 | Node not available | |
-| 1300 | Faction dormant (locked) | |
+| 1300 | No Regional Commander for this faction in your region yet (join) | |
 | 1301 | Level too low (factions, gear craft and upgrade) | `needLevel, level` |
 | 1302 | Already in a faction | |
-| 1303 | Faction already has a leader | |
-| 1304 | Faction already active | |
+| 1303 | Faction already has a Regional Commander in your region | |
+| 1304 | (unused since regional command) Faction already active | |
 | 1305 | (log only) account cleanup skipped a faction head | |
 | 1402 | Base too close to the same faction's base | |
 | 1403 | Base too close to another faction's base | |

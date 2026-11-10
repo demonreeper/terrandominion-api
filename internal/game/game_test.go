@@ -81,16 +81,35 @@ func TestHarvestRules(t *testing.T) {
 func TestFactionRules(t *testing.T) {
 	s := DefaultSettings()
 	ready := PlayerFactionState{Level: 20}
-	if err := CanLead(ready, FactionState{Locked: true}, s); err != nil {
-		t.Fatalf("should be able to lead: %v", err)
+	open, held := BranchState{}, BranchState{HasCommander: true}
+	if err := CanClaimRegion(ready, open, s); err != nil {
+		t.Fatalf("should be able to claim regional command: %v", err)
 	}
-	if err := CanLead(PlayerFactionState{Level: 5}, FactionState{Locked: true}, s); !isErr(err, apperr.FactionLevelLow) {
+	if err := CanClaimRegion(PlayerFactionState{Level: 5}, open, s); !isErr(err, apperr.FactionLevelLow) {
 		t.Fatalf("expected level too low, got %v", err)
 	}
-	if err := CanJoin(ready, FactionState{Locked: true}, s); !isErr(err, apperr.FactionLocked) {
-		t.Fatalf("expected locked, got %v", err)
+	if err := CanClaimRegion(ready, held, s); !isErr(err, apperr.FactionClaimed) {
+		t.Fatalf("one Regional Commander per region, got %v", err)
 	}
-	if err := CanJoin(ready, FactionState{Locked: false, HasLeader: true}, s); err != nil {
+	if err := CanClaimRegion(PlayerFactionState{Level: 20, InFaction: true}, open, s); !isErr(err, apperr.FactionMemberAlready) {
+		t.Fatalf("already in a faction, got %v", err)
+	}
+	if err := CanJoin(ready, open, s); !isErr(err, apperr.FactionLocked) {
+		t.Fatalf("no Regional Commander yet, got %v", err)
+	}
+	if err := CanJoin(ready, held, s); err != nil {
 		t.Fatalf("should be able to join: %v", err)
+	}
+}
+
+func TestRankTitles(t *testing.T) {
+	cases := map[int]string{1: "Member", RankWarden: "Warden", RankRegionalCommander: "Regional Commander", RankHead: "Commander"}
+	for rank, want := range cases {
+		if got := RankTitle(rank); got != want {
+			t.Errorf("rank %d: got %q, want %q", rank, got, want)
+		}
+	}
+	if RegionName(LaunchRegion) != "Maldives" {
+		t.Error("the launch region is the Maldives")
 	}
 }

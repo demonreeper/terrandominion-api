@@ -102,11 +102,12 @@ var (
 	HarvestImplausible = def(1205, http.StatusConflict, "Location could not be confirmed.")
 	NodeInactive       = def(1206, http.StatusNotFound, "This node is not available.")
 
-	FactionLocked        = def(1300, http.StatusConflict, "This faction is dormant until a leader claims it.")
+	FactionLocked        = def(1300, http.StatusConflict, "This faction has no Regional Commander here yet. Claim regional command first.")
 	FactionLevelLow      = def(1301, http.StatusConflict, "Your level is too low for that.") // data: needLevel, level
 	FactionMemberAlready = def(1302, http.StatusConflict, "You already belong to a faction.")
-	FactionClaimed       = def(1303, http.StatusConflict, "This faction already has a leader.")
-	FactionNotLocked     = def(1304, http.StatusConflict, "This faction is already active.")
+	FactionClaimed       = def(1303, http.StatusConflict, "This faction already has a Regional Commander here.")
+	// 1304 is no longer used: a faction is claimed per region, so an active one can still be claimed elsewhere.
+	FactionNotLocked = def(1304, http.StatusConflict, "This faction is already active.")
 	// 1305 is log-only: account cleanup skipped a faction head (succession is decided by hand).
 
 	BaseSpacingSame  = def(1402, http.StatusConflict, "Too close to another of your faction's bases.")

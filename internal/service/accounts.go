@@ -269,10 +269,12 @@ type MeView struct {
 	Recipes           []game.Recipe         `json:"recipes"`
 	CraftableGear     []store.CraftableGear `json:"craftableGear"`
 	Faction           *store.Membership     `json:"faction"`
-	Freelancer        bool                  `json:"freelancer"`
-	PushAttacks       bool                  `json:"pushAttacks"`
-	PushResults       bool                  `json:"pushResults"`
-	DeleteAfter       *time.Time            `json:"deleteAfter,omitempty"`
+	// Badges are permanent marks, such as Founder of a faction's branch in a country.
+	Badges      []store.Badge `json:"badges"`
+	Freelancer  bool          `json:"freelancer"`
+	PushAttacks bool          `json:"pushAttacks"`
+	PushResults bool          `json:"pushResults"`
+	DeleteAfter *time.Time    `json:"deleteAfter,omitempty"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -322,6 +324,11 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
+	describeMembership(membership)
+	badges, err := store.Badges(ctx, q, playerID)
+	if err != nil {
+		return nil, err
+	}
 
 	pushAttacks, pushResults, err := store.PushPrefs(ctx, q, playerID)
 	if err != nil {
@@ -333,7 +340,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,
-		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Freelancer: membership == nil,
+		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Badges: badges, Freelancer: membership == nil,
 	}
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time

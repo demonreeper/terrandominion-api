@@ -10,27 +10,33 @@ import (
 )
 
 type Faction struct {
-	ID           int        `json:"id"`
-	Code         string     `json:"code"`
-	Name         string     `json:"name"`
-	Motto        string     `json:"motto"`
-	Color        string     `json:"color"`
-	Status       string     `json:"status"`
-	LockedReason string     `json:"lockedReason,omitempty"`
-	LeaderName   string     `json:"leaderName,omitempty"`
-	ClaimedAt    *time.Time `json:"claimedAt,omitempty"`
-	Members      int        `json:"members"`
+	ID           int    `json:"id"`
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Motto        string `json:"motto"`
+	Color        string `json:"color"`
+	Status       string `json:"status"`
+	LockedReason string `json:"lockedReason,omitempty"`
+	// LeaderName is the faction's Regional Commander in the asked region (empty when nobody holds it).
+	LeaderName string     `json:"leaderName,omitempty"`
+	Region     string     `json:"region"`
+	ClaimedAt  *time.Time `json:"claimedAt,omitempty"`
+	Members    int        `json:"members"`
 
 	LeaderID sql.NullInt64 `json:"-"`
 }
 
-func ListFactions(ctx context.Context, q db.Querier) ([]Faction, error) {
+// ListFactions lists every faction with its Regional Commander in one region (a country) and its
+// members there. A faction is active once any region of it has a commander.
+func ListFactions(ctx context.Context, q db.Querier, region string) ([]Faction, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT f.id, f.code, f.name, f.motto, f.color, f.status, f.locked_reason,
 		       COALESCE(p.display_name, ''), f.claimed_at,
-		       (SELECT count(*) FROM td.faction_members m WHERE m.faction_id = f.id)
-		FROM td.factions f LEFT JOIN td.players p ON p.id = f.leader_player_id
-		ORDER BY f.sort`)
+		       (SELECT count(*) FROM td.faction_members m WHERE m.faction_id = f.id AND m.branch_id = b.id)
+		FROM td.factions f
+		LEFT JOIN td.faction_branches b ON b.faction_id = f.id AND b.country_code = $1::text AND b.region_code = $1::text
+		LEFT JOIN td.players p ON p.id = b.leader_player_id
+		ORDER BY f.sort`, region)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +55,7 @@ func ListFactions(ctx context.Context, q db.Querier) ([]Faction, error) {
 		if f.Status != "locked" {
 			f.LockedReason = ""
 		}
+		f.Region = region
 		out = append(out, f)
 	}
 	return out, rows.Err()
@@ -66,12 +73,34 @@ func FactionByCodeForUpdate(ctx context.Context, q db.Querier, code string) (Fac
 	return f, err
 }
 
-// ClaimFaction wakes a locked faction under its first leader. The WHERE clause is the real guard:
+// Branch is a faction's presence in one region (a country). FoundedBy is its first commander ever.
+type Branch struct {
+	ID        int64
+	LeaderID  sql.NullInt64
+	FoundedBy sql.NullInt64
+}
+
+// BranchForUpdate makes the faction's branch in a region if it is new and locks it.
+func BranchForUpdate(ctx context.Context, q db.Querier, factionID int, region, name string) (Branch, error) {
+	if _, err := q.ExecContext(ctx, `
+		INSERT INTO td.faction_branches (faction_id, country_code, region_code, name) VALUES ($1, $2::text, $2::text, $3)
+		ON CONFLICT (faction_id, country_code, region_code) DO NOTHING`, factionID, region, name); err != nil {
+		return Branch{}, err
+	}
+	var b Branch
+	err := q.QueryRowContext(ctx, `
+		SELECT id, leader_player_id, founded_by FROM td.faction_branches
+		WHERE faction_id = $1 AND country_code = $2::text AND region_code = $2::text FOR UPDATE`, factionID, region).
+		Scan(&b.ID, &b.LeaderID, &b.FoundedBy)
+	return b, err
+}
+
+// ClaimBranch makes a player the branch's Regional Commander. The WHERE clause is the real guard:
 // if two players race, only one update matches and the other sees false.
-func ClaimFaction(ctx context.Context, q db.Querier, factionID int, playerID int64) (bool, error) {
+func ClaimBranch(ctx context.Context, q db.Querier, branchID, playerID int64) (bool, error) {
 	res, err := q.ExecContext(ctx, `
-		UPDATE td.factions SET status = 'active', leader_player_id = $2, claimed_at = now()
-		WHERE id = $1 AND status = 'locked' AND leader_player_id IS NULL`, factionID, playerID)
+		UPDATE td.faction_branches SET leader_player_id = $2
+		WHERE id = $1 AND leader_player_id IS NULL`, branchID, playerID)
 	if err != nil {
 		return false, err
 	}
@@ -79,10 +108,57 @@ func ClaimFaction(ctx context.Context, q db.Querier, factionID int, playerID int
 	return n == 1, err
 }
 
-func AddMember(ctx context.Context, q db.Querier, playerID int64, factionID int, rank int) error {
+// FoundBranch records the branch's first commander and gives them the permanent Founder badge.
+func FoundBranch(ctx context.Context, q db.Querier, branchID, playerID int64, factionID int, region string) error {
+	if _, err := q.ExecContext(ctx,
+		`UPDATE td.faction_branches SET founded_by = $2 WHERE id = $1 AND founded_by IS NULL`, branchID, playerID); err != nil {
+		return err
+	}
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_badges (player_id, badge, faction_id, region) VALUES ($1, 'founder', $2, $3::text)
+		ON CONFLICT DO NOTHING`, playerID, factionID, region)
+	return err
+}
+
+// Badge is a permanent mark a player earned, such as founding a faction's branch in a country.
+type Badge struct {
+	Badge       string `json:"badge"`
+	FactionCode string `json:"factionCode"`
+	FactionName string `json:"factionName"`
+	Region      string `json:"region"`
+}
+
+// Badges lists a player's badges, oldest first.
+func Badges(ctx context.Context, q db.Querier, playerID int64) ([]Badge, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT b.badge, f.code, f.name, b.region FROM td.player_badges b JOIN td.factions f ON f.id = b.faction_id
+		WHERE b.player_id = $1 ORDER BY b.earned_at`, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]Badge, 0, 2)
+	for rows.Next() {
+		var b Badge
+		if err := rows.Scan(&b.Badge, &b.FactionCode, &b.FactionName, &b.Region); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// WakeFaction marks a faction active when its first region is claimed.
+func WakeFaction(ctx context.Context, q db.Querier, factionID int) error {
+	_, err := q.ExecContext(ctx, `
+		UPDATE td.factions SET status = 'active', claimed_at = COALESCE(claimed_at, now()) WHERE id = $1`, factionID)
+	return err
+}
+
+func AddMember(ctx context.Context, q db.Querier, playerID int64, factionID int, branchID int64, rank int) error {
 	_, err := q.ExecContext(ctx,
-		`INSERT INTO td.faction_members (player_id, faction_id, rank) VALUES ($1, $2, $3)`,
-		playerID, factionID, rank)
+		`INSERT INTO td.faction_members (player_id, faction_id, branch_id, rank) VALUES ($1, $2, $3, $4)`,
+		playerID, factionID, branchID, rank)
 	return err
 }
 
@@ -92,6 +168,9 @@ type Membership struct {
 	FactionName string `json:"factionName"`
 	Rank        int    `json:"rank"`
 	BranchID    *int64 `json:"branchId,omitempty"`
+	// Region is the branch's country (MV); RankTitle names the rank. Filled by the service.
+	Region    string `json:"region,omitempty"`
+	RankTitle string `json:"rankTitle,omitempty"`
 }
 
 // MembershipOf returns nil for a freelancer.
@@ -99,9 +178,10 @@ func MembershipOf(ctx context.Context, q db.Querier, playerID int64) (*Membershi
 	var m Membership
 	var branch sql.NullInt64
 	err := q.QueryRowContext(ctx, `
-		SELECT f.id, f.code, f.name, m.rank, m.branch_id
+		SELECT f.id, f.code, f.name, m.rank, m.branch_id, COALESCE(b.country_code, '')
 		FROM td.faction_members m JOIN td.factions f ON f.id = m.faction_id
-		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.Rank, &branch)
+		LEFT JOIN td.faction_branches b ON b.id = m.branch_id
+		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.Rank, &branch, &m.Region)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
