@@ -73,7 +73,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to stored, and frees its nodes. Returns `refund, held, stored` |
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to stored. Returns `moved, stored` |
 | POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. Returns `health`, `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only) |
-| POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay, range from its stats, attack rules apply, uses `CellsDrone`. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `arrivesAt, distanceM` |
+| POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay; range is the bay's `stats.range_m` (Mk I 150 m) plus the fix's accuracy (at most doubling it), else 1712 with `distanceM, rangeM`. Attack rules apply, uses `CellsDrone`. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `arrivesAt, distanceM` |
 | POST | `/tethers/{id}/defuse` | `lat, lon, accuracyM` | Owner only, in range, before the fuse ends |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's stored inventory, less the charge paid to the owner. Returns `moved` (what went into storage this time), `fee`, `carried`, `stored` (new totals) |
 
