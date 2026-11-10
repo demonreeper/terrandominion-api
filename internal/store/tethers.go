@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/db"
@@ -506,4 +507,83 @@ func EndTether(ctx context.Context, q db.Querier, id int64, status string) error
 	}
 	_, err := q.ExecContext(ctx, `DELETE FROM td.tether_links WHERE tn_id = $1`, id)
 	return err
+}
+
+// MyTetherLink is one node a player's own Tether Node links.
+type MyTetherLink struct {
+	NodeID   int64  `json:"nodeId"`
+	Resource string `json:"resource"`
+	Name     string `json:"name"`
+}
+
+// MyTether is one of the player's own Tether Nodes, for the My Tether Nodes screen. Timers are null
+// when not running; EndedAt is null while active. MaxHealth is filled by the service.
+type MyTether struct {
+	ID             int64            `json:"id"`
+	Name           string           `json:"name"`
+	Tier           int              `json:"tier"`
+	Lat            float64          `json:"lat"`
+	Lon            float64          `json:"lon"`
+	Health         float64          `json:"health"`
+	MaxHealth      float64          `json:"maxHealth"`
+	ExpiresAt      time.Time        `json:"expiresAt"`
+	Status         string           `json:"status"`
+	EndedAt        *time.Time       `json:"endedAt"`
+	Stock          map[string]int64 `json:"stock"`
+	Links          []MyTetherLink   `json:"links"`
+	JammedUntil    *time.Time       `json:"jammedUntil"`
+	SpikeFiresAt   *time.Time       `json:"spikeFiresAt"`
+	DroneArrivesAt *time.Time       `json:"droneArrivesAt"`
+	AttackedAt     *time.Time       `json:"attackedAt"`
+	UnderAttack    bool             `json:"underAttack"`
+}
+
+// MyTethers lists every Tether Node a player owns that is active or ended within endedWithin,
+// wherever it is. One hit within attackWindow counts as under attack; placeRadiusM is how far to
+// look for a node to name an ended one by.
+func MyTethers(ctx context.Context, q db.Querier, ownerID int64, endedWithin, attackWindow time.Duration,
+	placeRadiusM float64) ([]MyTether, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT t.id, `+fmt.Sprintf(tetherPlaceSQL, "$4")+`, t.tier,
+		       ST_Y(t.location::geometry), ST_X(t.location::geometry), t.health, t.expires_at, t.status, t.ended_at,
+		       COALESCE((SELECT jsonb_object_agg(s.resource, s.amount) FROM td.tether_stock s
+		                 WHERE s.tn_id = t.id AND s.amount > 0), '{}'::jsonb),
+		       COALESCE((SELECT jsonb_agg(jsonb_build_object('nodeId', n.id, 'resource', n.resource, 'name', n.name)
+		                 ORDER BY l.slot)
+		                 FROM td.tether_links l JOIN td.nodes n ON n.id = l.node_id WHERE l.tn_id = t.id), '[]'::jsonb),
+		       CASE WHEN t.status = 'active' AND t.jammed_until > now() THEN t.jammed_until END,
+		       (SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
+		       (SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
+		       t.attacked_at,
+		       COALESCE(t.status = 'active' AND t.attacked_at > now() - make_interval(secs => $3), false)
+		FROM td.tether_nodes t
+		WHERE t.owner_id = $1
+		  AND (t.status = 'active' OR t.ended_at >= now() - make_interval(secs => $2))`,
+		ownerID, endedWithin.Seconds(), attackWindow.Seconds(), placeRadiusM)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]MyTether, 0, 4)
+	for rows.Next() {
+		var t MyTether
+		var status string
+		var ended, jammed, spike, drone, attacked sql.NullTime
+		var stock, links []byte
+		if err := rows.Scan(&t.ID, &t.Name, &t.Tier, &t.Lat, &t.Lon, &t.Health, &t.ExpiresAt, &status, &ended,
+			&stock, &links, &jammed, &spike, &drone, &attacked, &t.UnderAttack); err != nil {
+			return nil, err
+		}
+		t.Status = status
+		t.EndedAt, t.JammedUntil, t.SpikeFiresAt = timePtr(ended), timePtr(jammed), timePtr(spike)
+		t.DroneArrivesAt, t.AttackedAt = timePtr(drone), timePtr(attacked)
+		if err := json.Unmarshal(stock, &t.Stock); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(links, &t.Links); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }

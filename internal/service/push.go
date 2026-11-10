@@ -29,10 +29,14 @@ type pushSender interface {
 }
 
 // notify records a notice inside the action's own transaction, so a failed action never pushes.
-// tetherID is 0 when the notice is not about a Tether Node.
-func notify(ctx context.Context, tx *sql.Tx, playerID, tetherID int64, kind, body string) error {
-	return store.InsertNotice(ctx, tx, playerID, tetherID, kind, body, game.NoticePushState(kind))
+// TetherID and ActorID are 0, and Amount nil, when they don't apply.
+func notify(ctx context.Context, tx *sql.Tx, n store.NewNotice) error {
+	n.PushState = game.NoticePushState(n.Kind)
+	return store.InsertNotice(ctx, tx, n)
 }
+
+// amountOf is a notice amount.
+func amountOf(v int64) *int64 { return &v }
 
 // RegisterPushToken remembers this phone for the signed-in session.
 func (s *Service) RegisterPushToken(ctx context.Context, playerID, sessionID int64, token, platform string) error {

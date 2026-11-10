@@ -257,7 +257,7 @@ type MeView struct {
 	IsAdmin           bool                  `json:"isAdmin,omitempty"`
 	Progress          game.Progress         `json:"progress"`
 	Carried           map[string]int64      `json:"carried"`
-	Uploaded          map[string]int64      `json:"uploaded"`
+	Stored            map[string]int64      `json:"stored"`
 	TethersOwned      int                   `json:"tethersOwned"`
 	TetherMax         int                   `json:"tetherMax"`
 	TetherCost        map[string]int64      `json:"tetherCost"`
@@ -331,7 +331,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	me := &MeView{
 		PushAttacks: pushAttacks, PushResults: pushResults,
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
-		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Uploaded: uploaded, TethersOwned: tethersOwned,
+		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Freelancer: membership == nil,
 	}

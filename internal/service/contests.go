@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
@@ -63,6 +62,10 @@ func (s *Service) StartContest(ctx context.Context, playerID, nodeID int64, fix 
 		if err != nil {
 			return err
 		}
+		challenger, err := store.GetPlayer(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
 		if err := spendCells(ctx, tx, playerID, settings.CellsContest); err != nil {
 			return err
 		}
@@ -72,8 +75,8 @@ func (s *Service) StartContest(ctx context.Context, playerID, nodeID int64, fix 
 		if err != nil {
 			return err
 		}
-		body := fmt.Sprintf("%s is being contested. Be within %.0f m in the next minute to defend it.", node.Name, settings.ContestRangeM)
-		if err := notify(ctx, tx, defender, 0, "contest", body); err != nil {
+		body := game.NoticeContest(challenger.DisplayName, node.Name, settings.ContestRangeM, endsAt.Sub(now))
+		if err := notify(ctx, tx, store.NewNotice{PlayerID: defender, ActorID: playerID, Kind: "contest", Body: body}); err != nil {
 			return err
 		}
 		out = ContestOutcome{ID: id, EndsAt: endsAt}
@@ -200,8 +203,10 @@ func (s *Service) finishContest(ctx context.Context, contestID, nodeID int64, se
 
 		challengerScore, defenderScore := game.ContestScore(settings, challenger), game.ContestScore(settings, defender)
 		winner, loser := contest.DefenderID, contest.ChallengerID
+		winnerScore, loserScore := defenderScore, challengerScore
 		if game.ChallengerWins(challengerScore, defenderScore) {
 			winner, loser = contest.ChallengerID, contest.DefenderID
+			winnerScore, loserScore = challengerScore, defenderScore
 		}
 		holdUntil := s.now().Add(time.Duration(settings.ContestHoldMinutes * float64(time.Minute)))
 		if err := store.ResolveContest(ctx, tx, contest, winner, challengerScore, defenderScore,
@@ -209,12 +214,16 @@ func (s *Service) finishContest(ctx context.Context, contestID, nodeID int64, se
 			return err
 		}
 
-		score := fmt.Sprintf("%d to %d", max(challengerScore, defenderScore), min(challengerScore, defenderScore))
-		won := fmt.Sprintf("You won the contest for %s, %s. Its next %d harvests are yours.", node.Name, score, settings.ContestPrizeHarvests)
-		if err := notify(ctx, tx, winner, 0, "contest_won", won); err != nil {
+		winnerName, loserName, err := playerNames(ctx, tx, winner, loser)
+		if err != nil {
 			return err
 		}
-		return notify(ctx, tx, loser, 0, "contest_lost", fmt.Sprintf("You lost the contest for %s, %s.", node.Name, score))
+		won := game.NoticeContestWon(node.Name, loserName, winnerScore, loserScore, settings.ContestPrizeHarvests)
+		if err := notify(ctx, tx, store.NewNotice{PlayerID: winner, ActorID: loser, Kind: "contest_won", Body: won}); err != nil {
+			return err
+		}
+		lost := game.NoticeContestLost(node.Name, winnerName, loserScore, winnerScore)
+		return notify(ctx, tx, store.NewNotice{PlayerID: loser, ActorID: winner, Kind: "contest_lost", Body: lost})
 	})
 }
 

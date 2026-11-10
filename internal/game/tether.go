@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"sort"
+	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 )
@@ -116,16 +117,17 @@ type Payment struct {
 	FromUploaded map[string]int64
 }
 
-// PayCost takes each resource from carried first and uploaded for the rest. Nothing is paid
-// unless the whole cost can be.
+// PayCost takes each resource from carried first and stored (uploaded) for the rest. Nothing is
+// paid unless the whole cost can be; the error says how much of each resource is still missing.
 func PayCost(cost, carried, uploaded map[string]int64) (Payment, *apperr.Error) {
 	pay := Payment{FromCarried: map[string]int64{}, FromUploaded: map[string]int64{}}
+	short := map[string]int64{}
 	for resource, amount := range cost {
-		fromCarried := min(amount, carried[resource])
+		fromCarried := min(amount, max(carried[resource], 0))
 		fromUploaded := amount - fromCarried
-		if fromUploaded > uploaded[resource] {
-			return Payment{}, apperr.TetherCost.With("%s: need %d, have %d carried and %d uploaded",
-				resource, amount, carried[resource], uploaded[resource])
+		if missing := fromUploaded - max(uploaded[resource], 0); missing > 0 {
+			short[resource] = missing
+			continue
 		}
 		if fromCarried > 0 {
 			pay.FromCarried[resource] = fromCarried
@@ -133,6 +135,9 @@ func PayCost(cost, carried, uploaded map[string]int64) (Payment, *apperr.Error) 
 		if fromUploaded > 0 {
 			pay.FromUploaded[resource] = fromUploaded
 		}
+	}
+	if len(short) > 0 {
+		return Payment{}, ShortError(short)
 	}
 	return pay, nil
 }
@@ -152,13 +157,13 @@ type TetherBuildInput struct {
 func EvaluateTetherBuild(in TetherBuildInput) (Payment, *apperr.Error) {
 	s := in.Settings
 	if in.Player.AccuracyM <= 0 || in.Player.AccuracyM > s.HarvestMaxAccuracyM {
-		return Payment{}, apperr.HarvestGPSWeak
+		return Payment{}, GPSWeakError(s, in.Player.AccuracyM)
 	}
 	if err := checkTravel(s, in.LastAnyFix, in.Player); err != nil {
 		return Payment{}, err
 	}
 	if in.ActiveOwned >= s.TnMaxPerPlayer {
-		return Payment{}, apperr.TetherCap
+		return Payment{}, CapError(s.TnMaxPerPlayer)
 	}
 	return PayCost(TetherBuildCost(s), in.Carried, in.Uploaded)
 }
@@ -197,21 +202,21 @@ func CanUseTether(ownerID int64, tetherFaction *int, playerID int64, playerFacti
 // CheckAtTether confirms a player's fix puts them at a Tether Node, on the same terms as a harvest,
 // and returns how far away they are.
 func CheckAtTether(s Settings, player Fix, last *Fix, lat, lon float64) (float64, *apperr.Error) {
-	return checkAtSpot(s, player, last, lat, lon, apperr.TetherTooFar)
+	return checkAtSpot(s, player, last, lat, lon, apperr.TetherTooFar, "the Tether Node")
 }
 
 // CheckAtDrop is the same check for a map drop.
 func CheckAtDrop(s Settings, player Fix, last *Fix, lat, lon float64) (float64, *apperr.Error) {
-	return checkAtSpot(s, player, last, lat, lon, apperr.DropTooFar)
+	return checkAtSpot(s, player, last, lat, lon, apperr.DropTooFar, "the drop")
 }
 
-func checkAtSpot(s Settings, player Fix, last *Fix, lat, lon float64, tooFar *apperr.Error) (float64, *apperr.Error) {
+func checkAtSpot(s Settings, player Fix, last *Fix, lat, lon float64, tooFar *apperr.Error, target string) (float64, *apperr.Error) {
 	if player.AccuracyM <= 0 || player.AccuracyM > s.HarvestMaxAccuracyM {
-		return 0, apperr.HarvestGPSWeak
+		return 0, GPSWeakError(s, player.AccuracyM)
 	}
 	distance := DistanceM(player.Lat, player.Lon, lat, lon)
 	if distance > s.HarvestRangeM+math.Min(player.AccuracyM, s.HarvestRangeM) {
-		return distance, tooFar
+		return distance, RangeError(tooFar, distance, s.HarvestRangeM, target)
 	}
 	return distance, checkTravel(s, last, player)
 }
@@ -309,4 +314,40 @@ func TetherRefund(spent map[string]int64, share float64) map[string]int64 {
 		}
 	}
 	return refund
+}
+
+// TetherUrgency is what decides where a player's own Tether Node sits on the My Tether Nodes list.
+type TetherUrgency struct {
+	Ended       bool
+	UnderAttack bool
+	Threatened  bool // a spike is armed or a drone is inbound
+	Jammed      bool
+	ExpiresAt   time.Time
+	EndedAt     time.Time
+}
+
+func (u TetherUrgency) rank() int {
+	switch {
+	case u.Ended:
+		return 4
+	case u.UnderAttack:
+		return 0
+	case u.Threatened:
+		return 1
+	case u.Jammed:
+		return 2
+	}
+	return 3
+}
+
+// MoreUrgent orders the list: under attack, then spike or drone, then jammed, then the soonest to
+// expire. Ended ones go last, the most recently ended first.
+func MoreUrgent(a, b TetherUrgency) bool {
+	if ra, rb := a.rank(), b.rank(); ra != rb {
+		return ra < rb
+	}
+	if a.Ended {
+		return a.EndedAt.After(b.EndedAt)
+	}
+	return a.ExpiresAt.Before(b.ExpiresAt)
 }

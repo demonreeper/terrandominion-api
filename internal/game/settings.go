@@ -54,6 +54,10 @@ type Settings struct {
 	DropLifetimeHours   float64
 	PvpLevelBand        int
 	ProtectionLossDays  float64
+	// TnUnderAttackMinutes is how long after a hit a Tether Node counts as under attack.
+	TnUnderAttackMinutes float64
+	// TnEndedShowMinutes is how long an ended Tether Node stays on My Tether Nodes.
+	TnEndedShowMinutes float64
 
 	RepairAlloyPerPoint float64
 	CraftCellCrystal    int
@@ -123,30 +127,32 @@ func DefaultSettings() Settings {
 		BaseSpacingSameFactionM:  500,
 		BaseSpacingOtherFactionM: 150,
 
-		TnMaxPerPlayer:      3,
-		TnLinkRadiusM:       150,
-		TnMinSpacingM:       10,
-		TnLinksTier1:        1,
-		TnLinksTier2:        4,
-		TnUpgradeAlloy:      120,
-		TnUpgradeData:       60,
-		TnUpgradeCredit:     40,
-		TnInfoRangeM:        40,
-		TnLifetimeHours:     48,
-		TnMaxHealth:         100,
-		TnDismantleRefund:   0.5,
-		TnOwnerShare:        0.5,
-		TnUploadFee:         0.05,
-		TnBuildCrystal:      80,
-		TnBuildAlloy:        60,
-		TnBuildData:         20,
-		NodeDepletedReserve: 0.10,
-		NodeRespawnMinM:     100,
-		NodeRespawnMaxM:     300,
-		DropLifetimeHours:   24,
-		PvpLevelBand:        5,
-		ProtectionLossDays:  3,
-		XpTnBuild:           20,
+		TnMaxPerPlayer:       3,
+		TnLinkRadiusM:        150,
+		TnMinSpacingM:        10,
+		TnLinksTier1:         1,
+		TnLinksTier2:         4,
+		TnUpgradeAlloy:       120,
+		TnUpgradeData:        60,
+		TnUpgradeCredit:      40,
+		TnInfoRangeM:         40,
+		TnLifetimeHours:      48,
+		TnMaxHealth:          100,
+		TnDismantleRefund:    0.5,
+		TnOwnerShare:         0.5,
+		TnUploadFee:          0.05,
+		TnBuildCrystal:       80,
+		TnBuildAlloy:         60,
+		TnBuildData:          20,
+		NodeDepletedReserve:  0.10,
+		NodeRespawnMinM:      100,
+		NodeRespawnMaxM:      300,
+		DropLifetimeHours:    24,
+		PvpLevelBand:         5,
+		ProtectionLossDays:   3,
+		XpTnBuild:            20,
+		TnUnderAttackMinutes: 10,
+		TnEndedShowMinutes:   60,
 
 		RepairAlloyPerPoint: 0.5,
 		CraftCellCrystal:    10,
@@ -253,6 +259,8 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("PvpLevelBand", &s.PvpLevelBand)
 	f("ProtectionLossDays", &s.ProtectionLossDays)
 	i("XpTnBuild", &s.XpTnBuild)
+	f("TnUnderAttackMinutes", &s.TnUnderAttackMinutes)
+	f("TnEndedShowMinutes", &s.TnEndedShowMinutes)
 
 	f("RepairAlloyPerPoint", &s.RepairAlloyPerPoint)
 	i("CraftCellCrystal", &s.CraftCellCrystal)

@@ -47,20 +47,20 @@ func TestHarvestRules(t *testing.T) {
 
 	far := harvestBase()
 	far.NodeLon = 73.5110 // ~190 m east
-	if _, err := EvaluateHarvest(far); err != apperr.HarvestTooFar {
+	if _, err := EvaluateHarvest(far); !isErr(err, apperr.HarvestTooFar) {
 		t.Fatalf("expected too far, got %v", err)
 	}
 
 	weak := harvestBase()
 	weak.Player.AccuracyM = 120
-	if _, err := EvaluateHarvest(weak); err != apperr.HarvestGPSWeak {
+	if _, err := EvaluateHarvest(weak); !isErr(err, apperr.HarvestGPSWeak) {
 		t.Fatalf("expected weak GPS, got %v", err)
 	}
 
 	cool := harvestBase()
 	last := cool.Player.At.Add(-time.Minute)
 	cool.LastAtNode = &last
-	if _, err := EvaluateHarvest(cool); err != apperr.HarvestCooldown {
+	if _, err := EvaluateHarvest(cool); !isErr(err, apperr.HarvestCooldown) {
 		t.Fatalf("expected cooldown, got %v", err)
 	}
 
@@ -84,10 +84,10 @@ func TestFactionRules(t *testing.T) {
 	if err := CanLead(ready, FactionState{Locked: true}, s); err != nil {
 		t.Fatalf("should be able to lead: %v", err)
 	}
-	if err := CanLead(PlayerFactionState{Level: 5}, FactionState{Locked: true}, s); err != apperr.FactionLevelLow {
+	if err := CanLead(PlayerFactionState{Level: 5}, FactionState{Locked: true}, s); !isErr(err, apperr.FactionLevelLow) {
 		t.Fatalf("expected level too low, got %v", err)
 	}
-	if err := CanJoin(ready, FactionState{Locked: true}, s); err != apperr.FactionLocked {
+	if err := CanJoin(ready, FactionState{Locked: true}, s); !isErr(err, apperr.FactionLocked) {
 		t.Fatalf("expected locked, got %v", err)
 	}
 	if err := CanJoin(ready, FactionState{Locked: false, HasLeader: true}, s); err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -39,7 +38,7 @@ func spendWeaponCost(ctx context.Context, tx *sql.Tx, playerID int64, weapon gam
 		return err
 	}
 	if !ok {
-		return apperr.ItemMissing.With("%s", weapon.ID)
+		return game.ItemError(weapon.ID, weapon.Name)
 	}
 	return spendCells(ctx, tx, playerID, weapon.Cells)
 }
@@ -53,31 +52,45 @@ func spendCells(ctx context.Context, tx *sql.Tx, playerID int64, cells int) erro
 		return err
 	}
 	if !ok {
-		return apperr.NoCells
+		items, err := store.Items(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
+		return game.CellsError(cells, int(items[game.ItemCell]))
 	}
 	return nil
+}
+
+// attackTarget is what an attack knows once the rules have let it through.
+type attackTarget struct {
+	OwnerID         int64
+	OwnerName       string
+	AttackerName    string
+	Tether          store.TetherState
+	LosesProtection bool
 }
 
 // prepareAttack locks both players (lowest id first) and then the Tether Node, the same order as
 // the tick and uploads, and applies the attack rules.
 func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tetherID int64,
-	settings game.Settings) (int64, store.TetherState, bool, error) {
+	settings game.Settings) (attackTarget, error) {
+	var out attackTarget
 	ownerID, err := store.TetherOwner(ctx, tx, tetherID)
 	if errors.Is(err, store.ErrNotFound) {
-		return 0, store.TetherState{}, false, apperr.TetherGone
+		return out, apperr.TetherGone
 	}
 	if err != nil {
-		return 0, store.TetherState{}, false, err
+		return out, err
 	}
 	first, second := min(attackerID, ownerID), max(attackerID, ownerID)
 	firstPlayer, err := store.GetPlayerForUpdate(ctx, tx, first)
 	if err != nil {
-		return 0, store.TetherState{}, false, err
+		return out, err
 	}
 	secondPlayer := firstPlayer
 	if second != first {
 		if secondPlayer, err = store.GetPlayerForUpdate(ctx, tx, second); err != nil {
-			return 0, store.TetherState{}, false, err
+			return out, err
 		}
 	}
 	attacker, owner := firstPlayer, secondPlayer
@@ -87,14 +100,14 @@ func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tet
 
 	tether, err := store.TetherForUpdate(ctx, tx, tetherID)
 	if err != nil {
-		return 0, tether, false, err
+		return out, err
 	}
 	if tether.Status != "active" {
-		return 0, tether, false, apperr.TetherGone
+		return out, apperr.TetherGone
 	}
 	membership, err := store.MembershipOf(ctx, tx, attackerID)
 	if err != nil {
-		return 0, tether, false, err
+		return out, err
 	}
 	var attackerFaction *int
 	if membership != nil {
@@ -105,9 +118,12 @@ func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tet
 		OwnerID: ownerID, OwnerLevel: owner.Level, TetherFaction: tether.FactionID,
 	})
 	if ruleErr != nil {
-		return 0, tether, false, ruleErr
+		return out, ruleErr
 	}
-	return ownerID, tether, losesProtection, nil
+	return attackTarget{
+		OwnerID: ownerID, OwnerName: owner.DisplayName, AttackerName: attacker.DisplayName,
+		Tether: tether, LosesProtection: losesProtection,
+	}, nil
 }
 
 // AttackTether uses one weapon on a Tether Node. Players are locked lowest id first, then the node,
@@ -124,10 +140,11 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 	var out AttackTetherOutcome
 
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		ownerID, tether, losesProtection, err := s.prepareAttack(ctx, tx, attackerID, tetherID, settings)
+		target, err := s.prepareAttack(ctx, tx, attackerID, tetherID, settings)
 		if err != nil {
 			return err
 		}
+		ownerID, tether := target.OwnerID, target.Tether
 
 		last, err := lastFix(ctx, tx, attackerID)
 		if err != nil {
@@ -145,7 +162,7 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			return err
 		}
 		if weapon.ID == game.WeaponJammer && combat.JammedUntil.Valid && combat.JammedUntil.Time.After(now) {
-			return apperr.AlreadyJammed
+			return apperr.AlreadyJammed.WithData(map[string]any{"jammedUntil": combat.JammedUntil.Time})
 		}
 		if weapon.ID == game.WeaponSpike && combat.SpikeArmed {
 			return apperr.SpikeArmed
@@ -154,10 +171,11 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			return err
 		}
 
-		place, err := store.TetherPlace(ctx, tx, tetherID)
+		place, err := store.TetherPlace(ctx, tx, tetherID, settings.TnLinkRadiusM)
 		if err != nil {
 			return err
 		}
+		toOwner := store.NewNotice{PlayerID: ownerID, TetherID: tetherID, ActorID: attackerID}
 		switch weapon.ID {
 		case game.WeaponEmPulse:
 			health, err := store.DamageTether(ctx, tx, tetherID, weapon.Damage)
@@ -168,14 +186,16 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
+			toOwner.Amount = amountOf(game.Damage(weapon.Damage))
 			if out.Destroyed {
 				if err := s.endTether(ctx, tx, tetherID, tether, "destroyed", settings); err != nil {
 					return err
 				}
-				if err := notify(ctx, tx, ownerID, tetherID, "destroyed", capitalize(place)+" was destroyed."); err != nil {
-					return err
-				}
-			} else if err := notify(ctx, tx, ownerID, tetherID, "attacked", capitalize(place)+" is under attack."); err != nil {
+				toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(target.AttackerName, weapon.Name, place)
+			} else {
+				toOwner.Kind, toOwner.Body = "attacked", game.NoticeHit(target.AttackerName, weapon.Name, place, *toOwner.Amount)
+			}
+			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
 			}
 		case game.WeaponJammer:
@@ -187,7 +207,8 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
-			if err := notify(ctx, tx, ownerID, tetherID, "jammed", capitalize(place)+" was jammed."); err != nil {
+			toOwner.Kind, toOwner.Body = "jammed", game.NoticeJammed(target.AttackerName, place, weapon.Jam)
+			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
 			}
 		case game.WeaponSpike:
@@ -199,13 +220,14 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
-			body := fmt.Sprintf("A spike was planted on %s. %d min to defuse.", place, int(weapon.Fuse.Minutes()))
-			if err := notify(ctx, tx, ownerID, tetherID, "spike", body); err != nil {
+			toOwner.Kind, toOwner.Amount = "spike", amountOf(game.Damage(weapon.Damage))
+			toOwner.Body = game.NoticeSpikePlanted(target.AttackerName, place, weapon.Fuse, *toOwner.Amount)
+			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
 			}
 		}
 
-		if losesProtection {
+		if target.LosesProtection {
 			until := now.Add(time.Duration(settings.ProtectionLossDays * 24 * float64(time.Hour)))
 			if err := store.LoseProtection(ctx, tx, attackerID, until); err != nil {
 				return err
@@ -242,6 +264,10 @@ func (s *Service) DefuseSpike(ctx context.Context, playerID, tetherID int64, fix
 		if tether.OwnerID != playerID {
 			return apperr.TetherNotOwner
 		}
+		owner, err := store.GetPlayer(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
 		last, err := lastFix(ctx, tx, playerID)
 		if err != nil {
 			return err
@@ -257,7 +283,14 @@ func (s *Service) DefuseSpike(ctx context.Context, playerID, tetherID int64, fix
 		if err != nil {
 			return err
 		}
-		return notify(ctx, tx, planter, tetherID, "defused", "Your spike was defused.")
+		place, err := store.TetherPlace(ctx, tx, tetherID, settings.TnLinkRadiusM)
+		if err != nil {
+			return err
+		}
+		return notify(ctx, tx, store.NewNotice{
+			PlayerID: planter, TetherID: tetherID, ActorID: playerID,
+			Kind: "defused", Body: game.NoticeDefused(owner.DisplayName, place),
+		})
 	})
 }
 
@@ -314,7 +347,11 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 		if err != nil || !fired || tether.Status != "active" {
 			return err
 		}
-		place, err := store.TetherPlace(ctx, tx, spike.TetherID)
+		place, err := store.TetherPlace(ctx, tx, spike.TetherID, settings.TnLinkRadiusM)
+		if err != nil {
+			return err
+		}
+		owner, planter, err := playerNames(ctx, tx, spike.OwnerID, spike.PlantedBy)
 		if err != nil {
 			return err
 		}
@@ -325,25 +362,35 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 		if err := store.MarkTetherAttacked(ctx, tx, spike.TetherID); err != nil {
 			return err
 		}
-		if health <= 0 {
+		damage := game.Damage(settings.SpikeDamage)
+		destroyed := health <= 0
+		toOwner := store.NewNotice{PlayerID: spike.OwnerID, TetherID: spike.TetherID, ActorID: spike.PlantedBy,
+			Amount: amountOf(damage), Kind: "spike_fired", Body: game.NoticeHit(planter, "spike", place, damage)}
+		if destroyed {
 			if err := s.endTether(ctx, tx, spike.TetherID, tether, "destroyed", settings); err != nil {
 				return err
 			}
-			if err := notify(ctx, tx, spike.OwnerID, spike.TetherID, "destroyed", capitalize(place)+" was destroyed by a spike."); err != nil {
-				return err
-			}
-			return notify(ctx, tx, spike.PlantedBy, spike.TetherID, "spike_result", "Your spike destroyed the Tether Node.")
+			toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(planter, "spike", place)
 		}
-		if err := notify(ctx, tx, spike.OwnerID, spike.TetherID, "spike_fired", "A spike went off on "+place+"."); err != nil {
+		if err := notify(ctx, tx, toOwner); err != nil {
 			return err
 		}
-		return notify(ctx, tx, spike.PlantedBy, spike.TetherID, "spike_result", "Your spike went off.")
+		return notify(ctx, tx, store.NewNotice{
+			PlayerID: spike.PlantedBy, TetherID: spike.TetherID, ActorID: spike.OwnerID, Amount: amountOf(damage),
+			Kind: "spike_result", Body: game.NoticeResult("spike", owner, place, damage, destroyed),
+		})
 	})
 }
 
-func capitalize(text string) string {
-	if text == "" || text[0] < 'a' || text[0] > 'z' {
-		return text
+// playerNames reads two players' display names, for notice text.
+func playerNames(ctx context.Context, q db.Querier, a, b int64) (string, string, error) {
+	first, err := store.GetPlayer(ctx, q, a)
+	if err != nil {
+		return "", "", err
 	}
-	return string(text[0]-'a'+'A') + text[1:]
+	second, err := store.GetPlayer(ctx, q, b)
+	if err != nil {
+		return "", "", err
+	}
+	return first.DisplayName, second.DisplayName, nil
 }

@@ -3,14 +3,22 @@
 Base URL: `https://<host>/v1`. JSON in and out. Authenticated calls send
 `Authorization: Bearer <accessToken>`.
 
-Every response is either `{"data": ...}` or `{"error": {"code": 1200, "message": "..."}}`. Clients
-switch on the numeric code; the message is for display. Lists are always arrays, never null.
-Request bodies are strict: unknown fields are rejected (E1000), so client typos show up at once.
+Every response is either `{"data": ...}` or `{"error": {"code": 1712, "message": "...", "data": {...}}}`.
+Clients switch on the numeric code. The message is a sentence ready to show ("Move within 40 m. You
+are 62 m away."); the error's `data` holds the numbers behind it (see Error codes), so the app can
+say it its own way. `data` is left out when there is nothing to add. Lists are always arrays, never
+null. Request bodies are strict: unknown fields are rejected (E1000), so client typos show up at once.
+
+Words: **stored** is the player's stored inventory (no carry limit; the `player_uploaded` table).
+**Upload** is the action that moves carried resources into it at a Tether Node.
+
+Copy style for every message and notice body: sentences with full stops, "Tether Node" spelled out,
+numbers with units ("40 m", "4 min 10 s").
 
 ## Auth
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/auth/google` | `idToken, nonce, deviceId, platform, appVersion` | Signs in or creates the account. `platform`: android, ios, editor, pc. `nonce` (optional) must match the one in the token. A new account gets the welcome grant once per phone: 800 crystal, 600 alloy, 200 data uploaded, and 5 energy cells |
+| POST | `/auth/google` | `idToken, nonce, deviceId, platform, appVersion` | Signs in or creates the account. `platform`: android, ios, editor, pc. `nonce` (optional) must match the one in the token. A new account gets the welcome grant once per phone: 800 crystal, 600 alloy, 200 data stored, and 5 energy cells |
 | POST | `/auth/dev` | `name, deviceId, platform, appVersion` | Dev only (`TD_ENV=dev` and `TD_DEV_LOGIN=true`) |
 | POST | `/auth/refresh` | `refreshToken, appVersion` | Returns a new pair; the old refresh token stops working |
 | POST | `/auth/logout` | – | Signs this device out |
@@ -22,9 +30,9 @@ token expires, or on E1001.
 ## Player
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/me` | Level and XP progress, carried resources, uploaded inventory (`uploaded`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer) |
+| GET | `/me` | Level and XP progress, carried resources (`carried`), stored inventory (`stored`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer) |
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
-| GET | `/settings` | Public tunable values (levels, ranges, cooldowns) for the client to display |
+| GET | `/settings` | Unauthenticated. Public tunable values (levels, ranges, cooldowns) for the client to display, and which kind of server this is: `{"data": [{"key", "value", "description", "isPublic", "updatedAt"}], "environment": "dev"}`. `environment` sits beside `data` (so `data` stays the list) and is `"dev"` on a `TD_ENV=dev` server, otherwise `"prod"` |
 | PUT | `/me/push` | Body `attacks, results` (booleans): the player's notification switches, also in `/me` as `pushAttacks`, `pushResults` |
 
 ## Push notifications
@@ -38,7 +46,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## Crafting
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/craft` | `recipe` | Makes one consumable from `recipes` in `/me` (`items` holds the counts). Paid from carried, then uploaded |
+| POST | `/craft` | `recipe` | Makes one consumable from `recipes` in `/me` (`items` holds the counts). Paid from carried, then stored |
 | POST | `/gear/craft` | `type` | Makes a piece of gear from `craftableGear` in `/me`, equipped in its empty slot. Needs its level |
 | POST | `/gear/{id}/upgrade` | – | To the next tier in the same slot, at full durability. Needs the tier's level; cost is `upgradeCost` on the gear |
 | POST | `/gear/{id}/repair` | – | To full durability for alloy (`repairCost` on the gear). No XP |
@@ -47,30 +55,87 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
 | GET | `/nodes/nearby` | `lat, lon, radius?` | Active nodes nearest first, within the scanner's range. `readyInS` = seconds until this player can harvest it again |
-| POST | `/nodes/{id}/harvest` | `lat, lon, accuracyM` | Server checks GPS accuracy, distance, travel speed, cooldown, reserve and carry room |
+| POST | `/nodes/{id}/harvest` | `lat, lon, accuracyM` | Server checks GPS accuracy, distance, travel speed, cooldown, reserve and carry room. Returns `resource, amount, nodeReserve, carried, xp, progress, levelUp, readyInSec` (seconds until this player may harvest this node again) |
 
 ## Tether Nodes
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
 | GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, within the scanner's range, with their links (`nodeId, resource, lat, lon`) |
-| POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then uploaded), and links free nodes in range |
+| GET | `/tethers/mine` | – | Every TN the player owns, wherever it is (no range check), plus ones that ended in the last `TnEndedShowMinutes` (60). Most urgent first; see My Tether Nodes below |
+| POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then stored), and links free nodes in range. Returns `tether, carried, stored, xp, progress, levelUp` |
 | GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
-| POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free |
-| POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to the uploaded inventory, and frees its nodes |
-| POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to the uploaded inventory |
-| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. Returns `health`, `destroyed`, `jammedUntil`, `spikeFiresAt` |
+| POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free. Returns `tether, carried, stored, xp, progress, levelUp` |
+| POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to stored, and frees its nodes. Returns `refund, held, stored` |
+| POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to stored. Returns `moved, stored` |
+| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. Returns `health`, `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only) |
 | POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay, range from its stats, attack rules apply, uses `CellsDrone`. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `arrivesAt, distanceM` |
 | POST | `/tethers/{id}/defuse` | `lat, lon, accuracyM` | Owner only, in range, before the fuse ends |
-| POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's uploaded inventory, less the charge paid to the owner |
+| POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's stored inventory, less the charge paid to the owner. Returns `moved` (what went into storage this time), `fee`, `carried`, `stored` (new totals) |
+
+### My Tether Nodes
+`GET /tethers/mine` returns an array of:
+
+```
+{ "id": 12, "name": "Crystal Seam K-27", "tier": 1, "lat": 4.17, "lon": 73.50,
+  "health": 72.5, "maxHealth": 100, "expiresAt": "...", "status": "active", "endedAt": null,
+  "stock": {"crystal": 14},
+  "links": [{"nodeId": 301, "resource": "crystal", "name": "Crystal Seam K-27"}],
+  "jammedUntil": null, "spikeFiresAt": null, "droneArrivesAt": null, "attackedAt": "...",
+  "underAttack": true }
+```
+
+- `name`: the node the TN stands by (its first link, or for an ended one the nearest node within
+  `TnLinkRadiusM`); `""` when there is none. Notices use the same name.
+- `status`: `active`, `destroyed`, `decayed` (out of health or past its lifetime) or `dismantled`.
+  `endedAt` is null while active. An ended TN has no links, no stock and no timers.
+- `stock`: the held half, resource to amount (`{}` when empty).
+- `jammedUntil` only while the jam runs; `spikeFiresAt` while a spike is armed; `droneArrivesAt` the
+  first drone still flying at it; null otherwise. `attackedAt` is the last hit (null if never).
+- `underAttack`: active and hit within the last `TnUnderAttackMinutes` (10).
+- Order: under attack, then spike or drone, then jammed, then soonest `expiresAt`; ended ones last,
+  most recently ended first.
 
 ## Node contests and notices
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| POST | `/nodes/{id}/contest` | `lat, lon, accuracyM` | In range, one energy cell. Needs another player's recent harvest or hold (`canContest` in `/nodes/nearby`). Returns `id, endsAt` |
+| POST | `/nodes/{id}/contest` | `lat, lon, accuracyM` | In range, `CellsContest` energy cells. Needs another player's recent harvest or hold (`canContest` in `/nodes/nearby`). Returns `id, endsAt` |
 | POST | `/contests/{id}/join` | `lat, lon, accuracyM` | In range: the defender, or a faction ally of either side |
 | GET | `/notices` | `after?` | What happened to the player after that notice id, newest first (50 at most) |
 
 `/nodes/nearby` also gives `contestId, contestEndsAt, contestRole, canContest, heldByMe, heldByOther`. `/tethers/*` gives `jammedUntil, attackedAt, spikeFiresAt, droneArrivesAt`.
+
+Actions that start a timer say when it ends (times are ISO 8601): harvest `readyInSec`, jammer
+attack `jammedUntil`, spike attack `spikeFiresAt`, drone `arrivesAt`, contest start `endsAt`.
+
+### Notices
+`GET /notices` returns an array of:
+
+```
+{ "id": 88, "kind": "attacked", "severity": "danger", "tnId": 12, "actor": "Aishath", "amount": 25,
+  "body": "Aishath's EM Pulse hit your Tether Node near Crystal Seam K-27 for 25 damage.",
+  "createdAt": "..." }
+```
+
+`severity` (`info`, `warning`, `danger`) picks the sound and haptic; unknown future kinds are
+`info`. `tnId`, `actor` (the other player's current display name) and `amount` (whole number) are
+null when they don't apply. `body` is a finished sentence. Every kind:
+
+| Kind | Severity | To | Meaning | `actor` | `amount` |
+|---|---|---|---|---|---|
+| `attacked` | danger | TN owner | An EM Pulse or a drone hit your TN and it survived | attacker | damage |
+| `destroyed` | danger | TN owner | An EM Pulse, spike or drone destroyed your TN | attacker | damage of the last hit |
+| `spike` | danger | TN owner | A spike was planted on your TN; defuse it before it fires | planter | damage it will deal |
+| `spike_fired` | danger | TN owner | A spike went off on your TN and it survived | planter | damage |
+| `drone_inbound` | danger | TN owner | A drone is flying at your TN | launcher | damage it will deal |
+| `jammed` | warning | TN owner | Your TN was jammed and collects nothing for a while | jammer | null |
+| `contest` | warning | defender | Someone is contesting a node you harvested or hold; be within range before it ends | challenger | null |
+| `contest_lost` | warning | loser | You lost a node contest | winner | null |
+| `contest_won` | info | winner | You won a node contest and hold its next harvests | loser | null |
+| `spike_result` | info | planter | Your spike went off: it hit or destroyed the TN | TN owner | damage |
+| `drone_result` | info | launcher | Your drone landed: it hit or destroyed the TN | TN owner | damage |
+| `defused` | info | planter | The owner defused your spike | TN owner | null |
+
+Contest notices have `tnId` null.
 
 ## Map drops
 | Method | Path | Body / query | Notes |
@@ -96,68 +161,71 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 | POST | `/admin/push/test` | – | Sends "Test push" to your own phones; returns `sent` |
 
 ## Error codes
-| Code | Meaning |
-|---|---|
-| 1000 | Bad request (malformed or unknown fields) |
-| 1001 | Not signed in / token invalid: refresh or sign in |
-| 1002 | Not allowed |
-| 1003 | Not found |
-| 1004 | Rate limited |
-| 1005 | Request too large |
-| 1100 | Google sign-in could not be verified |
-| 1101 | Session expired: sign in again |
-| 1102 | Account suspended |
-| 1103 | Account deleted |
-| 1104 | Device id missing |
-| 1200 | Too far from the node |
-| 1201 | GPS accuracy too poor |
-| 1202 | Node cooling down for this player |
-| 1203 | Node depleted |
-| 1204 | Carry capacity full |
-| 1205 | Location implausible (travel speed) |
-| 1206 | Node not available |
-| 1300 | Faction dormant (locked) |
-| 1301 | Level too low |
-| 1302 | Already in a faction |
-| 1303 | Faction already has a leader |
-| 1304 | Faction already active |
-| 1305 | (log only) account cleanup skipped a faction head |
-| 1402 | Base too close to the same faction's base |
-| 1403 | Base too close to another faction's base |
-| 1600 | Tether Node limit reached |
-| 1601 | No free resource node in range of the build |
-| 1602 | Not enough resources |
-| 1603 | Tether Node gone |
-| 1604 | Only the Tether Node's owner can do that |
-| 1605 | Nothing to collect or upload |
-| 1606 | Too far from the Tether Node |
-| 1607 | Tether Node belongs to another faction |
-| 1608 | Tether Node already fully upgraded |
-| 1609 | Map drop gone |
-| 1610 | Too far from the map drop |
-| 1611 | Not allowed to attack this Tether Node |
-| 1612 | Too close to another Tether Node |
-| 1700 | Unknown recipe |
-| 1701 | Gear not owned |
-| 1702 | Gear already at its top tier |
-| 1703 | Gear doesn't need repair |
-| 1710 | No energy cell |
-| 1711 | Item missing |
-| 1712 | Out of range |
-| 1713 | Tether Node already jammed |
-| 1714 | Spike already planted |
-| 1715 | No spike to defuse |
-| 1716 | Node contested: another player holds its next harvests |
-| 1717 | Contest already running |
-| 1718 | Nobody to contest the node with |
-| 1719 | Contest over |
-| 1720 | Can't join this contest |
-| 1730 | No working Drone Bay |
-| 1731 | Drone already in flight |
-| 1740 | Push token not valid |
-| 1741 | Push not set up on this server |
-| 1742 | No phone registered for push |
-| 1743 | Push could not be sent |
-| 1900 | Server error |
+`data` values are whole numbers unless noted. Distances are metres (`distanceM` rounded up, so it
+never reads as inside the range).
+
+| Code | Meaning | `data` |
+|---|---|---|
+| 1000 | Bad request (malformed or unknown fields) | |
+| 1001 | Not signed in / token invalid: refresh or sign in | |
+| 1002 | Not allowed | |
+| 1003 | Not found | |
+| 1004 | Rate limited | |
+| 1005 | Request too large | |
+| 1100 | Google sign-in could not be verified | |
+| 1101 | Session expired: sign in again | |
+| 1102 | Account suspended | |
+| 1103 | Account deleted | |
+| 1104 | Device id missing | |
+| 1200 | Too far from the node | `distanceM, rangeM` |
+| 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
+| 1202 | Node recharging for this player | `readyInSec` |
+| 1203 | Node depleted | |
+| 1204 | Carry capacity full | |
+| 1205 | Location implausible (travel speed) | |
+| 1206 | Node not available | |
+| 1300 | Faction dormant (locked) | |
+| 1301 | Level too low (factions, gear craft and upgrade) | `needLevel, level` |
+| 1302 | Already in a faction | |
+| 1303 | Faction already has a leader | |
+| 1304 | Faction already active | |
+| 1305 | (log only) account cleanup skipped a faction head | |
+| 1402 | Base too close to the same faction's base | |
+| 1403 | Base too close to another faction's base | |
+| 1600 | Tether Node limit reached | `max` |
+| 1601 | No free resource node in range of the build | |
+| 1602 | Not enough resources (TN build and upgrade, crafting, gear craft, upgrade and repair) | `short`: `{resource: amount still missing}` |
+| 1603 | Tether Node gone | |
+| 1604 | Only the Tether Node's owner can do that | |
+| 1605 | Nothing to collect or upload | |
+| 1606 | Too far from the Tether Node (collect, upload, upgrade) | `distanceM, rangeM` |
+| 1607 | Tether Node belongs to another faction | |
+| 1608 | Tether Node already fully upgraded | |
+| 1609 | Map drop gone | |
+| 1610 | Too far from the map drop | `distanceM, rangeM` |
+| 1611 | Not allowed to attack this Tether Node | |
+| 1612 | Too close to another Tether Node | `spacingM` |
+| 1700 | Unknown recipe | |
+| 1701 | Gear not owned | |
+| 1702 | Gear already at its top tier | |
+| 1703 | Gear doesn't need repair | |
+| 1710 | Not enough energy cells | `need, have` |
+| 1711 | Item missing (the weapon used) | `item` (string id) |
+| 1712 | Out of range (weapons, defuse, drone, contest start and join) | `distanceM, rangeM` |
+| 1713 | Tether Node already jammed | `jammedUntil` (ISO time) |
+| 1714 | Spike already planted | |
+| 1715 | No spike to defuse | |
+| 1716 | Node contested: another player holds its next harvests | |
+| 1717 | Contest already running | |
+| 1718 | Nobody to contest the node with | |
+| 1719 | Contest over | |
+| 1720 | Can't join this contest | |
+| 1730 | No working Drone Bay | |
+| 1731 | Drone already in flight | |
+| 1740 | Push token not valid | |
+| 1741 | Push not set up on this server | |
+| 1742 | No phone registered for push | |
+| 1743 | Push could not be sent | |
+| 1900 | Server error | |
 
 Codes are never reused. Logs write them as `E1200 ...` with the request id and player id.
