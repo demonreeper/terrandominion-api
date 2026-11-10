@@ -23,6 +23,8 @@ type Config struct {
 	DevicePepper []byte
 	// GoogleClientIDs are the OAuth client ids whose ID tokens are accepted (web, Android, iOS).
 	GoogleClientIDs []string
+	// AppleBundleIDs are the app bundle ids whose Sign in with Apple tokens are accepted.
+	AppleBundleIDs []string
 	// TrustProxy reads the client IP from X-Real-IP (set by nginx). Only enable behind nginx.
 	TrustProxy bool
 	// FCMProjectID and FCMCredentialsFile enable phone notifications. The file holds a private key.
@@ -40,6 +42,7 @@ func Load() (Config, error) {
 		JWTSecret:          []byte(os.Getenv("TD_JWT_SECRET")),
 		DevicePepper:       []byte(os.Getenv("TD_DEVICE_PEPPER")),
 		GoogleClientIDs:    splitList(os.Getenv("TD_GOOGLE_CLIENT_IDS")),
+		AppleBundleIDs:     splitList(os.Getenv("TD_APPLE_BUNDLE_IDS")),
 		FCMProjectID:       os.Getenv("TD_FCM_PROJECT_ID"),
 		FCMCredentialsFile: os.Getenv("TD_FCM_CREDENTIALS_FILE"),
 	}

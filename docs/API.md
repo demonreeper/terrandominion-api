@@ -24,6 +24,7 @@ numbers with units ("40 m", "4 min 10 s").
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/auth/google` | `idToken, nonce, deviceId, platform, appVersion` | Signs in or creates the account. `platform`: android, ios, editor, pc. `nonce` (optional) must match the one in the token. A new account gets the welcome grant once per phone: 800 crystal, 600 alloy, 200 data stored, and 5 energy cells |
+| POST | `/auth/apple` | `identityToken, authorizationCode, nonce, name, deviceId, platform, appVersion` | Sign in with Apple (iOS). Same result and welcome grant as `/auth/google`; an Apple sign-in is its own account (no linking to a Google one). `nonce` (required) is the raw nonce; the app sent its hex SHA-256 to Apple and the token must carry that. `name` is only sent on the first sign-in and names a new account. `authorizationCode` is accepted but not used yet (kept for revoking on account deletion, before App Store) |
 | POST | `/auth/dev` | `name, deviceId, platform, appVersion` | Dev only (`TD_ENV=dev` and `TD_DEV_LOGIN=true`) |
 | POST | `/auth/refresh` | `refreshToken, appVersion` | Returns a new pair; the old refresh token stops working |
 | POST | `/auth/logout` | – | Signs this device out |
@@ -226,6 +227,7 @@ never reads as inside the range).
 | 1102 | Account suspended | |
 | 1103 | Account deleted | |
 | 1104 | Device id missing | |
+| 1105 | Apple sign-in could not be verified | |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

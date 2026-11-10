@@ -62,6 +62,23 @@ func (s *Service) SignInGoogle(ctx context.Context, idToken, nonce string, devic
 	return s.signIn(ctx, "google", identity.Subject, identity.Email, identity.Name, device)
 }
 
+// SignInApple verifies a Sign in with Apple identity token and signs the player in, the same way
+// as SignInGoogle. rawNonce is required: the app sent its SHA-256 to Apple. name is only sent on
+// the first sign-in (Apple shares it once) and only names a new account. authorizationCode is
+// accepted but not used yet; before App Store submission it gets exchanged for a refresh token so
+// account deletion can revoke the Apple sign-in.
+func (s *Service) SignInApple(ctx context.Context, identityToken, authorizationCode, rawNonce, name string, device DeviceInfo) (AuthResult, error) {
+	if err := device.validate(); err != nil {
+		return AuthResult{}, err
+	}
+	_ = authorizationCode
+	identity, err := s.apple.Verify(ctx, identityToken, rawNonce)
+	if err != nil {
+		return AuthResult{}, apperr.AppleTokenInvalid.With("%v", err)
+	}
+	return s.signIn(ctx, "apple", identity.Subject, identity.Email, name, device)
+}
+
 // SignInDev signs in without Google, for local testing only. The HTTP layer exposes it only when
 // TD_DEV_LOGIN is on and TD_ENV is dev.
 func (s *Service) SignInDev(ctx context.Context, name string, device DeviceInfo) (AuthResult, error) {

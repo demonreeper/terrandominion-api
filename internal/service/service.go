@@ -23,6 +23,7 @@ type Service struct {
 	cfg    config.Config
 	tokens *auth.Tokens
 	google *auth.GoogleVerifier
+	apple  *auth.AppleVerifier
 	now    func() time.Time
 	push   pushSender
 
@@ -37,6 +38,7 @@ func New(conn *sql.DB, cfg config.Config) *Service {
 		cfg:      cfg,
 		tokens:   auth.NewTokens(cfg.JWTSecret, cfg.Env),
 		google:   auth.NewGoogleVerifier(cfg.GoogleClientIDs),
+		apple:    auth.NewAppleVerifier(cfg.AppleBundleIDs),
 		now:      time.Now,
 		settings: game.DefaultSettings(),
 	}

@@ -83,6 +83,7 @@ Deploy to dev first; live only after dev has run the migration.
 | `TD_JWT_SECRET` | 32+ random bytes; different for dev and live |
 | `TD_DEVICE_PEPPER` | 16+ random bytes; never change once players exist |
 | `TD_GOOGLE_CLIENT_IDS` | comma-separated OAuth client ids (Android, iOS, web) |
+| `TD_APPLE_BUNDLE_IDS` | comma-separated app bundle ids for Sign in with Apple (`com.hisstudios.terrandominion`) |
 | `TD_TRUST_PROXY` | `true` behind nginx (reads `X-Real-IP`) |
 | `TD_DEV_LOGIN` | `true` to enable `/v1/auth/dev` (ignored on live) |
 

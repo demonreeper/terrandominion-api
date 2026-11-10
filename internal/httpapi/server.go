@@ -41,6 +41,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { ok(w, "ok") })
 
 	mux.HandleFunc("POST /v1/auth/google", s.signInGoogle)
+	mux.HandleFunc("POST /v1/auth/apple", s.signInApple)
 	mux.HandleFunc("POST /v1/auth/refresh", s.refresh)
 	mux.HandleFunc("POST /v1/auth/logout", s.authed(s.logout))
 	if s.devLogin {
@@ -132,6 +133,26 @@ func (s *Server) signInGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.svc.SignInGoogle(r.Context(), body.IDToken, body.Nonce, body.info())
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) signInApple(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		IdentityToken     string `json:"identityToken"`
+		AuthorizationCode string `json:"authorizationCode"`
+		Nonce             string `json:"nonce"`
+		Name              string `json:"name"`
+		deviceBody
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.SignInApple(r.Context(), body.IdentityToken, body.AuthorizationCode, body.Nonce, body.Name, body.info())
 	if err != nil {
 		fail(w, r, err)
 		return
