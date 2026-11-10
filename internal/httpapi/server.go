@@ -52,6 +52,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/me", s.authed(s.me))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 	mux.HandleFunc("PUT /v1/me/push", s.authed(s.setPushPrefs))
+	mux.HandleFunc("POST /v1/me/link/google", s.authed(s.linkGoogle))
+	mux.HandleFunc("POST /v1/me/link/apple", s.authed(s.linkApple))
+	mux.HandleFunc("DELETE /v1/me/link/{provider}", s.authed(s.unlink))
 
 	mux.HandleFunc("PUT /v1/push/token", s.authed(s.registerPushToken))
 	mux.HandleFunc("DELETE /v1/push/token", s.authed(s.removePushToken))
@@ -286,6 +289,53 @@ func (s *Server) setPushPrefs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, body)
+}
+
+func (s *Server) linkGoogle(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		IDToken string `json:"idToken"`
+		Nonce   string `json:"nonce"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.LinkGoogle(r.Context(), playerID, body.IDToken, body.Nonce)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) linkApple(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		IdentityToken     string `json:"identityToken"`
+		AuthorizationCode string `json:"authorizationCode"`
+		Nonce             string `json:"nonce"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.LinkApple(r.Context(), playerID, body.IdentityToken, body.AuthorizationCode, body.Nonce)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) unlink(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	res, err := s.svc.Unlink(r.Context(), playerID, r.PathValue("provider"))
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
 }
 
 func (s *Server) adminPushTest(w http.ResponseWriter, r *http.Request) {

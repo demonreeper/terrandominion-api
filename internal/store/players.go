@@ -85,6 +85,32 @@ func LinkIdentity(ctx context.Context, q db.Querier, provider, subject string, p
 
 // TouchPlayer records the app version and last-seen time, and cancels a pending self-deletion:
 // signing in during the grace period reactivates the account.
+// PlayerIdentities lists the providers a player can sign in with ("apple", "dev", "google"), sorted.
+func PlayerIdentities(ctx context.Context, q db.Querier, playerID int64) ([]string, error) {
+	rows, err := q.QueryContext(ctx,
+		`SELECT provider FROM td.player_identities WHERE player_id = $1 ORDER BY provider`, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	providers := []string{}
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		providers = append(providers, p)
+	}
+	return providers, rows.Err()
+}
+
+// UnlinkIdentity removes a player's sign-in of one provider.
+func UnlinkIdentity(ctx context.Context, q db.Querier, playerID int64, provider string) error {
+	_, err := q.ExecContext(ctx,
+		`DELETE FROM td.player_identities WHERE player_id = $1 AND provider = $2`, playerID, provider)
+	return err
+}
+
 func TouchPlayer(ctx context.Context, q db.Querier, id int64, appVersion string) error {
 	_, err := q.ExecContext(ctx, `
 		UPDATE td.players

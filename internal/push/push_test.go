@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"unicode/utf8"
 )
 
 func testClient(t *testing.T, send http.HandlerFunc, tokens *atomic.Int32) *Client {
@@ -71,6 +72,32 @@ func TestSendShapeAndTokenReuse(t *testing.T) {
 	a := got.Message.Android
 	if got.Message.Token != "phone" || a.Priority != "HIGH" || a.CollapseKey != "tn-5" || a.Notification.ChannelID != "tn_alerts" || a.Notification.Tag != "tn-5" {
 		t.Errorf("wire: %+v", got)
+	}
+	i := got.Message.APNs
+	if i.Headers["apns-priority"] != "10" || i.Headers["apns-collapse-id"] != "tn-5" ||
+		i.Payload.Aps.Sound != "default" || i.Payload.Aps.ThreadID != "tn-5" {
+		t.Errorf("apns: %+v", i)
+	}
+}
+
+func TestAPNsNormalPriorityAndLimits(t *testing.T) {
+	w := wireMessage(Message{Token: "p", Title: "T", Body: "B", Channel: "c"})
+	if w.Message.APNs.Headers["apns-priority"] != "5" {
+		t.Errorf("priority: %v", w.Message.APNs.Headers)
+	}
+	if _, ok := w.Message.APNs.Headers["apns-collapse-id"]; ok {
+		t.Errorf("collapse id without a group: %v", w.Message.APNs.Headers)
+	}
+	raw, _ := json.Marshal(w)
+	if strings.Contains(string(raw), "thread-id") {
+		t.Errorf("thread-id without a group: %s", raw)
+	}
+
+	long := strings.Repeat("é", 40) // 80 bytes
+	w = wireMessage(Message{Token: "p", Group: long})
+	id := w.Message.APNs.Headers["apns-collapse-id"]
+	if len(id) > apnsCollapseLimit || !utf8.ValidString(id) || len(id) != 64 {
+		t.Errorf("collapse id %d bytes, valid %v", len(id), utf8.ValidString(id))
 	}
 }
 

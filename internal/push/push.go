@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -166,6 +167,7 @@ type wirePayload struct {
 	Token        string            `json:"token"`
 	Notification wireNotification  `json:"notification"`
 	Android      wireAndroid       `json:"android"`
+	APNs         wireAPNs          `json:"apns"`
 	Data         map[string]string `json:"data,omitempty"`
 }
 
@@ -185,10 +187,33 @@ type wireAndroidNotification struct {
 	Tag       string `json:"tag,omitempty"`
 }
 
+// wireAPNs is what FCM passes to Apple for iPhones: priority and grouping as APNs headers, the
+// sound and thread in the aps dictionary. Android ignores it, and the android block is ignored on iOS.
+type wireAPNs struct {
+	Headers map[string]string `json:"headers"`
+	Payload wireAPNsPayload   `json:"payload"`
+}
+
+type wireAPNsPayload struct {
+	Aps wireAps `json:"aps"`
+}
+
+type wireAps struct {
+	Sound    string `json:"sound"`
+	ThreadID string `json:"thread-id,omitempty"`
+}
+
+// apnsCollapseLimit is Apple's cap on apns-collapse-id, in bytes.
+const apnsCollapseLimit = 64
+
 func wireMessage(m Message) wire {
-	priority := "NORMAL"
+	priority, apnsPriority := "NORMAL", "5"
 	if m.High {
-		priority = "HIGH"
+		priority, apnsPriority = "HIGH", "10"
+	}
+	headers := map[string]string{"apns-priority": apnsPriority}
+	if m.Group != "" {
+		headers["apns-collapse-id"] = truncateBytes(m.Group, apnsCollapseLimit)
 	}
 	return wire{Message: wirePayload{
 		Token:        m.Token,
@@ -198,8 +223,23 @@ func wireMessage(m Message) wire {
 			Priority:     priority,
 			Notification: wireAndroidNotification{ChannelID: m.Channel, Tag: m.Group},
 		},
+		APNs: wireAPNs{
+			Headers: headers,
+			Payload: wireAPNsPayload{Aps: wireAps{Sound: "default", ThreadID: m.Group}},
+		},
 		Data: m.Data,
 	}}
+}
+
+// truncateBytes cuts s to at most n bytes without splitting a UTF-8 character.
+func truncateBytes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }
 
 func (c *Client) forgetAccess() {

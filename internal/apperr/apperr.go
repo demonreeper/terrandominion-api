@@ -94,6 +94,9 @@ var (
 	AccountDeleted     = def(1103, http.StatusForbidden, "This account was deleted.")
 	DeviceRequired     = def(1104, http.StatusBadRequest, "Device id is required.")
 	AppleTokenInvalid  = def(1105, http.StatusUnauthorized, "Apple sign-in could not be verified.")
+	IdentityTaken      = def(1106, http.StatusConflict, "That sign-in already has its own game account.")
+	LastSignIn         = def(1107, http.StatusConflict, "This is your only way to sign in. Link another one before removing it.")
+	ProviderLinked     = def(1108, http.StatusConflict, "A different account of that kind is already linked. Unlink it first.")
 
 	HarvestTooFar      = def(1200, http.StatusConflict, "Move closer to the node.")                    // data: distanceM, rangeM
 	HarvestGPSWeak     = def(1201, http.StatusConflict, "GPS signal too weak. Wait for a better fix.") // data: accuracyM, maxAccuracyM

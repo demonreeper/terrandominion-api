@@ -36,7 +36,10 @@ token expires, or on E1001.
 ## Player
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/me` | Level and XP progress, carried resources (`carried`), stored inventory (`stored`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer) |
+| GET | `/me` | Level and XP progress, carried resources (`carried`), stored inventory (`stored`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer), and `linked`: the sign-ins that open this account (`apple`, `google`; `dev` on dev) |
+| POST | `/me/link/google` | Body `idToken, nonce` (as `/auth/google`; nonce required). Adds that Google sign-in to the signed-in account, so it opens this account from then on. Already on this account: no change. Opens another account: E1106 (accounts are never merged). A different Google already linked: E1108. Returns `{linked}` |
+| POST | `/me/link/apple` | Body `identityToken, authorizationCode, nonce` (as `/auth/apple`). Same rules as `/me/link/google` |
+| DELETE | `/me/link/{provider}` | `google` or `apple`: removes that sign-in. Refused with E1107 when it is the account's only one, E1003 when it isn't linked. Returns `{linked}` |
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
 | GET | `/settings` | Unauthenticated. Public tunable values (levels, ranges, cooldowns) for the client to display, and which kind of server this is: `{"data": [{"key", "value", "description", "isPublic", "updatedAt"}], "environment": "dev"}`. `environment` sits beside `data` (so `data` stays the list) and is `"dev"` on a `TD_ENV=dev` server, otherwise `"prod"` |
 | PUT | `/me/push` | Body `attacks, results` (booleans): the player's notification switches, also in `/me` as `pushAttacks`, `pushResults` |
@@ -228,6 +231,9 @@ never reads as inside the range).
 | 1103 | Account deleted | |
 | 1104 | Device id missing | |
 | 1105 | Apple sign-in could not be verified | |
+| 1106 | That Google or Apple sign-in already opens another game account (no merging) | |
+| 1107 | Can't remove the account's only sign-in | |
+| 1108 | A different account of that provider is already linked: unlink it first | |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

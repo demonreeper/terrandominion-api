@@ -287,11 +287,13 @@ type MeView struct {
 	CraftableGear     []store.CraftableGear `json:"craftableGear"`
 	Faction           *store.Membership     `json:"faction"`
 	// Badges are permanent marks, such as Founder of a faction's branch in a country.
-	Badges      []store.Badge `json:"badges"`
-	Freelancer  bool          `json:"freelancer"`
-	PushAttacks bool          `json:"pushAttacks"`
-	PushResults bool          `json:"pushResults"`
-	DeleteAfter *time.Time    `json:"deleteAfter,omitempty"`
+	Badges []store.Badge `json:"badges"`
+	// Linked are the sign-ins that open this account ("apple", "google"; "dev" on the dev server).
+	Linked      []string   `json:"linked"`
+	Freelancer  bool       `json:"freelancer"`
+	PushAttacks bool       `json:"pushAttacks"`
+	PushResults bool       `json:"pushResults"`
+	DeleteAfter *time.Time `json:"deleteAfter,omitempty"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -351,9 +353,13 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
+	linked, err := store.PlayerIdentities(ctx, q, playerID)
+	if err != nil {
+		return nil, err
+	}
 
 	me := &MeView{
-		PushAttacks: pushAttacks, PushResults: pushResults,
+		PushAttacks: pushAttacks, PushResults: pushResults, Linked: linked,
 		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,
