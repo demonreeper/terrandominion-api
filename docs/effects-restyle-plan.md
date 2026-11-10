@@ -1,6 +1,26 @@
 # Effects restyle: fit the dark theme
 
-Status: draft for the owner, 2026-11-10. Follows the polish pass (`docs/polish-plan.md`, milestones 5 and 6).
+Status: **done**, 2026-11-11 (E0–E5 built and merged, terrandominion-mobile PR #9, tested as builds 86–87).
+Drafted 2026-11-10. Follows the polish pass (`docs/polish-plan.md`, milestones 5 and 6).
+
+## What was built
+
+- **E0** Effects constants in `UiStyle` (glow cap, emphasis floor, durations, decode glyphs, split);
+  `DecodeText`, `ScanBand`, `GlitchSplit`, `CornerBrackets` in `Ui/UiEffects.cs`; ADMIN → SOUND BOARD.
+- **E1** Every cue in the sound table, from new `SoundSynth` blocks with a shared 4 kHz low-pass and
+  soft clip; common cues ~15 % quieter, interface sounds at 0.5.
+- **E2** Ticker, gain label with a traced line, menu level flash, busy sweep, button press (darkens;
+  the 96 % press shrink was removed too, as a scale change for emphasis), 16 px panel slide.
+- **E3** Level-up: traced hex (`HexTrace`), scan band, decoding number, one ring, 2.4 s. The title
+  stays "LEVEL UP".
+- **E4** Breathing marker rings, corner-bracket lock-on, the drone-reach crosshair replaced by a ring
+  in brackets (no cross), thinner shockwave, AR slivers with a decoding label, TN hit jitter plus
+  red/cyan split, quieter jam static with scan lines.
+- **E5** Toasts with a left bar and a `// OK` / `// INFO` / `// WARN` / `// ALERT` tag.
+- **Also:** salvage drops got their own map marker; they looked exactly like alloy nodes.
+
+Not done, by choice: the startup intro and first-TN video (question 2), the "// CLEARANCE RAISED"
+title (question 3), and the "+" on the map zoom and admin buttons.
 
 ## Why
 
