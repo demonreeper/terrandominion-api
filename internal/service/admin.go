@@ -15,6 +15,36 @@ import (
 	"github.com/demonreeper/terrandominion/api/internal/store"
 )
 
+// CheckAppBuild refuses an app build below MinAppBuild (MinAppBuildIOS on iPhones) with E1006.
+// build <= 0 (no build sent) passes, so scripts and test players still work.
+func (s *Service) CheckAppBuild(ctx context.Context, platform string, build int) error {
+	minBuild, allowed := game.AppBuildAllowed(s.Settings(ctx), platform, build)
+	if allowed {
+		return nil
+	}
+	return apperr.AppOutdated.WithData(map[string]any{"build": build, "minBuild": minBuild}).
+		With("%s build %d below %d", platform, build, minBuild)
+}
+
+// CheckMinAppBuildChange vets a new MinAppBuild / MinAppBuildIOS: a whole number of 0 or more, and
+// never above the build of the app making the change (for the same platform), so an admin can't
+// lock their own phone out. Other keys pass untouched.
+func (s *Service) CheckMinAppBuildChange(key string, value float64, platform string, build int) error {
+	ios := key == "MinAppBuildIOS"
+	if key != "MinAppBuild" && !ios {
+		return nil
+	}
+	if value < 0 || value != math.Trunc(value) {
+		return apperr.BadRequest.Say("The minimum build must be a whole number, 0 or more.")
+	}
+	samePlatform := strings.EqualFold(platform, "ios") == ios
+	if build > 0 && samePlatform && int(value) > build {
+		return apperr.BadRequest.Say("That would lock out this phone's own build (%d).", build).
+			WithData(map[string]any{"build": build})
+	}
+	return nil
+}
+
 func (s *Service) PublicSettings(ctx context.Context) ([]store.Setting, error) {
 	return store.ListSettings(ctx, s.db, true)
 }

@@ -709,7 +709,13 @@ func (s *Server) adminUpdateSetting(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	if err := s.svc.AdminUpdateSetting(r.Context(), playerID, r.PathValue("key"), body.Value); err != nil {
+	key := r.PathValue("key")
+	build, _ := strconv.Atoi(r.Header.Get("X-App-Build"))
+	if err := s.svc.CheckMinAppBuildChange(key, body.Value, r.Header.Get("X-App-Platform"), build); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.AdminUpdateSetting(r.Context(), playerID, key, body.Value); err != nil {
 		fail(w, r, err)
 		return
 	}

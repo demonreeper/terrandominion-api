@@ -86,6 +86,7 @@ var (
 	NotFound     = def(1003, http.StatusNotFound, "Not found.")
 	RateLimited  = def(1004, http.StatusTooManyRequests, "Too many requests. Slow down.")
 	TooLarge     = def(1005, http.StatusRequestEntityTooLarge, "Request too large.")
+	AppOutdated  = def(1006, http.StatusUpgradeRequired, "This version of the game is no longer supported. Install the latest one.") // data: build, minBuild
 
 	GoogleTokenInvalid = def(1100, http.StatusUnauthorized, "Google sign-in could not be verified.")
 	SessionExpired     = def(1101, http.StatusUnauthorized, "Session expired. Sign in again.")
