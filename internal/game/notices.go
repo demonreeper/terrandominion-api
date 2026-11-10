@@ -23,14 +23,18 @@ var noticeSeverity = map[string]string{
 	"drone_inbound": SeverityDanger,
 	"spike_fired":   SeverityDanger,
 
-	"jammed":       SeverityWarning,
-	"contest":      SeverityWarning,
-	"contest_lost": SeverityWarning,
+	"jammed":            SeverityWarning,
+	"contest":           SeverityWarning,
+	"contest_lost":      SeverityWarning,
+	"drone_intercepted": SeverityWarning,
 
 	"spike_result": SeverityInfo,
 	"drone_result": SeverityInfo,
 	"defused":      SeverityInfo,
 	"contest_won":  SeverityInfo,
+
+	"drone_launched": SeverityInfo,
+	"shield_fitted":  SeverityInfo,
 }
 
 // NoticeSeverity is how urgent a notice kind is; unknown kinds are info.
@@ -83,10 +87,11 @@ func Damage(d float64) int64 {
 	return int64(math.Round(d))
 }
 
-// NoticeHit: "Aishath's EM Pulse hit your Tether Node near X for 25 damage." what is the weapon:
-// "EM Pulse", "spike" or "drone".
-func NoticeHit(attacker, what, place string, damage int64) string {
-	return fmt.Sprintf("%s %s hit %s for %d damage.", possessive(attacker), what, TetherPhrase("", place), damage)
+// NoticeHit: "Aishath's EM Pulse hit your Tether Node near X for 25 damage. 75 health left." what
+// is the weapon: "EM Pulse", "spike" or "drone".
+func NoticeHit(attacker, what, place string, damage, healthLeft int64) string {
+	return fmt.Sprintf("%s %s hit %s for %d damage. %d health left.", possessive(attacker), what, TetherPhrase("", place),
+		damage, healthLeft)
 }
 
 // NoticeDestroyed: "Aishath's drone destroyed your Tether Node near X."
@@ -114,13 +119,47 @@ func NoticeDroneInbound(attacker, place string, flight time.Duration, damage int
 }
 
 // NoticeResult tells an attacker how their spike or drone did: "Your drone hit Aishath's Tether
-// Node near X for 15 damage." or "Your spike destroyed Aishath's Tether Node near X."
-func NoticeResult(what, owner, place string, damage int64, destroyed bool) string {
+// Node near X for 15 damage. 40 health left." or "Your spike destroyed Aishath's Tether Node near X."
+func NoticeResult(what, owner, place string, damage, healthLeft int64, destroyed bool) string {
 	if destroyed {
 		return fmt.Sprintf("Your %s destroyed %s.", what, TetherPhrase(someone(owner), place))
 	}
-	return fmt.Sprintf("Your %s hit %s for %d damage.", what, TetherPhrase(someone(owner), place), damage)
+	return fmt.Sprintf("Your %s hit %s for %d damage. %d health left.", what, TetherPhrase(someone(owner), place),
+		damage, healthLeft)
 }
+
+// NoticeDroneLaunched: "Your drone is away to Aishath's Tether Node near X. It lands in 20 s for 15 damage."
+func NoticeDroneLaunched(owner, place string, flight time.Duration, damage int64) string {
+	return fmt.Sprintf("Your drone is away to %s. It lands in %s for %d damage.",
+		TetherPhrase(someone(owner), place), FormatDuration(flight), damage)
+}
+
+// NoticeInterceptedDefender: "You intercepted Aishath's drone at your Tether Node near X. 75% of its
+// damage was stopped." or "You shot down Aishath's drone ..." when it stops everything.
+func NoticeInterceptedDefender(attacker, place string, share float64) string {
+	if share >= 1 {
+		return fmt.Sprintf("You shot down %s drone at %s.", possessive(attacker), TetherPhrase("", place))
+	}
+	return fmt.Sprintf("You intercepted %s drone at %s. %d%% of its damage was stopped.",
+		possessive(attacker), TetherPhrase("", place), percent(share))
+}
+
+// NoticeInterceptedAttacker: "Your drone was intercepted at Aishath's Tether Node near X. 75% of its
+// damage was stopped." or "Your drone was shot down at ...".
+func NoticeInterceptedAttacker(owner, place string, share float64) string {
+	if share >= 1 {
+		return fmt.Sprintf("Your drone was shot down at %s.", TetherPhrase(someone(owner), place))
+	}
+	return fmt.Sprintf("Your drone was intercepted at %s. %d%% of its damage was stopped.",
+		TetherPhrase(someone(owner), place), percent(share))
+}
+
+// NoticeShieldFitted: "Shield Mk II fitted to your Tether Node near X."
+func NoticeShieldFitted(mk int, place string) string {
+	return fmt.Sprintf("Shield Mk %s fitted to %s.", RomanMk(mk), TetherPhrase("", place))
+}
+
+func percent(share float64) int { return int(math.Round(share * 100)) }
 
 // NoticeDefused: "Aishath defused your spike on their Tether Node near X."
 func NoticeDefused(owner, place string) string {

@@ -41,7 +41,31 @@ type Tether struct {
 	DroneArrivesAt *time.Time `json:"droneArrivesAt,omitempty"`
 	// Stock is the held half. Only the owner is told what is inside.
 	Stock map[string]int64 `json:"stock,omitempty"`
+	// ShieldTier is the fitted shield's Mk (0 = none); everyone sees it.
+	ShieldTier int `json:"shieldTier"`
+	// Drones flying at it, soonest first, with where each was launched from. Only the owner is told.
+	Drones []InboundDroneView `json:"drones,omitempty"`
 }
+
+// InboundDroneView is a drone flying at a Tether Node, as its owner sees it: where it came from,
+// not who sent it.
+type InboundDroneView struct {
+	ID          int64     `json:"id"`
+	Mk          int       `json:"mk"`
+	LaunchedAt  time.Time `json:"launchedAt"`
+	ArrivesAt   time.Time `json:"arrivesAt"`
+	From        *Point    `json:"from"`
+	Intercepted bool      `json:"intercepted"`
+}
+
+// inboundDronesSQL is the JSON list of drones flying at the Tether Node aliased t.
+const inboundDronesSQL = `COALESCE((
+	    SELECT jsonb_agg(jsonb_build_object(
+	        'id', ds.id, 'mk', ds.mk, 'launchedAt', ds.created_at, 'arrivesAt', ds.arrives_at,
+	        'from', CASE WHEN ds.from_lat IS NULL THEN NULL
+	                     ELSE jsonb_build_object('lat', ds.from_lat, 'lon', ds.from_lon) END,
+	        'intercepted', ds.intercepted) ORDER BY ds.arrives_at)
+	    FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'), '[]'::jsonb)`
 
 // tetherColumns must stay in step with scanTether; the distance column is added by each query.
 const tetherColumns = `
@@ -56,15 +80,17 @@ const tetherColumns = `
 	COALESCE((SELECT jsonb_object_agg(s.resource, s.amount) FROM td.tether_stock s WHERE s.tn_id = t.id), '{}'::jsonb),
 	t.jammed_until, t.attacked_at,
 	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
-	(SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying')`
+	(SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
+	t.shield_tier, ` + inboundDronesSQL
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether
 	var faction sql.NullInt32
-	var links, stock []byte
+	var links, stock, drones []byte
 	var jammed, attacked, spike, drone sql.NullTime
 	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
-		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &drone, &t.DistanceM); err != nil {
+		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &drone, &t.ShieldTier, &drones,
+		&t.DistanceM); err != nil {
 		return t, err
 	}
 	t.JammedUntil, t.AttackedAt, t.SpikeFiresAt = timePtr(jammed), timePtr(attacked), timePtr(spike)
@@ -76,6 +102,9 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 	t.Mine = t.OwnerID == viewerID
 	if t.Mine {
 		if err := json.Unmarshal(stock, &t.Stock); err != nil {
+			return t, err
+		}
+		if err := json.Unmarshal(drones, &t.Drones); err != nil {
 			return t, err
 		}
 	}
@@ -233,12 +262,14 @@ func InsertTetherLink(ctx context.Context, q db.Querier, tetherID int64, slot in
 
 // TetherState is the part of a Tether Node that decisions depend on.
 type TetherState struct {
-	OwnerID   int64
-	FactionID *int
-	Lat, Lon  float64
-	Tier      int
-	Status    string
-	Spent     map[string]int64
+	OwnerID    int64
+	FactionID  *int
+	Lat, Lon   float64
+	Tier       int
+	Status     string
+	Spent      map[string]int64
+	Health     float64
+	ShieldTier int
 }
 
 func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, error) {
@@ -246,9 +277,10 @@ func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, 
 	var spent []byte
 	var faction sql.NullInt32
 	err := q.QueryRowContext(ctx, `
-		SELECT owner_id, faction_id, ST_Y(location::geometry), ST_X(location::geometry), tier, status, spent
+		SELECT owner_id, faction_id, ST_Y(location::geometry), ST_X(location::geometry), tier, status, spent,
+		       health, shield_tier
 		FROM td.tether_nodes WHERE id = $1 FOR UPDATE`, id).
-		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &spent)
+		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &spent, &t.Health, &t.ShieldTier)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -365,6 +397,12 @@ func DamageTether(ctx context.Context, q db.Querier, id int64, damage float64) (
 		`UPDATE td.tether_nodes SET health = GREATEST(0, health - $2) WHERE id = $1 RETURNING health`,
 		id, damage).Scan(&health)
 	return health, err
+}
+
+// SetShieldTier fits a shield; it lasts as long as the Tether Node.
+func SetShieldTier(ctx context.Context, q db.Querier, id int64, tier int) error {
+	_, err := q.ExecContext(ctx, `UPDATE td.tether_nodes SET shield_tier = $2 WHERE id = $1`, id, tier)
+	return err
 }
 
 // TetherOwner reads who owns a Tether Node without locking it, so a transaction can lock the
@@ -536,6 +574,9 @@ type MyTether struct {
 	DroneArrivesAt *time.Time       `json:"droneArrivesAt"`
 	AttackedAt     *time.Time       `json:"attackedAt"`
 	UnderAttack    bool             `json:"underAttack"`
+	ShieldTier     int              `json:"shieldTier"`
+	// Drones flying at it, with where each was launched from ([] when none).
+	Drones []InboundDroneView `json:"drones"`
 }
 
 // MyTethers lists every Tether Node a player owns that is active or ended within endedWithin,
@@ -555,7 +596,8 @@ func MyTethers(ctx context.Context, q db.Querier, ownerID int64, endedWithin, at
 		       (SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
 		       (SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
 		       t.attacked_at,
-		       COALESCE(t.status = 'active' AND t.attacked_at > now() - make_interval(secs => $3), false)
+		       COALESCE(t.status = 'active' AND t.attacked_at > now() - make_interval(secs => $3), false),
+		       t.shield_tier, `+inboundDronesSQL+`
 		FROM td.tether_nodes t
 		WHERE t.owner_id = $1
 		  AND (t.status = 'active' OR t.ended_at >= now() - make_interval(secs => $2))`,
@@ -569,9 +611,12 @@ func MyTethers(ctx context.Context, q db.Querier, ownerID int64, endedWithin, at
 		var t MyTether
 		var status string
 		var ended, jammed, spike, drone, attacked sql.NullTime
-		var stock, links []byte
+		var stock, links, drones []byte
 		if err := rows.Scan(&t.ID, &t.Name, &t.Tier, &t.Lat, &t.Lon, &t.Health, &t.ExpiresAt, &status, &ended,
-			&stock, &links, &jammed, &spike, &drone, &attacked, &t.UnderAttack); err != nil {
+			&stock, &links, &jammed, &spike, &drone, &attacked, &t.UnderAttack, &t.ShieldTier, &drones); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(drones, &t.Drones); err != nil {
 			return nil, err
 		}
 		t.Status = status

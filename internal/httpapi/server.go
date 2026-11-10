@@ -74,6 +74,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tethers/{id}/attack", s.authed(s.attackTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/defuse", s.authed(s.defuseSpike))
 	mux.HandleFunc("POST /v1/tethers/{id}/drone", s.authed(s.launchDrone))
+	mux.HandleFunc("POST /v1/tethers/{id}/intercept", s.authed(s.interceptDrone))
+	mux.HandleFunc("POST /v1/tethers/{id}/shield", s.authed(s.fitShield))
+	mux.HandleFunc("GET /v1/drones", s.authed(s.myDrones))
 
 	mux.HandleFunc("POST /v1/nodes/{id}/contest", s.authed(s.startContest))
 	mux.HandleFunc("POST /v1/contests/{id}/join", s.authed(s.joinContest))
@@ -319,6 +322,57 @@ func (s *Server) launchDrone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, res)
+}
+
+func (s *Server) interceptDrone(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, fix, err := tetherAction(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.InterceptDrone(r.Context(), playerID, id, fix)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) fitShield(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("tether id"))
+		return
+	}
+	var body struct {
+		Item      string  `json:"item"`
+		Lat       float64 `json:"lat"`
+		Lon       float64 `json:"lon"`
+		AccuracyM float64 `json:"accuracyM"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.FitShield(r.Context(), playerID, id, body.Item,
+		service.TetherFix{Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM})
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) myDrones(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	drones, err := s.svc.MyDrones(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, drones)
 }
 
 func (s *Server) upgradeGear(w http.ResponseWriter, r *http.Request) {

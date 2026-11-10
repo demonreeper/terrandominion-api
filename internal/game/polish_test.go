@@ -163,7 +163,9 @@ func TestNoticeSeverity(t *testing.T) {
 		"attacked": SeverityDanger, "destroyed": SeverityDanger, "spike": SeverityDanger,
 		"drone_inbound": SeverityDanger, "spike_fired": SeverityDanger,
 		"jammed": SeverityWarning, "contest": SeverityWarning, "contest_lost": SeverityWarning,
-		"spike_result": SeverityInfo, "drone_result": SeverityInfo, "defused": SeverityInfo, "contest_won": SeverityInfo,
+		"drone_intercepted": SeverityWarning,
+		"spike_result":      SeverityInfo, "drone_result": SeverityInfo, "defused": SeverityInfo, "contest_won": SeverityInfo,
+		"drone_launched": SeverityInfo, "shield_fitted": SeverityInfo,
 	}
 	kinds := NoticeKinds()
 	sort.Strings(kinds)
@@ -188,20 +190,26 @@ func TestNoticeSeverity(t *testing.T) {
 
 func TestNoticeBodies(t *testing.T) {
 	cases := map[string]string{
-		NoticeHit("Aishath", "EM Pulse", "Crystal Seam K-27", 25):      "Aishath's EM Pulse hit your Tether Node near Crystal Seam K-27 for 25 damage.",
-		NoticeHit("Aishath", "drone", "", 15):                          "Aishath's drone hit your Tether Node for 15 damage.",
+		NoticeHit("Aishath", "EM Pulse", "Crystal Seam K-27", 25, 75):  "Aishath's EM Pulse hit your Tether Node near Crystal Seam K-27 for 25 damage. 75 health left.",
+		NoticeHit("Aishath", "drone", "", 15, 40):                      "Aishath's drone hit your Tether Node for 15 damage. 40 health left.",
 		NoticeDestroyed("Aishath", "spike", "Alloy Cache B-02"):        "Aishath's spike destroyed your Tether Node near Alloy Cache B-02.",
 		NoticeJammed("Aishath", "Data Relay C-11", 30*time.Minute):     "Aishath jammed your Tether Node near Data Relay C-11. It collects nothing for 30 min.",
 		NoticeSpikePlanted("Aishath", "X", 10*time.Minute, 40):         "Aishath planted a spike on your Tether Node near X. Defuse it within 10 min or it deals 40 damage.",
 		NoticeDroneInbound("Aishath", "X", 45*time.Second, 15):         "Aishath's drone is inbound to your Tether Node near X. It lands in 45 s for 15 damage.",
-		NoticeResult("drone", "Aishath", "", 15, false):                "Your drone hit Aishath's Tether Node for 15 damage.",
-		NoticeResult("spike", "Aishath", "X", 40, true):                "Your spike destroyed Aishath's Tether Node near X.",
+		NoticeResult("drone", "Aishath", "", 15, 40, false):            "Your drone hit Aishath's Tether Node for 15 damage. 40 health left.",
+		NoticeResult("spike", "Aishath", "X", 40, 0, true):             "Your spike destroyed Aishath's Tether Node near X.",
+		NoticeDroneLaunched("Aishath", "X", 20*time.Second, 15):        "Your drone is away to Aishath's Tether Node near X. It lands in 20 s for 15 damage.",
+		NoticeInterceptedDefender("Aishath", "X", 0.75):                "You intercepted Aishath's drone at your Tether Node near X. 75% of its damage was stopped.",
+		NoticeInterceptedDefender("Aishath", "", 1):                    "You shot down Aishath's drone at your Tether Node.",
+		NoticeInterceptedAttacker("Aishath", "X", 0.5):                 "Your drone was intercepted at Aishath's Tether Node near X. 50% of its damage was stopped.",
+		NoticeInterceptedAttacker("Aishath", "X", 1):                   "Your drone was shot down at Aishath's Tether Node near X.",
+		NoticeShieldFitted(2, "X"):                                     "Shield Mk II fitted to your Tether Node near X.",
 		NoticeDefused("Aishath", "X"):                                  "Aishath defused your spike on their Tether Node near X.",
 		NoticeContest("Aishath", "Crystal Seam K-27", 40, time.Minute): "Aishath is contesting Crystal Seam K-27. Be within 40 m in the next 1 min to defend it.",
 		NoticeContestWon("X", "Aishath", 12, 8, 3):                     "You won the contest for X against Aishath, 12 to 8. Its next 3 harvests are yours.",
 		NoticeContestWon("X", "Aishath", 12, 8, 1):                     "You won the contest for X against Aishath, 12 to 8. Its next 1 harvest is yours.",
 		NoticeContestLost("X", "Aishath", 8, 12):                       "You lost the contest for X to Aishath, 8 to 12.",
-		NoticeHit("", "EM Pulse", "", 25):                              "Someone's EM Pulse hit your Tether Node for 25 damage.",
+		NoticeHit("", "EM Pulse", "", 25, 0):                           "Someone's EM Pulse hit your Tether Node for 25 damage. 0 health left.",
 	}
 	for got, want := range cases {
 		if got != want {

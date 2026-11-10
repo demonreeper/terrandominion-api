@@ -9,6 +9,10 @@ func TestRecipesMatchThePlan(t *testing.T) {
 		"em_pulse":       {"crystal": 20, "data": 10},
 		"signal_jammer":  {"data": 15, "alloy": 10},
 		"overload_spike": {"alloy": 30, "crystal": 20, "credit": 10},
+		"tn_shield_mk1":  {"crystal": 30, "alloy": 20},
+		"tn_shield_mk2":  {"alloy": 80, "data": 40},
+		"tn_shield_mk3":  {"alloy": 160, "data": 80, "credit": 40},
+		"tn_shield_mk4":  {"alloy": 800, "data": 400, "credit": 200},
 	}
 	if got := len(Recipes(s)); got != len(want) {
 		t.Fatalf("got %d recipes, want %d", got, len(want))

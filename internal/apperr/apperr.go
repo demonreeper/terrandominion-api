@@ -147,6 +147,10 @@ var (
 	NoDroneBay = def(1730, http.StatusConflict, "You need a working Drone Bay for that.")
 	DroneBusy  = def(1731, http.StatusConflict, "Your drone is already in flight.")
 
+	NoDroneInbound     = def(1732, http.StatusConflict, "No drone is flying at this Tether Node.")
+	AlreadyIntercepted = def(1733, http.StatusConflict, "Every drone flying at this Tether Node is already intercepted.")
+	ShieldNotHigher    = def(1734, http.StatusConflict, "This Tether Node already has that shield or a better one.")
+
 	PushTokenBad      = def(1740, http.StatusBadRequest, "That notification token isn't valid.")
 	PushNotConfigured = def(1741, http.StatusServiceUnavailable, "Notifications aren't set up on this server.")
 	PushNoToken       = def(1742, http.StatusConflict, "No phone is registered for notifications.")

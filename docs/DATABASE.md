@@ -76,6 +76,15 @@ equipped item per slot. Gear at durability 0 contributes nothing until repaired.
 Mk I scanner and extractor. `player_items` holds the consumables a player has crafted (energy
 cells and weapons) as a count per item; their costs are settings (`Craft*`).
 
+### drones and shields
+`drone_strikes` holds every strike: the target, the launcher, its raw `damage`, `mk` (the bay's tier), the
+launch fix (`from_lat`, `from_lon`; the defender sees the direction), `arrives_at` and `status`
+(`flying`, `hit`, `void`). An intercept sets `intercepted` and `intercept_share`; a share of 1 voids it
+at once. Landing and intercept both lock the row with a `status = 'flying'` check, so a strike resolves once;
+`landed_damage` is what reached the node after intercept and shield. `tether_nodes.shield_tier` (0-4) is the
+fitted TN Shield; it lasts as long as the node. Drone Bay tiers are `gear_types` rows `drone_bay_mk1..4`
+linked by `upgrades_to`, with `range_m`, `damage`, `drones` and `cells` in `stats`.
+
 ### factions
 Six placeholder factions are seeded, all `locked` with a lore reason. The first player at
 `LeadFactionLevel` to claim one becomes its head: the claim is a conditional update, so of two

@@ -24,12 +24,13 @@ var pushRules = map[string]PushRule{
 	"destroyed":     {Title: "Tether Node destroyed", Channel: PushChannelAlerts},
 	"jammed":        {Title: "Tether Node jammed", Channel: PushChannelAlerts, Throttled: true},
 
-	"contest_won":  {Title: "Contest won", Channel: PushChannelResults},
-	"contest_lost": {Title: "Contest lost", Channel: PushChannelResults},
-	"spike_result": {Title: "Spike report", Channel: PushChannelResults},
-	"drone_result": {Title: "Drone report", Channel: PushChannelResults},
-	"defused":      {Title: "Spike defused", Channel: PushChannelResults},
-	"spike_fired":  {Title: "Spike went off", Channel: PushChannelResults},
+	"contest_won":       {Title: "Contest won", Channel: PushChannelResults},
+	"contest_lost":      {Title: "Contest lost", Channel: PushChannelResults},
+	"spike_result":      {Title: "Spike report", Channel: PushChannelResults},
+	"drone_result":      {Title: "Drone report", Channel: PushChannelResults},
+	"defused":           {Title: "Spike defused", Channel: PushChannelResults},
+	"drone_intercepted": {Title: "Drone intercepted", Channel: PushChannelResults},
+	"spike_fired":       {Title: "Spike went off", Channel: PushChannelResults},
 }
 
 // PushRuleFor returns the rule for a notice kind; false means it stays in the game only.

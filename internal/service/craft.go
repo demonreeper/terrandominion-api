@@ -29,8 +29,12 @@ func (s *Service) Craft(ctx context.Context, playerID int64, recipeID string) (C
 
 	var out CraftOutcome
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		if _, err := store.GetPlayerForUpdate(ctx, tx, playerID); err != nil {
+		player, err := store.GetPlayerForUpdate(ctx, tx, playerID)
+		if err != nil {
 			return err
+		}
+		if player.Level < recipe.MinLevel {
+			return game.LevelError(recipe.MinLevel, player.Level)
 		}
 		if err := s.payCost(ctx, tx, playerID, recipe.Cost); err != nil {
 			return err

@@ -51,9 +51,9 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## Crafting
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/craft` | `recipe` | Makes one consumable from `recipes` in `/me` (`items` holds the counts). Paid from carried, then stored |
+| POST | `/craft` | `recipe` | Makes one consumable from `recipes` in `/me` (`items` holds the counts). Paid from carried, then stored. A recipe with `minLevel` (the TN Shields: Mk I 5, II 10, III 15, IV 20) needs that level, else 1301 |
 | POST | `/gear/craft` | `type` | Makes a piece of gear from `craftableGear` in `/me`, equipped in its empty slot. Needs its level |
-| POST | `/gear/{id}/upgrade` | – | To the next tier in the same slot, at full durability. Needs the tier's level; cost is `upgradeCost` on the gear |
+| POST | `/gear/{id}/upgrade` | – | To the next tier in the same slot, at full durability. Needs the tier's level; cost is `upgradeCost` on the gear, and `upgradeStats` are the next tier's stats (Drone Bay Mk I → II → III → IV: `range_m, damage, drones, cells`) |
 | POST | `/gear/{id}/repair` | – | To full durability for alloy (`repairCost` on the gear). No XP |
 
 ## World
@@ -65,15 +65,18 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## Tether Nodes
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, within the scanner's range, with their links (`nodeId, resource, lat, lon`) |
+| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
 | GET | `/tethers/mine` | – | Every TN the player owns, wherever it is (no range check), plus ones that ended in the last `TnEndedShowMinutes` (60). Most urgent first; see My Tether Nodes below |
 | POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then stored), and links free nodes in range. Returns `tether, carried, stored, xp, progress, levelUp` |
 | GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
 | POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free. Returns `tether, carried, stored, xp, progress, levelUp` |
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to stored, and frees its nodes. Returns `refund, held, stored` |
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to stored. Returns `moved, stored` |
-| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. Returns `health`, `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only) |
-| POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay; range is the bay's `stats.range_m` (Mk I 150 m) plus the fix's accuracy (at most doubling it), else 1712 with `distanceM, rangeM`. Attack rules apply, uses `CellsDrone`. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `arrivesAt, distanceM` |
+| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. A shield cuts the damage (and jam time) by `ShieldShare` (weapons count as Mk I), and no single hit takes a shielded node below 1 health. Returns `health`, `damage` (EM Pulse), `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only) |
+| POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay; range is the bay's `stats.range_m` (Mk I 150 m, Mk II 500 m, Mk III 1 km, Mk IV 5 km) plus the fix's accuracy (at most doubling it), else 1712 with `distanceM, rangeM`. Attack rules apply. Uses the bay's `stats.cells` energy cells (Mk IV 3) and `DroneLaunchWear` (5) durability; at most `stats.drones` in flight. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `id, tnId, mk, launchedAt, arrivesAt, distanceM, from {lat, lon}, to {lat, lon}, damage` (what lands without an intercept, after the shield) |
+| POST | `/tethers/{id}/intercept` | `lat, lon, accuracyM` | Owner only, within `WeaponRangeM`, `CellsIntercept` energy cells. Intercepts the soonest-landing drone not yet intercepted; it stops `InterceptShareMk1..4` of its damage by the drone's Mk (Mk I 100%: the drone is void at once). 1732 when no drone is inbound, 1733 when all are already intercepted. Returns `droneId, share, shotDown` |
+| POST | `/tethers/{id}/shield` | `item, lat, lon, accuracyM` | Owner only, within `WeaponRangeM`. Fits a crafted `tn_shield_mk1`..`mk4` (uses the item); lasts as long as the node; 1734 unless it is above the fitted one. Returns `shieldTier` |
+| GET | `/drones` | – | The player's own strikes in flight and those ended in the last `DroneResultsMinutes` (10): `id, tnId, mk, status (flying, hit, void), launchedAt, arrivesAt, from, to, intercepted, damage` (`damage` once landed) |
 | POST | `/tethers/{id}/defuse` | `lat, lon, accuracyM` | Owner only, in range, before the fuse ends |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's stored inventory, less the charge paid to the owner. Returns `moved` (what went into storage this time), `fee`, `carried`, `stored` (new totals) |
 
@@ -86,7 +89,8 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
   "stock": {"crystal": 14},
   "links": [{"nodeId": 301, "resource": "crystal", "name": "Crystal Seam K-27"}],
   "jammedUntil": null, "spikeFiresAt": null, "droneArrivesAt": null, "attackedAt": "...",
-  "underAttack": true }
+  "underAttack": true, "shieldTier": 2,
+  "drones": [{"id": 7, "mk": 2, "launchedAt": "...", "arrivesAt": "...", "from": {"lat": 4.18, "lon": 73.51}, "intercepted": false}] }
 ```
 
 - `name`: the node the TN stands by (its first link, or for an ended one the nearest node within
@@ -127,7 +131,7 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 
 | Kind | Severity | To | Meaning | `actor` | `amount` |
 |---|---|---|---|---|---|
-| `attacked` | danger | TN owner | An EM Pulse or a drone hit your TN and it survived | attacker | damage |
+| `attacked` | danger | TN owner | An EM Pulse or a drone hit your TN and it survived (with the health left) | attacker | damage, after intercept and shield |
 | `destroyed` | danger | TN owner | An EM Pulse, spike or drone destroyed your TN | attacker | damage of the last hit |
 | `spike` | danger | TN owner | A spike was planted on your TN; defuse it before it fires | planter | damage it will deal |
 | `spike_fired` | danger | TN owner | A spike went off on your TN and it survived | planter | damage |
@@ -137,7 +141,10 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `contest_lost` | warning | loser | You lost a node contest | winner | null |
 | `contest_won` | info | winner | You won a node contest and hold its next harvests | loser | null |
 | `spike_result` | info | planter | Your spike went off: it hit or destroyed the TN | TN owner | damage |
-| `drone_result` | info | launcher | Your drone landed: it hit or destroyed the TN | TN owner | damage |
+| `drone_result` | info | launcher | Your drone landed: it hit or destroyed the TN (with the health left) | TN owner | damage |
+| `drone_launched` | info | launcher | Your drone is away, with its flight time and damage | TN owner | damage it will deal |
+| `drone_intercepted` | warning | both | The owner intercepted a drone: the share stopped, or shot down | the other player | null |
+| `shield_fitted` | info | TN owner | A shield was fitted to your TN | null | null |
 | `defused` | info | planter | The owner defused your spike | TN owner | null |
 
 Contest notices have `tnId` null.
@@ -230,7 +237,10 @@ never reads as inside the range).
 | 1719 | Contest over | |
 | 1720 | Can't join this contest | |
 | 1730 | No working Drone Bay | |
-| 1731 | Drone already in flight | |
+| 1731 | Drone already in flight (as many as the bay's `stats.drones`) | |
+| 1732 | No drone flying at this Tether Node (intercept) | |
+| 1733 | Every inbound drone is already intercepted | |
+| 1734 | Shield not higher than the fitted one | `shieldTier` |
 | 1740 | Push token not valid | |
 | 1741 | Push not set up on this server | |
 | 1742 | No phone registered for push | |

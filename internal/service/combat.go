@@ -16,7 +16,9 @@ import (
 const noticeKeepDays = 30
 
 type AttackTetherOutcome struct {
-	Health       float64    `json:"health"`
+	Health float64 `json:"health"`
+	// Damage is what an EM Pulse did after the shield.
+	Damage       int64      `json:"damage,omitempty"`
 	Destroyed    bool       `json:"destroyed"`
 	JammedUntil  *time.Time `json:"jammedUntil,omitempty"`
 	SpikeFiresAt *time.Time `json:"spikeFiresAt,omitempty"`
@@ -178,28 +180,33 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 		toOwner := store.NewNotice{PlayerID: ownerID, TetherID: tetherID, ActorID: attackerID}
 		switch weapon.ID {
 		case game.WeaponEmPulse:
-			health, err := store.DamageTether(ctx, tx, tetherID, weapon.Damage)
+			// A shield stops part of it, and stops one hit from destroying the node.
+			hit := game.HitDamage(weapon.Damage, 0, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
+			hit = game.CapShieldedHit(tether.Health, hit, tether.ShieldTier > 0)
+			health, err := store.DamageTether(ctx, tx, tetherID, hit)
 			if err != nil {
 				return err
 			}
 			out.Health, out.Destroyed = health, health <= 0
+			out.Damage = game.Damage(hit)
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
-			toOwner.Amount = amountOf(game.Damage(weapon.Damage))
+			toOwner.Amount = amountOf(game.Damage(hit))
 			if out.Destroyed {
 				if err := s.endTether(ctx, tx, tetherID, tether, "destroyed", settings); err != nil {
 					return err
 				}
 				toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(target.AttackerName, weapon.Name, place)
 			} else {
-				toOwner.Kind, toOwner.Body = "attacked", game.NoticeHit(target.AttackerName, weapon.Name, place, *toOwner.Amount)
+				toOwner.Kind, toOwner.Body = "attacked", game.NoticeHit(target.AttackerName, weapon.Name, place, *toOwner.Amount, healthLeft(health))
 			}
 			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
 			}
 		case game.WeaponJammer:
-			until := now.Add(weapon.Jam)
+			jam := game.ShieldedJam(weapon.Jam, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
+			until := now.Add(jam)
 			out.JammedUntil = &until
 			if err := store.JamTether(ctx, tx, tetherID, until); err != nil {
 				return err
@@ -207,7 +214,7 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
-			toOwner.Kind, toOwner.Body = "jammed", game.NoticeJammed(target.AttackerName, place, weapon.Jam)
+			toOwner.Kind, toOwner.Body = "jammed", game.NoticeJammed(target.AttackerName, place, jam)
 			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
 			}
@@ -220,7 +227,10 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.MarkTetherAttacked(ctx, tx, tetherID); err != nil {
 				return err
 			}
-			toOwner.Kind, toOwner.Amount = "spike", amountOf(game.Damage(weapon.Damage))
+			// What it will do through the shield fitted now (the floor is applied when it fires).
+			toOwner.Kind = "spike"
+			toOwner.Amount = amountOf(game.Damage(game.HitDamage(weapon.Damage, 0,
+				game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))))
 			toOwner.Body = game.NoticeSpikePlanted(target.AttackerName, place, weapon.Fuse, *toOwner.Amount)
 			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
@@ -355,17 +365,19 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 		if err != nil {
 			return err
 		}
-		health, err := store.DamageTether(ctx, tx, spike.TetherID, settings.SpikeDamage)
+		hit := game.HitDamage(settings.SpikeDamage, 0, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
+		hit = game.CapShieldedHit(tether.Health, hit, tether.ShieldTier > 0)
+		health, err := store.DamageTether(ctx, tx, spike.TetherID, hit)
 		if err != nil {
 			return err
 		}
 		if err := store.MarkTetherAttacked(ctx, tx, spike.TetherID); err != nil {
 			return err
 		}
-		damage := game.Damage(settings.SpikeDamage)
+		damage := game.Damage(hit)
 		destroyed := health <= 0
 		toOwner := store.NewNotice{PlayerID: spike.OwnerID, TetherID: spike.TetherID, ActorID: spike.PlantedBy,
-			Amount: amountOf(damage), Kind: "spike_fired", Body: game.NoticeHit(planter, "spike", place, damage)}
+			Amount: amountOf(damage), Kind: "spike_fired", Body: game.NoticeHit(planter, "spike", place, damage, healthLeft(health))}
 		if destroyed {
 			if err := s.endTether(ctx, tx, spike.TetherID, tether, "destroyed", settings); err != nil {
 				return err
@@ -377,7 +389,7 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 		}
 		return notify(ctx, tx, store.NewNotice{
 			PlayerID: spike.PlantedBy, TetherID: spike.TetherID, ActorID: spike.OwnerID, Amount: amountOf(damage),
-			Kind: "spike_result", Body: game.NoticeResult("spike", owner, place, damage, destroyed),
+			Kind: "spike_result", Body: game.NoticeResult("spike", owner, place, damage, healthLeft(health), destroyed),
 		})
 	})
 }

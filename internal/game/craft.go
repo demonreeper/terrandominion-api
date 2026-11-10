@@ -7,11 +7,14 @@ type Recipe struct {
 	ID   string           `json:"id"`
 	Name string           `json:"name"`
 	Cost map[string]int64 `json:"cost"`
+	// MinLevel is the level needed to craft it (0 = any).
+	MinLevel int `json:"minLevel,omitempty"`
 }
 
-// Recipes lists the consumables in display order, priced from the settings.
+// Recipes lists the consumables in display order, priced from the settings: energy cells and
+// weapons, then the four TN Shields.
 func Recipes(s Settings) []Recipe {
-	return []Recipe{
+	return append([]Recipe{
 		{ID: "energy_cell", Name: "Energy Cell", Cost: positive(map[string]int{
 			"crystal": s.CraftCellCrystal, "data": s.CraftCellData,
 		})},
@@ -24,7 +27,7 @@ func Recipes(s Settings) []Recipe {
 		{ID: "overload_spike", Name: "Overload Spike", Cost: positive(map[string]int{
 			"alloy": s.CraftSpikeAlloy, "crystal": s.CraftSpikeCrystal, "credit": s.CraftSpikeCredit,
 		})},
-	}
+	}, shieldRecipes(s)...)
 }
 
 // RecipeByID finds a recipe; ok is false for an unknown id.

@@ -96,7 +96,34 @@ type Settings struct {
 
 	DroneSpeedMps     float64
 	DroneMinFlightSec float64
-	CellsDrone        int
+
+	// Drone strike plan, milestones 2-7. Cells per strike live in each Drone Bay's stats.cells.
+	DroneLaunchWear       int
+	DroneResultsMinutes   float64
+	DroneRangeRingDefault int
+	CellsIntercept        int
+	InterceptShareMk1     float64
+	InterceptShareMk2     float64
+	InterceptShareMk3     float64
+	InterceptShareMk4     float64
+	TnShieldBase          float64
+	TnShieldStep          float64
+	TnShieldMin           float64
+	TnShieldMax           float64
+	ShieldLevelMk1        int
+	ShieldLevelMk2        int
+	ShieldLevelMk3        int
+	ShieldLevelMk4        int
+	CraftShield1Crystal   int
+	CraftShield1Alloy     int
+	CraftShield2Alloy     int
+	CraftShield2Data      int
+	CraftShield3Alloy     int
+	CraftShield3Data      int
+	CraftShield3Credit    int
+	CraftShield4Alloy     int
+	CraftShield4Data      int
+	CraftShield4Credit    int
 
 	// Node seeding (drone strike plan, milestone 0).
 	SeedCellM         float64
@@ -215,7 +242,33 @@ func DefaultSettings() Settings {
 
 		DroneSpeedMps:     15,
 		DroneMinFlightSec: 20,
-		CellsDrone:        1,
+
+		DroneLaunchWear:       5,
+		DroneResultsMinutes:   10,
+		DroneRangeRingDefault: 1,
+		CellsIntercept:        1,
+		InterceptShareMk1:     1.0,
+		InterceptShareMk2:     0.75,
+		InterceptShareMk3:     0.5,
+		InterceptShareMk4:     0.25,
+		TnShieldBase:          0.30,
+		TnShieldStep:          0.15,
+		TnShieldMin:           0.05,
+		TnShieldMax:           0.75,
+		ShieldLevelMk1:        5,
+		ShieldLevelMk2:        10,
+		ShieldLevelMk3:        15,
+		ShieldLevelMk4:        20,
+		CraftShield1Crystal:   30,
+		CraftShield1Alloy:     20,
+		CraftShield2Alloy:     80,
+		CraftShield2Data:      40,
+		CraftShield3Alloy:     160,
+		CraftShield3Data:      80,
+		CraftShield3Credit:    40,
+		CraftShield4Alloy:     800,
+		CraftShield4Data:      400,
+		CraftShield4Credit:    200,
 
 		SeedCellM:         250,
 		SeedPerCell:       4,
@@ -348,7 +401,32 @@ func SettingsFrom(values map[string]float64) Settings {
 
 	f("DroneSpeedMps", &s.DroneSpeedMps)
 	f("DroneMinFlightSec", &s.DroneMinFlightSec)
-	i("CellsDrone", &s.CellsDrone)
+	i("DroneLaunchWear", &s.DroneLaunchWear)
+	f("DroneResultsMinutes", &s.DroneResultsMinutes)
+	i("DroneRangeRingDefault", &s.DroneRangeRingDefault)
+	i("CellsIntercept", &s.CellsIntercept)
+	f("InterceptShareMk1", &s.InterceptShareMk1)
+	f("InterceptShareMk2", &s.InterceptShareMk2)
+	f("InterceptShareMk3", &s.InterceptShareMk3)
+	f("InterceptShareMk4", &s.InterceptShareMk4)
+	f("TnShieldBase", &s.TnShieldBase)
+	f("TnShieldStep", &s.TnShieldStep)
+	f("TnShieldMin", &s.TnShieldMin)
+	f("TnShieldMax", &s.TnShieldMax)
+	i("ShieldLevelMk1", &s.ShieldLevelMk1)
+	i("ShieldLevelMk2", &s.ShieldLevelMk2)
+	i("ShieldLevelMk3", &s.ShieldLevelMk3)
+	i("ShieldLevelMk4", &s.ShieldLevelMk4)
+	i("CraftShield1Crystal", &s.CraftShield1Crystal)
+	i("CraftShield1Alloy", &s.CraftShield1Alloy)
+	i("CraftShield2Alloy", &s.CraftShield2Alloy)
+	i("CraftShield2Data", &s.CraftShield2Data)
+	i("CraftShield3Alloy", &s.CraftShield3Alloy)
+	i("CraftShield3Data", &s.CraftShield3Data)
+	i("CraftShield3Credit", &s.CraftShield3Credit)
+	i("CraftShield4Alloy", &s.CraftShield4Alloy)
+	i("CraftShield4Data", &s.CraftShield4Data)
+	i("CraftShield4Credit", &s.CraftShield4Credit)
 	f("SeedCellM", &s.SeedCellM)
 	i("SeedPerCell", &s.SeedPerCell)
 	f("SeedPathPerNodeM", &s.SeedPathPerNodeM)
