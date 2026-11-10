@@ -166,6 +166,7 @@ func TestNoticeSeverity(t *testing.T) {
 		"drone_intercepted": SeverityWarning,
 		"spike_result":      SeverityInfo, "drone_result": SeverityInfo, "defused": SeverityInfo, "contest_won": SeverityInfo,
 		"drone_launched": SeverityInfo, "shield_fitted": SeverityInfo,
+		"mission_done": SeverityInfo, "invitation": SeverityInfo, "warden": SeverityInfo,
 	}
 	kinds := NoticeKinds()
 	sort.Strings(kinds)

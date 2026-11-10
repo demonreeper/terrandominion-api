@@ -366,6 +366,10 @@ func awardXP(ctx context.Context, q db.Querier, playerID int64, action string, x
 		if err := store.SetLevel(ctx, q, playerID, progress.Level); err != nil {
 			return progress, false, err
 		}
+		// A freelancer reaching the faction level is invited by the lore power they followed most.
+		if err := maybeInvite(ctx, q, playerID, before.Level, progress.Level, settings); err != nil {
+			return progress, false, err
+		}
 		return progress, true, nil
 	}
 	progress.Level = before.Level

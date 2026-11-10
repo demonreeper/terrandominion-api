@@ -159,5 +159,11 @@ var (
 
 	SeedNoMap = def(1750, http.StatusServiceUnavailable, "The map data for seeding hasn't been imported yet.")
 
+	MissionGone          = def(1760, http.StatusNotFound, "That order is gone or already claimed.")
+	MissionNotDone       = def(1761, http.StatusConflict, "That order isn't done yet.")
+	NotRegionalCommander = def(1762, http.StatusForbidden, "Only your Regional Commander can do that.")
+	NotInBranch          = def(1763, http.StatusConflict, "That player isn't in your faction's branch here.")
+	AlreadyWarden        = def(1764, http.StatusConflict, "That player is already a Warden or above.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

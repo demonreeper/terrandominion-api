@@ -153,6 +153,9 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 			}
 		}
 
+		if err := advanceMissions(ctx, tx, playerID, game.GoalBuildTether, "", 1, settings, s.now()); err != nil {
+			return err
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "tether_build", settings.XpTnBuild, id, settings)
 		if err != nil {
 			return err
@@ -310,6 +313,9 @@ func (s *Service) CollectTether(ctx context.Context, playerID, tetherID int64, f
 		if err != nil {
 			return err
 		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalCollect, "", 1, settings, s.now()); err != nil {
+			return err
+		}
 		out = CollectTetherOutcome{Moved: moved, Stored: uploaded}
 		return nil
 	})
@@ -400,6 +406,9 @@ func (s *Service) UploadTether(ctx context.Context, playerID, tetherID int64, fi
 				return err
 			}
 			carried[resource] -= amount
+		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalUpload, "", 1, settings, s.now()); err != nil {
+			return err
 		}
 		if err := store.InsertTetherTransfer(ctx, tx, store.TetherTransfer{
 			TetherID: tetherID, PlayerID: playerID, Kind: "upload", Amounts: stored, Fees: fees,
@@ -717,6 +726,9 @@ func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, f
 			}
 		}
 
+		if err := advanceMissions(ctx, tx, playerID, game.GoalUpgradeTether, "", 1, settings, s.now()); err != nil {
+			return err
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "tether_upgrade", settings.XpUpgrade, tetherID, settings)
 		if err != nil {
 			return err

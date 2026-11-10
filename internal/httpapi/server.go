@@ -89,6 +89,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/factions", s.authed(s.factions))
 	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.leadFaction))
 	mux.HandleFunc("POST /v1/factions/{code}/join", s.authed(s.joinFaction))
+	mux.HandleFunc("GET /v1/factions/branch", s.authed(s.factionBranch))
+	mux.HandleFunc("POST /v1/factions/branch/wardens", s.authed(s.appointWarden))
+	mux.HandleFunc("GET /v1/missions", s.authed(s.missions))
+	mux.HandleFunc("POST /v1/missions/{id}/claim", s.authed(s.claimMission))
 
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
 	mux.HandleFunc("PUT /v1/admin/settings/{key}", s.admin(s.adminUpdateSetting))
@@ -363,6 +367,57 @@ func (s *Server) fitShield(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, res)
+}
+
+func (s *Server) missions(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	res, err := s.svc.Missions(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) claimMission(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("mission id"))
+		return
+	}
+	res, err := s.svc.ClaimMission(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) factionBranch(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	res, err := s.svc.Branch(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) appointWarden(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		PlayerID int64 `json:"playerId"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.AppointWarden(r.Context(), playerID, body.PlayerID); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "appointed")
 }
 
 func (s *Server) myDrones(w http.ResponseWriter, r *http.Request) {

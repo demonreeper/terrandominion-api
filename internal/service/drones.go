@@ -62,6 +62,9 @@ func (s *Service) CraftGear(ctx context.Context, playerID int64, typeID string) 
 		if err := store.GrantCraftedGear(ctx, tx, playerID, typeID); err != nil {
 			return err
 		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalCraft, typeID, 1, settings, s.now()); err != nil {
+			return err
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "craft", settings.XpCraft, 0, settings)
 		if err != nil {
 			return err
@@ -152,6 +155,9 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 			PlayerID: attackerID, TetherID: tetherID, ActorID: target.OwnerID, Amount: amountOf(damage),
 			Kind: "drone_launched", Body: game.NoticeDroneLaunched(target.OwnerName, place, flight, damage),
 		}); err != nil {
+			return err
+		}
+		if err := advanceMissions(ctx, tx, attackerID, game.GoalDrone, "", 1, settings, s.now()); err != nil {
 			return err
 		}
 		out = DroneOutcome{
@@ -297,6 +303,9 @@ func (s *Service) InterceptDrone(ctx context.Context, playerID, tetherID int64, 
 		}); err != nil {
 			return err
 		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalIntercept, "", 1, settings, s.now()); err != nil {
+			return err
+		}
 		out = InterceptOutcome{DroneID: drone.ID, Share: share, ShotDown: share >= 1}
 		return nil
 	})
@@ -378,6 +387,9 @@ func (s *Service) FitShield(ctx context.Context, playerID, tetherID int64, item 
 		}
 		place, err := store.TetherPlace(ctx, tx, tetherID, settings.TnLinkRadiusM)
 		if err != nil {
+			return err
+		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalShield, "", 1, settings, s.now()); err != nil {
 			return err
 		}
 		out.ShieldTier = mk

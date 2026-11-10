@@ -243,6 +243,9 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 				return err
 			}
 		}
+		if err := advanceMissions(ctx, tx, attackerID, game.GoalAttack, weapon.ID, 1, settings, s.now()); err != nil {
+			return err
+		}
 		return store.InsertTetherAttack(ctx, tx, store.TetherAttackRecord{
 			TetherID: tetherID, AttackerID: attackerID, Weapon: weapon.ID,
 			Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM, DistanceM: distance,

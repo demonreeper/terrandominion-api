@@ -35,6 +35,10 @@ var noticeSeverity = map[string]string{
 
 	"drone_launched": SeverityInfo,
 	"shield_fitted":  SeverityInfo,
+
+	"mission_done": SeverityInfo,
+	"invitation":   SeverityInfo,
+	"warden":       SeverityInfo,
 }
 
 // NoticeSeverity is how urgent a notice kind is; unknown kinds are info.

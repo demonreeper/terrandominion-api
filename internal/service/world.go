@@ -140,6 +140,9 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		if err := store.AddCarried(ctx, tx, playerID, node.Resource, int64(result.Amount)); err != nil {
 			return err
 		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalHarvest, node.Resource, 1, settings, s.now()); err != nil {
+			return err
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "harvest", settings.XpHarvest, harvestID, settings)
 		if err != nil {
 			return err

@@ -145,6 +145,9 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `drone_launched` | info | launcher | Your drone is away, with its flight time and damage | TN owner | damage it will deal |
 | `drone_intercepted` | warning | both | The owner intercepted a drone: the share stopped, or shot down | the other player | null |
 | `shield_fitted` | info | TN owner | A shield was fitted to your TN | null | null |
+| `mission_done` | info | player | A mission is done; claim it in ORDERS (from its lore power) | null | null |
+| `invitation` | info | freelancer | At level 20, the lore power they followed most invites them to its faction | null | null |
+| `warden` | info | member | Their Regional Commander made them a Warden | commander | null |
 | `defused` | info | planter | The owner defused your spike | TN owner | null |
 
 Contest notices have `tnId` null.
@@ -155,11 +158,28 @@ Contest notices have `tnId` null.
 | GET | `/drops/nearby` | `lat, lon` | What ended Tether Nodes left on the map, within the scanner's range |
 | POST | `/drops/{id}/pick` | `lat, lon, accuracyM` | In range. Moves what fits into carried; the rest stays on the map |
 
+## Orders and daily missions
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/missions` | – | Today's missions (the Maldives date; `MissionsPerDay` 4, refreshing at local midnight, `MissionDayOffsetMinutes` 300), given on first ask: freelancers get one from each of 4 different lore powers, members from their own faction's, Regional Commanders and Wardens one command order among theirs. Returns `day, refreshesAt, missions, invitation` |
+| POST | `/missions/{id}/claim` | – | Pays a done mission: XP, credits into storage, its item if any. Returns `reward, xp, progress, levelUp` |
+
+Each mission: `{id, persona, factionCode, color, audience, goal, goalKey, count, progress, status (active, done, claimed),
+reward {xp, credits, item, itemCount}, line, title}`. `persona` is the lore power that gave it (Signum, Shingō,
+Sēma, Ishaaraath, Tohu, Merki); `line` is its message; `title` says what to do ("Harvest 3 crystal"). Progress counts
+on the server inside each action (harvest, build, upgrade and collect at a Tether Node, upload, craft, gear upgrade and
+repair, attack, drone, intercept, shield, appoint a Warden). `invitation` (`factionCode, factionName, persona, color,
+line`) is set once a freelancer reaches `LeadFactionLevel`: the lore power whose missions they finished most invites
+them. Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBase`, `MissionCreditPerLevel`),
+`MissionItemChance` of a low-level item, command orders `MissionCommandMult` times.
+
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leaderName` (the Regional Commander here, empty when nobody holds it), `members` (here), `region` |
 | POST | `/factions/{code}/lead` | Claim regional command of the faction in your region (one Regional Commander per faction per country; first to claim wins). Rank 90. Returns the membership |
+| GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{playerId, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
+| POST | `/factions/branch/wardens` | `playerId`: the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |
 | POST | `/factions/{code}/join` | Join the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership |
 
 Memberships (here and `faction` on `/me`) carry `factionId, factionCode, factionName, rank, branchId,
@@ -250,6 +270,11 @@ never reads as inside the range).
 | 1741 | Push not set up on this server | |
 | 1742 | No phone registered for push | |
 | 1743 | Push could not be sent | |
+| 1760 | Mission gone or already claimed | |
+| 1761 | Mission not done yet | `progress, count` |
+| 1762 | Only the Regional Commander can do that | |
+| 1763 | Not in your faction's branch | |
+| 1764 | Already a Warden or above | |
 | 1750 | Seeding map data not imported (admin seed calls; run `scripts/import-osm.ps1`) | |
 | 1900 | Server error | |
 

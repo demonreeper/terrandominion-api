@@ -42,6 +42,9 @@ func (s *Service) Craft(ctx context.Context, playerID int64, recipeID string) (C
 		if err := store.AddItem(ctx, tx, playerID, recipe.ID, 1); err != nil {
 			return err
 		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalCraft, recipe.ID, 1, settings, s.now()); err != nil {
+			return err
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "craft", settings.XpCraft, 0, settings)
 		if err != nil {
 			return err
@@ -81,6 +84,9 @@ func (s *Service) UpgradeGear(ctx context.Context, playerID, gearID int64) (Craf
 		if err := store.SetGearType(ctx, tx, gearID, next.ID, next.MaxDurability); err != nil {
 			return err
 		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalUpgradeGear, "", 1, settings, s.now()); err != nil {
+			return err
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "gear_upgrade", settings.XpUpgrade, gearID, settings)
 		if err != nil {
 			return err
@@ -107,6 +113,9 @@ func (s *Service) RepairGear(ctx context.Context, playerID, gearID int64) error 
 			return apperr.GearNotWorn
 		}
 		if err := s.payCost(ctx, tx, playerID, game.RepairCost(settings, gear.Durability, gear.MaxDurability)); err != nil {
+			return err
+		}
+		if err := advanceMissions(ctx, tx, playerID, game.GoalRepairGear, "", 1, settings, s.now()); err != nil {
 			return err
 		}
 		return store.SetGearDurability(ctx, tx, gearID, gear.MaxDurability)

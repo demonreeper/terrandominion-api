@@ -125,6 +125,16 @@ type Settings struct {
 	CraftShield4Data      int
 	CraftShield4Credit    int
 
+	// Orders and daily missions (docs/regional-command-plan.md).
+	MissionsPerDay          int
+	MissionDayOffsetMinutes int
+	MissionXpBase           int
+	MissionXpPerLevel       int
+	MissionCreditBase       int
+	MissionCreditPerLevel   int
+	MissionItemChance       float64
+	MissionCommandMult      float64
+
 	// Node seeding (drone strike plan, milestone 0).
 	SeedCellM         float64
 	SeedPerCell       int
@@ -269,6 +279,15 @@ func DefaultSettings() Settings {
 		CraftShield4Alloy:     800,
 		CraftShield4Data:      400,
 		CraftShield4Credit:    200,
+
+		MissionsPerDay:          4,
+		MissionDayOffsetMinutes: 300,
+		MissionXpBase:           30,
+		MissionXpPerLevel:       5,
+		MissionCreditBase:       5,
+		MissionCreditPerLevel:   1,
+		MissionItemChance:       0.25,
+		MissionCommandMult:      2,
 
 		SeedCellM:         250,
 		SeedPerCell:       4,
@@ -427,6 +446,14 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("CraftShield4Alloy", &s.CraftShield4Alloy)
 	i("CraftShield4Data", &s.CraftShield4Data)
 	i("CraftShield4Credit", &s.CraftShield4Credit)
+	i("MissionsPerDay", &s.MissionsPerDay)
+	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
+	i("MissionXpBase", &s.MissionXpBase)
+	i("MissionXpPerLevel", &s.MissionXpPerLevel)
+	i("MissionCreditBase", &s.MissionCreditBase)
+	i("MissionCreditPerLevel", &s.MissionCreditPerLevel)
+	f("MissionItemChance", &s.MissionItemChance)
+	f("MissionCommandMult", &s.MissionCommandMult)
 	f("SeedCellM", &s.SeedCellM)
 	i("SeedPerCell", &s.SeedPerCell)
 	f("SeedPathPerNodeM", &s.SeedPathPerNodeM)
