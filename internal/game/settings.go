@@ -14,8 +14,13 @@ type Settings struct {
 	XpHarvest        int
 	XpCraft          int
 	XpUpgrade        int
+	// Attacks give XP (0031): a hit, extra for destroying, an intercept; capped per pair per day.
+	XpAttack             int
+	XpDestroy            int
+	XpIntercept          int
+	XpAttackPerTargetDay int
 
-	HarvestRangeM       float64
+	HarvestRangeM      float64
 	HarvestMaxAccuracyM float64
 	HarvestCooldownSec  int
 	HarvestReserveCost  float64
@@ -178,6 +183,11 @@ func DefaultSettings() Settings {
 		XpHarvest:        10,
 		XpCraft:          15,
 		XpUpgrade:        20,
+
+		XpAttack:             25,
+		XpDestroy:            50,
+		XpIntercept:          20,
+		XpAttackPerTargetDay: 3,
 
 		HarvestRangeM:       40,
 		HarvestMaxAccuracyM: 50,
@@ -344,6 +354,10 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("XpHarvest", &s.XpHarvest)
 	i("XpCraft", &s.XpCraft)
 	i("XpUpgrade", &s.XpUpgrade)
+	i("XpAttack", &s.XpAttack)
+	i("XpDestroy", &s.XpDestroy)
+	i("XpIntercept", &s.XpIntercept)
+	i("XpAttackPerTargetDay", &s.XpAttackPerTargetDay)
 
 	f("HarvestRangeM", &s.HarvestRangeM)
 	f("HarvestMaxAccuracyM", &s.HarvestMaxAccuracyM)

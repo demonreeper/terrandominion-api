@@ -21,7 +21,7 @@ players ─┬─ player_identities   sign-in links (google now; apple, nakama l
          ├─ map_drops           what an ended Tether Node held, until picked up or expired
          ├─ player_gear ── gear_types        owned gear; the catalogue of gear
          ├─ harvests ── nodes                every harvest with the reported GPS fix
-         ├─ xp_events                        XP ledger: every action that earned XP
+         ├─ xp_events                        XP ledger: every action that earned XP (target_player_id: the other player in a fight, for the daily cap)
          └─ faction_members ── factions ─┬─ faction_branches   regional branch, sub-leader
                                           └─ bases              faction bases (spacing trigger)
 devices          anti-farming: welcome grant once per phone (stored as a keyed hash)

@@ -352,11 +352,17 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 // awardXP adds XP and keeps the stored level in step. Every action calls it.
 func awardXP(ctx context.Context, q db.Querier, playerID int64, action string, xp int, refID int64,
 	settings game.Settings) (game.Progress, bool, error) {
+	return awardXPAgainst(ctx, q, playerID, action, xp, refID, 0, settings)
+}
+
+// awardXPAgainst is awardXP for a fight: the ledger keeps the other player, for the daily cap.
+func awardXPAgainst(ctx context.Context, q db.Querier, playerID int64, action string, xp int, refID, targetID int64,
+	settings game.Settings) (game.Progress, bool, error) {
 	before, err := store.GetPlayer(ctx, q, playerID)
 	if err != nil {
 		return game.Progress{}, false, err
 	}
-	total, err := store.AddXP(ctx, q, playerID, action, xp, refID)
+	total, err := store.AddXP(ctx, q, playerID, action, xp, refID, targetID)
 	if err != nil {
 		return game.Progress{}, false, err
 	}

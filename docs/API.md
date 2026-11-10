@@ -72,13 +72,21 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 | POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free. Returns `tether, carried, stored, xp, progress, levelUp` |
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to stored, and frees its nodes. Returns `refund, held, stored` |
 | POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to stored. Returns `moved, stored` |
-| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. A shield cuts the damage (and jam time) by `ShieldShare` (weapons count as Mk I), and no single hit takes a shielded node below 1 health. Returns `health`, `damage` (EM Pulse), `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only) |
+| POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. A shield cuts the damage (and jam time) by `ShieldShare` (weapons count as Mk I), and no single hit takes a shielded node below 1 health. Returns `health`, `damage` (EM Pulse), `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only), and `xp, progress, levelUp` (see Fighting XP below) |
 | POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay; range is the bay's `stats.range_m` (Mk I 150 m, Mk II 500 m, Mk III 1 km, Mk IV 5 km) plus the fix's accuracy (at most doubling it), else 1712 with `distanceM, rangeM`. Attack rules apply. Uses the bay's `stats.cells` energy cells (Mk IV 3) and `DroneLaunchWear` (5) durability; at most `stats.drones` in flight. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `id, tnId, mk, launchedAt, arrivesAt, distanceM, from {lat, lon}, to {lat, lon}, damage` (what lands without an intercept, after the shield) |
-| POST | `/tethers/{id}/intercept` | `lat, lon, accuracyM` | Owner only, within `WeaponRangeM`, `CellsIntercept` energy cells. Intercepts the soonest-landing drone not yet intercepted; it stops `InterceptShareMk1..4` of its damage by the drone's Mk (Mk I 100%: the drone is void at once). 1732 when no drone is inbound, 1733 when all are already intercepted. Returns `droneId, share, shotDown` |
+| POST | `/tethers/{id}/intercept` | `lat, lon, accuracyM` | Owner only, within `WeaponRangeM`, `CellsIntercept` energy cells. Intercepts the soonest-landing drone not yet intercepted; it stops `InterceptShareMk1..4` of its damage by the drone's Mk (Mk I 100%: the drone is void at once). 1732 when no drone is inbound, 1733 when all are already intercepted. Returns `droneId, share, shotDown, xp, progress, levelUp` |
 | POST | `/tethers/{id}/shield` | `item, lat, lon, accuracyM` | Owner only, within `WeaponRangeM`. Fits a crafted `tn_shield_mk1`..`mk4` (uses the item); lasts as long as the node; 1734 unless it is above the fitted one. Returns `shieldTier` |
 | GET | `/drones` | – | The player's own strikes in flight and those ended in the last `DroneResultsMinutes` (10): `id, tnId, mk, status (flying, hit, void), launchedAt, arrivesAt, from, to, intercepted, damage` (`damage` once landed) |
 | POST | `/tethers/{id}/defuse` | `lat, lon, accuracyM` | Owner only, in range, before the fuse ends |
 | POST | `/tethers/{id}/upload` | `lat, lon, accuracyM` | In range, faction rules apply. Moves everything carried to the player's stored inventory, less the charge paid to the owner. Returns `moved` (what went into storage this time), `fee`, `carried`, `stored` (new totals) |
+
+**Fighting XP.** A hit on another player's Tether Node pays the attacker `XpAttack` (25), plus
+`XpDestroy` (50) when it destroys the node: an EM Pulse or jammer when used (in the attack's
+response), a spike when it fires and a drone when it lands (in the tick; the next `/me` shows it). A
+drone shot down pays nothing. Intercepting a drone pays the defender `XpIntercept` (20). Only
+`XpAttackPerTargetDay` (3) attacks pay per attacker and target player each day (midnight at
+`MissionDayOffsetMinutes`, Maldives time), and the same number of intercepts per defender and
+attacker; after that they still work but `xp` is 0 and `progress` is left out.
 
 ### My Tether Nodes
 `GET /tethers/mine` returns an array of:

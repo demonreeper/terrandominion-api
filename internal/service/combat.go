@@ -22,6 +22,8 @@ type AttackTetherOutcome struct {
 	Destroyed    bool       `json:"destroyed"`
 	JammedUntil  *time.Time `json:"jammedUntil,omitempty"`
 	SpikeFiresAt *time.Time `json:"spikeFiresAt,omitempty"`
+	// XP for an EM Pulse or jammer that landed; a spike pays when it fires.
+	CombatXP
 }
 
 // lastFix reads the player's previous position for the travel-speed check.
@@ -204,6 +206,9 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := notify(ctx, tx, toOwner); err != nil {
 				return err
 			}
+			if out.CombatXP, err = payAttackXP(ctx, tx, attackerID, ownerID, tetherID, hit > 0, out.Destroyed, settings, now); err != nil {
+				return err
+			}
 		case game.WeaponJammer:
 			jam := game.ShieldedJam(weapon.Jam, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
 			until := now.Add(jam)
@@ -216,6 +221,9 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			}
 			toOwner.Kind, toOwner.Body = "jammed", game.NoticeJammed(target.AttackerName, place, jam)
 			if err := notify(ctx, tx, toOwner); err != nil {
+				return err
+			}
+			if out.CombatXP, err = payAttackXP(ctx, tx, attackerID, ownerID, tetherID, jam > 0, false, settings, now); err != nil {
 				return err
 			}
 		case game.WeaponSpike:
@@ -349,7 +357,8 @@ func (s *Service) resolveCombat(ctx context.Context, settings game.Settings) {
 
 func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings game.Settings) error {
 	return db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		if _, err := store.GetPlayerForUpdate(ctx, tx, spike.OwnerID); err != nil {
+		// Both players: the planter is paid XP when it lands.
+		if err := lockPlayerPair(ctx, tx, spike.OwnerID, spike.PlantedBy); err != nil {
 			return err
 		}
 		tether, err := store.TetherForUpdate(ctx, tx, spike.TetherID)
@@ -388,6 +397,9 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 			toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(planter, "spike", place)
 		}
 		if err := notify(ctx, tx, toOwner); err != nil {
+			return err
+		}
+		if _, err := payAttackXP(ctx, tx, spike.PlantedBy, spike.OwnerID, spike.TetherID, hit > 0, destroyed, settings, s.now()); err != nil {
 			return err
 		}
 		return notify(ctx, tx, store.NewNotice{

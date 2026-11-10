@@ -105,16 +105,30 @@ func ScheduleDeletion(ctx context.Context, q db.Querier, id int64, after time.Ti
 }
 
 // AddXP adds XP and stores the level the caller computed from the new total.
-func AddXP(ctx context.Context, q db.Querier, id int64, action string, xp int, refID int64) (int64, error) {
+// AddXP records XP in the ledger and adds it to the player. targetID is the other player in a fight
+// (0 otherwise), which the daily cap on fighting XP counts.
+func AddXP(ctx context.Context, q db.Querier, id int64, action string, xp int, refID, targetID int64) (int64, error) {
 	if _, err := q.ExecContext(ctx,
-		`INSERT INTO td.xp_events (player_id, action, xp, ref_id) VALUES ($1, $2, $3, NULLIF($4, 0))`,
-		id, action, xp, refID); err != nil {
+		`INSERT INTO td.xp_events (player_id, action, xp, ref_id, target_player_id)
+		 VALUES ($1, $2, $3, NULLIF($4::bigint, 0), NULLIF($5::bigint, 0))`,
+		id, action, xp, refID, targetID); err != nil {
 		return 0, err
 	}
 	var total int64
 	err := q.QueryRowContext(ctx,
 		`UPDATE td.players SET xp = xp + $2, updated_at = now() WHERE id = $1 RETURNING xp`, id, xp).Scan(&total)
 	return total, err
+}
+
+// PaidXPAgainst counts the ledger rows of this action that paid the player XP against targetID since
+// the given time (the fighting cap).
+func PaidXPAgainst(ctx context.Context, q db.Querier, id, targetID int64, action string, since time.Time) (int, error) {
+	var n int
+	err := q.QueryRowContext(ctx,
+		`SELECT count(*) FROM td.xp_events
+		 WHERE player_id = $1 AND target_player_id = $2 AND action = $3 AND xp > 0 AND created_at >= $4`,
+		id, targetID, action, since).Scan(&n)
+	return n, err
 }
 
 func SetLevel(ctx context.Context, q db.Querier, id int64, level int) error {

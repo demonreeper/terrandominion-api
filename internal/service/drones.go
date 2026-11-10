@@ -189,7 +189,8 @@ func (s *Service) landDrones(ctx context.Context, settings game.Settings) {
 
 func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings game.Settings) error {
 	return db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		if _, err := store.GetPlayerForUpdate(ctx, tx, drone.OwnerID); err != nil {
+		// Both players: the launcher is paid XP when it lands.
+		if err := lockPlayerPair(ctx, tx, drone.OwnerID, drone.LaunchedBy); err != nil {
 			return err
 		}
 		tether, err := store.TetherForUpdate(ctx, tx, drone.TetherID)
@@ -234,6 +235,10 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 		if err := notify(ctx, tx, toOwner); err != nil {
 			return err
 		}
+		// A drone shot down (nothing landed) pays nothing.
+		if _, err := payAttackXP(ctx, tx, drone.LaunchedBy, drone.OwnerID, drone.TetherID, hit > 0, destroyed, settings, s.now()); err != nil {
+			return err
+		}
 		return notify(ctx, tx, store.NewNotice{
 			PlayerID: drone.LaunchedBy, TetherID: drone.TetherID, ActorID: drone.OwnerID, Amount: amountOf(damage),
 			Kind: "drone_result", Body: game.NoticeResult("drone", owner, place, damage, healthLeft(health), destroyed),
@@ -247,6 +252,7 @@ type InterceptOutcome struct {
 	Share   float64 `json:"share"`
 	// ShotDown is true when nothing of it will land.
 	ShotDown bool `json:"shotDown"`
+	CombatXP
 }
 
 // InterceptDrone lets the owner, at their Tether Node, spend energy cells to stop part of the
@@ -307,7 +313,8 @@ func (s *Service) InterceptDrone(ctx context.Context, playerID, tetherID int64, 
 			return err
 		}
 		out = InterceptOutcome{DroneID: drone.ID, Share: share, ShotDown: share >= 1}
-		return nil
+		out.CombatXP, err = payInterceptXP(ctx, tx, playerID, drone.LaunchedBy, drone.ID, settings, s.now())
+		return err
 	})
 	return out, err
 }
