@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,7 +50,18 @@ func (s *statusRecorder) WriteHeader(code int) {
 	s.ResponseWriter.WriteHeader(code)
 }
 
-// base wraps every request: request id, panic recovery, access log and IP rate limit.
+// checkAppBuild refuses app builds below MinAppBuild / MinAppBuildIOS (E1006). The app sends
+// X-App-Build (its build number) and X-App-Platform on every request; requests without a build
+// (scripts, curl, health checks) pass.
+func (s *Server) checkAppBuild(r *http.Request) error {
+	if !strings.HasPrefix(r.URL.Path, "/v1/") {
+		return nil
+	}
+	build, _ := strconv.Atoi(r.Header.Get("X-App-Build"))
+	return s.svc.CheckAppBuild(r.Context(), r.Header.Get("X-App-Platform"), build)
+}
+
+// base wraps every request: request id, panic recovery, access log, IP rate limit and the app build lock.
 func (s *Server) base(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
@@ -70,6 +82,10 @@ func (s *Server) base(next http.Handler) http.Handler {
 
 		if !s.ipLimiter.allow(s.clientIP(r), time.Now()) {
 			fail(rec, r, apperr.RateLimited)
+			return
+		}
+		if err := s.checkAppBuild(r); err != nil {
+			fail(rec, r, err)
 			return
 		}
 		next.ServeHTTP(rec, r)

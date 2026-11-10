@@ -9,6 +9,11 @@ are 62 m away."); the error's `data` holds the numbers behind it (see Error code
 say it its own way. `data` is left out when there is nothing to add. Lists are always arrays, never
 null. Request bodies are strict: unknown fields are rejected (E1000), so client typos show up at once.
 
+The app sends `X-App-Build: <build number>` (the Android version code) and `X-App-Platform: android|ios`
+on every call. A build below the `MinAppBuild` setting (`MinAppBuildIOS` on iPhones) gets E1006 on any
+`/v1` call, so raising the setting locks a handed-out build out (`PUT /v1/admin/settings/MinAppBuild`).
+Calls without `X-App-Build` (scripts, curl) are not checked.
+
 Words: **stored** is the player's stored inventory (no carry limit; the `player_uploaded` table).
 **Upload** is the action that moves carried resources into it at a Tether Node.
 
@@ -172,6 +177,7 @@ never reads as inside the range).
 | 1003 | Not found | |
 | 1004 | Rate limited | |
 | 1005 | Request too large | |
+| 1006 | App build locked out (HTTP 426): below `MinAppBuild` / `MinAppBuildIOS` | `build`, `minBuild` |
 | 1100 | Google sign-in could not be verified | |
 | 1101 | Session expired: sign in again | |
 | 1102 | Account suspended | |

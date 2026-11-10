@@ -59,6 +59,12 @@ type Settings struct {
 	// TnEndedShowMinutes is how long an ended Tether Node stays on My Tether Nodes.
 	TnEndedShowMinutes float64
 
+	// MinAppBuild is the lowest app build number (Android version code) the server still serves;
+	// raising it locks older builds out (a test group's APK, a build with a bad bug). 0 = no lock.
+	// iOS build numbers count separately, so iPhones have their own.
+	MinAppBuild    int
+	MinAppBuildIOS int
+
 	RepairAlloyPerPoint float64
 	CraftCellCrystal    int
 	CraftCellData       int
@@ -261,6 +267,8 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("XpTnBuild", &s.XpTnBuild)
 	f("TnUnderAttackMinutes", &s.TnUnderAttackMinutes)
 	f("TnEndedShowMinutes", &s.TnEndedShowMinutes)
+	i("MinAppBuild", &s.MinAppBuild)
+	i("MinAppBuildIOS", &s.MinAppBuildIOS)
 
 	f("RepairAlloyPerPoint", &s.RepairAlloyPerPoint)
 	i("CraftCellCrystal", &s.CraftCellCrystal)
