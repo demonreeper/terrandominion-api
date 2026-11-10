@@ -119,7 +119,8 @@ go first: drone strikes and the tuning in milestone 8 need a map full of TNs and
    - **Admin.** Field Ops admin row: RESEED CELL (clears and re-seeds the cell you stand in) and a
      seed count readout. SCATTER and CLEAR test nodes stay for testing.
    - **First run:** pre-seed the test area. Existing `scatter` nodes **stay for now** (owner); they
-     count toward a cell's target so it isn't doubled. CLEAR still removes them when wanted.
+     **don't count** toward a cell's 4 (owner, 2026-11-10); only `seed` nodes do. Seeded nodes still keep
+     the 25 m gap from them. CLEAR still removes them when wanted.
    - API: a seeding pass runs inside `GET /v1/nodes/nearby` only for unseeded cells (small, one
      transaction per cell, `FOR UPDATE` on a `td.seed_cells` row so two scans don't double-seed).
      Settings above are public except the rare ones. Pre-seeding is `POST /v1/admin/seed` (area id),
