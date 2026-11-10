@@ -61,6 +61,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/nodes/{id}/harvest", s.authed(s.harvest))
 
 	mux.HandleFunc("GET /v1/tethers/nearby", s.authed(s.nearbyTethers))
+	mux.HandleFunc("GET /v1/tethers/mine", s.authed(s.myTethers))
 	mux.HandleFunc("GET /v1/tethers/{id}", s.authed(s.getTether))
 	mux.HandleFunc("POST /v1/tethers", s.authed(s.buildTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/upgrade", s.authed(s.upgradeTether))
@@ -196,7 +197,16 @@ func (s *Server) publicSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	ok(w, settings)
+	// environment sits beside data, so data stays the settings list. The app shows its dev text
+	// (server host, map scale, GPS source, AR diagnostics) only on "dev".
+	environment := "prod"
+	if s.cfg.Env == "dev" {
+		environment = "dev"
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Data        any    `json:"data"`
+		Environment string `json:"environment"`
+	}{Data: settings, Environment: environment})
 }
 
 // ---- push ------------------------------------------------------------------------------
@@ -398,6 +408,16 @@ func (s *Server) nearbyTethers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, tethers)
+}
+
+func (s *Server) myTethers(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	list, err := s.svc.MyTethers(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, list)
 }
 
 func (s *Server) buildTether(w http.ResponseWriter, r *http.Request) {

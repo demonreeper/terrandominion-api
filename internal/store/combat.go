@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -117,19 +118,26 @@ func InsertTetherAttack(ctx context.Context, q db.Querier, a TetherAttackRecord)
 	return err
 }
 
-// TetherPlace names where a Tether Node stands, for notices: the node it links, or a plain name.
-func TetherPlace(ctx context.Context, q db.Querier, id int64) (string, error) {
-	var name sql.NullString
-	err := q.QueryRowContext(ctx, `
-		SELECT n.name FROM td.tether_links l JOIN td.nodes n ON n.id = l.node_id
-		WHERE l.tn_id = $1 ORDER BY l.slot LIMIT 1`, id).Scan(&name)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && !name.Valid) {
-		return "your Tether Node", nil
+// tetherPlaceSQL names where Tether Node t stands: the node in its first link, or else the nearest
+// node within $radius metres (an ended Tether Node has no links left), or empty. $radius is the
+// query's own placeholder, spliced in by the caller.
+const tetherPlaceSQL = `COALESCE(
+	(SELECT pn.name FROM td.tether_links pl JOIN td.nodes pn ON pn.id = pl.node_id
+	 WHERE pl.tn_id = t.id ORDER BY pl.slot LIMIT 1),
+	(SELECT pn.name FROM td.nodes pn WHERE ST_DWithin(pn.location, t.location, %s)
+	 ORDER BY pn.location <-> t.location LIMIT 1),
+	'')`
+
+// TetherPlace is the name of the node a Tether Node stands by ("Crystal Seam K-27"), for notices
+// and lists, or "" when there is none within radiusM.
+func TetherPlace(ctx context.Context, q db.Querier, id int64, radiusM float64) (string, error) {
+	var name string
+	err := q.QueryRowContext(ctx, `SELECT `+fmt.Sprintf(tetherPlaceSQL, "$2")+` FROM td.tether_nodes t WHERE t.id = $1`,
+		id, radiusM).Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
 	}
-	if err != nil {
-		return "", err
-	}
-	return "your Tether Node near " + name.String, nil
+	return name, err
 }
 
 // ---- contests --------------------------------------------------------------------------
@@ -357,27 +365,41 @@ func RecentlyHarvestedByOthers(ctx context.Context, q db.Querier, nodeIDs []int6
 
 // ---- notices ---------------------------------------------------------------------------
 
-// Notice is one thing that happened to a player.
+// Notice is one thing that happened to a player. TetherID, Actor (the other player's display name,
+// read at list time) and Amount (damage or resources) are null when they don't apply. Severity is
+// filled by the service from the kind.
 type Notice struct {
 	ID        int64     `json:"id"`
 	Kind      string    `json:"kind"`
+	Severity  string    `json:"severity"`
+	TetherID  *int64    `json:"tnId"`
+	Actor     *string   `json:"actor"`
+	Amount    *int64    `json:"amount"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// InsertNotice writes a notice; tetherID 0 means it is not about a Tether Node.
-func InsertNotice(ctx context.Context, q db.Querier, playerID, tetherID int64, kind, body, pushState string) error {
+// NewNotice is a notice to write. TetherID and ActorID are 0 and Amount nil when they don't apply.
+type NewNotice struct {
+	PlayerID, TetherID, ActorID int64
+	Kind, Body, PushState       string
+	Amount                      *int64
+}
+
+func InsertNotice(ctx context.Context, q db.Querier, n NewNotice) error {
 	_, err := q.ExecContext(ctx, `
-		INSERT INTO td.notices (player_id, tn_id, kind, body, push_state) VALUES ($1, NULLIF($2::bigint, 0), $3, $4, $5)`,
-		playerID, tetherID, kind, body, pushState)
+		INSERT INTO td.notices (player_id, tn_id, actor_id, amount, kind, body, push_state)
+		VALUES ($1, NULLIF($2::bigint, 0), NULLIF($3::bigint, 0), $4, $5, $6, $7)`,
+		n.PlayerID, n.TetherID, n.ActorID, n.Amount, n.Kind, n.Body, n.PushState)
 	return err
 }
 
 // Notices returns a player's notices after an id, newest first. After 0 means the latest ones.
 func Notices(ctx context.Context, q db.Querier, playerID, after int64, limit int) ([]Notice, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT id, kind, body, created_at FROM td.notices
-		WHERE player_id = $1 AND id > $2 ORDER BY id DESC LIMIT $3`, playerID, after, limit)
+		SELECT n.id, n.kind, n.tn_id, a.display_name, n.amount, n.body, n.created_at
+		FROM td.notices n LEFT JOIN td.players a ON a.id = n.actor_id
+		WHERE n.player_id = $1 AND n.id > $2 ORDER BY n.id DESC LIMIT $3`, playerID, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -385,8 +407,19 @@ func Notices(ctx context.Context, q db.Querier, playerID, after int64, limit int
 	out := make([]Notice, 0, limit)
 	for rows.Next() {
 		var n Notice
-		if err := rows.Scan(&n.ID, &n.Kind, &n.Body, &n.CreatedAt); err != nil {
+		var tether, amount sql.NullInt64
+		var actor sql.NullString
+		if err := rows.Scan(&n.ID, &n.Kind, &tether, &actor, &amount, &n.Body, &n.CreatedAt); err != nil {
 			return nil, err
+		}
+		if tether.Valid {
+			n.TetherID = &tether.Int64
+		}
+		if actor.Valid {
+			n.Actor = &actor.String
+		}
+		if amount.Valid {
+			n.Amount = &amount.Int64
 		}
 		out = append(out, n)
 	}

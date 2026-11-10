@@ -38,17 +38,17 @@ func TestCheckInRange(t *testing.T) {
 	if _, err := CheckInRange(s, at(30, 5), nil, lat, lon, 40); err != nil {
 		t.Errorf("30 m away: %v", err)
 	}
-	if _, err := CheckInRange(s, at(60, 5), nil, lat, lon, 40); err != apperr.OutOfRange {
+	if _, err := CheckInRange(s, at(60, 5), nil, lat, lon, 40); !isErr(err, apperr.OutOfRange) {
 		t.Errorf("60 m at 5 m accuracy: got %v", err)
 	}
-	if _, err := CheckInRange(s, at(10, 0), nil, lat, lon, 40); err != apperr.HarvestGPSWeak {
+	if _, err := CheckInRange(s, at(10, 0), nil, lat, lon, 40); !isErr(err, apperr.HarvestGPSWeak) {
 		t.Errorf("no accuracy: got %v", err)
 	}
 	// A poor fix earns allowance, capped at the range itself.
 	if _, err := CheckInRange(s, at(79, 45), nil, lat, lon, 40); err != nil {
 		t.Errorf("79 m at 45 m accuracy: %v", err)
 	}
-	if _, err := CheckInRange(s, at(85, 45), nil, lat, lon, 40); err != apperr.OutOfRange {
+	if _, err := CheckInRange(s, at(85, 45), nil, lat, lon, 40); !isErr(err, apperr.OutOfRange) {
 		t.Errorf("85 m at 45 m accuracy: got %v", err)
 	}
 }

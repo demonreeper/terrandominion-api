@@ -18,11 +18,14 @@ import (
 	"net/http"
 )
 
+// Error is sent as {"code", "message", "data"}. Message is a sentence the app can show as it is;
+// Data holds the numbers behind it (what is short, how far away), so the app can say it its own way.
 type Error struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Status  int    `json:"-"`
-	Detail  string `json:"-"` // logged, never sent to the client
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    map[string]any `json:"data,omitempty"`
+	Status  int            `json:"-"`
+	Detail  string         `json:"-"` // logged, never sent to the client
 }
 
 func (e *Error) Error() string {
@@ -37,6 +40,27 @@ func (e *Error) With(format string, args ...any) *Error {
 	c := *e
 	c.Detail = fmt.Sprintf(format, args...)
 	return &c
+}
+
+// WithData returns a copy carrying the facts behind the error for the client.
+func (e *Error) WithData(data map[string]any) *Error {
+	c := *e
+	c.Data = data
+	return &c
+}
+
+// Say returns a copy with a more specific message for the player.
+func (e *Error) Say(format string, args ...any) *Error {
+	c := *e
+	c.Message = fmt.Sprintf(format, args...)
+	return &c
+}
+
+// Is matches any copy of the same numbered error, so errors.Is(err, apperr.OutOfRange) works on
+// one carrying data or detail.
+func (e *Error) Is(target error) bool {
+	var t *Error
+	return errors.As(target, &t) && t.Code == e.Code
 }
 
 // As unwraps err into an *Error, or wraps an unknown error as Internal.
@@ -69,16 +93,16 @@ var (
 	AccountDeleted     = def(1103, http.StatusForbidden, "This account was deleted.")
 	DeviceRequired     = def(1104, http.StatusBadRequest, "Device id is required.")
 
-	HarvestTooFar      = def(1200, http.StatusConflict, "Move closer to the node.")
-	HarvestGPSWeak     = def(1201, http.StatusConflict, "GPS signal too weak. Wait for a better fix.")
-	HarvestCooldown    = def(1202, http.StatusConflict, "This node is recharging for you.")
+	HarvestTooFar      = def(1200, http.StatusConflict, "Move closer to the node.")                    // data: distanceM, rangeM
+	HarvestGPSWeak     = def(1201, http.StatusConflict, "GPS signal too weak. Wait for a better fix.") // data: accuracyM, maxAccuracyM
+	HarvestCooldown    = def(1202, http.StatusConflict, "This node is recharging for you.")            // data: readyInSec
 	HarvestDepleted    = def(1203, http.StatusConflict, "This node is depleted. It will regrow.")
 	HarvestCarryFull   = def(1204, http.StatusConflict, "You cannot carry any more.")
 	HarvestImplausible = def(1205, http.StatusConflict, "Location could not be confirmed.")
 	NodeInactive       = def(1206, http.StatusNotFound, "This node is not available.")
 
 	FactionLocked        = def(1300, http.StatusConflict, "This faction is dormant until a leader claims it.")
-	FactionLevelLow      = def(1301, http.StatusConflict, "Your level is too low for that.")
+	FactionLevelLow      = def(1301, http.StatusConflict, "Your level is too low for that.") // data: needLevel, level
 	FactionMemberAlready = def(1302, http.StatusConflict, "You already belong to a faction.")
 	FactionClaimed       = def(1303, http.StatusConflict, "This faction already has a leader.")
 	FactionNotLocked     = def(1304, http.StatusConflict, "This faction is already active.")
@@ -87,29 +111,29 @@ var (
 	BaseSpacingSame  = def(1402, http.StatusConflict, "Too close to another of your faction's bases.")
 	BaseSpacingOther = def(1403, http.StatusConflict, "Too close to another faction's base.")
 
-	TetherCap      = def(1600, http.StatusConflict, "You already own the maximum number of Tether Nodes.")
+	TetherCap      = def(1600, http.StatusConflict, "You already own the most Tether Nodes you can.") // data: max
 	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")
-	TetherCost     = def(1602, http.StatusConflict, "Not enough resources to do that.")
+	TetherCost     = def(1602, http.StatusConflict, "You don't have enough resources for that.") // data: short
 	TetherGone     = def(1603, http.StatusNotFound, "This Tether Node is gone.")
 	TetherNotOwner = def(1604, http.StatusForbidden, "Only the owner can do that.")
 	TetherNothing  = def(1605, http.StatusConflict, "Nothing to move right now.")
-	TetherTooFar   = def(1606, http.StatusConflict, "Move closer to the Tether Node.")
+	TetherTooFar   = def(1606, http.StatusConflict, "Move closer to the Tether Node.") // data: distanceM, rangeM
 	TetherNoAccess = def(1607, http.StatusForbidden, "This Tether Node belongs to another faction.")
 	TetherMaxTier  = def(1608, http.StatusConflict, "This Tether Node is already fully upgraded.")
 	DropGone       = def(1609, http.StatusNotFound, "This drop is gone.")
-	DropTooFar     = def(1610, http.StatusConflict, "Move closer to the drop.")
+	DropTooFar     = def(1610, http.StatusConflict, "Move closer to the drop.") // data: distanceM, rangeM
 
 	TetherCantAttack = def(1611, http.StatusForbidden, "You can't attack this Tether Node.")
-	TetherTooClose   = def(1612, http.StatusConflict, "Too close to another Tether Node.")
+	TetherTooClose   = def(1612, http.StatusConflict, "Too close to another Tether Node.") // data: spacingM
 
 	CraftUnknown  = def(1700, http.StatusBadRequest, "That can't be crafted.")
 	GearMissing   = def(1701, http.StatusNotFound, "You don't own that gear.")
 	GearNoUpgrade = def(1702, http.StatusConflict, "This gear is already at its top tier.")
 	GearNotWorn   = def(1703, http.StatusConflict, "This gear doesn't need repair.")
 
-	NoCells         = def(1710, http.StatusConflict, "You need an energy cell for that.")
-	ItemMissing     = def(1711, http.StatusConflict, "You don't have that item.")
-	OutOfRange      = def(1712, http.StatusConflict, "Move closer.")
+	NoCells         = def(1710, http.StatusConflict, "You need more energy cells for that.") // data: need, have
+	ItemMissing     = def(1711, http.StatusConflict, "You don't have that item.")            // data: item
+	OutOfRange      = def(1712, http.StatusConflict, "Move closer.")                         // data: distanceM, rangeM
 	AlreadyJammed   = def(1713, http.StatusConflict, "This Tether Node is already jammed.")
 	SpikeArmed      = def(1714, http.StatusConflict, "A spike is already planted here.")
 	NoSpike         = def(1715, http.StatusConflict, "There is no spike to defuse.")

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand/v2"
+	"sort"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
@@ -49,7 +50,7 @@ type BuildTetherRequest struct {
 type BuildTetherOutcome struct {
 	Tether   store.Tether     `json:"tether"`
 	Carried  map[string]int64 `json:"carried"`
-	Uploaded map[string]int64 `json:"uploaded"`
+	Stored   map[string]int64 `json:"stored"`
 	XP       int              `json:"xp"`
 	Progress game.Progress    `json:"progress"`
 	LevelUp  bool             `json:"levelUp"`
@@ -106,7 +107,7 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 			return err
 		}
 		if tooClose {
-			return apperr.TetherTooClose
+			return game.SpacingError(settings.TnMinSpacingM)
 		}
 
 		nodes, err := s.pickLinks(ctx, tx, req.Lat, req.Lon, nil, settings.TnLinksTier1, settings)
@@ -161,7 +162,7 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 			return err
 		}
 		out = BuildTetherOutcome{
-			Tether: tether, Carried: carried, Uploaded: uploaded,
+			Tether: tether, Carried: carried, Stored: uploaded,
 			XP: settings.XpTnBuild, Progress: progress, LevelUp: levelUp,
 		}
 		return nil
@@ -170,9 +171,9 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 }
 
 type DismantleTetherOutcome struct {
-	Refund   map[string]int64 `json:"refund"`
-	Held     map[string]int64 `json:"held"`
-	Uploaded map[string]int64 `json:"uploaded"`
+	Refund map[string]int64 `json:"refund"`
+	Held   map[string]int64 `json:"held"`
+	Stored map[string]int64 `json:"stored"`
 }
 
 // DismantleTether ends the owner's Tether Node. Part of its cost and everything it held go to
@@ -221,7 +222,7 @@ func (s *Service) DismantleTether(ctx context.Context, playerID, tetherID int64)
 		if err != nil {
 			return err
 		}
-		out = DismantleTetherOutcome{Refund: refund, Held: held, Uploaded: uploaded}
+		out = DismantleTetherOutcome{Refund: refund, Held: held, Stored: uploaded}
 		return nil
 	})
 	return out, err
@@ -253,8 +254,8 @@ func (s *Service) checkAtTether(ctx context.Context, q db.Querier, playerID int6
 }
 
 type CollectTetherOutcome struct {
-	Moved    map[string]int64 `json:"moved"`
-	Uploaded map[string]int64 `json:"uploaded"`
+	Moved  map[string]int64 `json:"moved"`
+	Stored map[string]int64 `json:"stored"`
 }
 
 // CollectTether moves the held half into the owner's uploaded inventory.
@@ -309,17 +310,18 @@ func (s *Service) CollectTether(ctx context.Context, playerID, tetherID int64, f
 		if err != nil {
 			return err
 		}
-		out = CollectTetherOutcome{Moved: moved, Uploaded: uploaded}
+		out = CollectTetherOutcome{Moved: moved, Stored: uploaded}
 		return nil
 	})
 	return out, err
 }
 
+// UploadTetherOutcome: Moved is what went into storage this time, Stored the new stored totals.
 type UploadTetherOutcome struct {
-	Stored   map[string]int64 `json:"stored"`
-	Fee      map[string]int64 `json:"fee"`
-	Carried  map[string]int64 `json:"carried"`
-	Uploaded map[string]int64 `json:"uploaded"`
+	Moved   map[string]int64 `json:"moved"`
+	Fee     map[string]int64 `json:"fee"`
+	Carried map[string]int64 `json:"carried"`
+	Stored  map[string]int64 `json:"stored"`
 }
 
 // UploadTether moves everything the player carries into their uploaded inventory, less the
@@ -409,7 +411,7 @@ func (s *Service) UploadTether(ctx context.Context, playerID, tetherID int64, fi
 		if err != nil {
 			return err
 		}
-		out = UploadTetherOutcome{Stored: stored, Fee: fees, Carried: carried, Uploaded: uploaded}
+		out = UploadTetherOutcome{Moved: stored, Fee: fees, Carried: carried, Stored: uploaded}
 		return nil
 	})
 	return out, err
@@ -613,7 +615,7 @@ func (s *Service) pickLinks(ctx context.Context, tx *sql.Tx, lat, lon float64, l
 type UpgradeTetherOutcome struct {
 	Tether   store.Tether     `json:"tether"`
 	Carried  map[string]int64 `json:"carried"`
-	Uploaded map[string]int64 `json:"uploaded"`
+	Stored   map[string]int64 `json:"stored"`
 	XP       int              `json:"xp"`
 	Progress game.Progress    `json:"progress"`
 	LevelUp  bool             `json:"levelUp"`
@@ -713,7 +715,7 @@ func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, f
 			return err
 		}
 		out = UpgradeTetherOutcome{
-			Tether: view, Carried: carried, Uploaded: uploaded,
+			Tether: view, Carried: carried, Stored: uploaded,
 			XP: settings.XpUpgrade, Progress: progress, LevelUp: levelUp,
 		}
 		return nil
@@ -750,4 +752,33 @@ func (s *Service) GetTether(ctx context.Context, playerID, tetherID int64, fix T
 		}
 	}
 	return out, nil
+}
+
+// MyTethers lists every Tether Node the player owns, wherever they are, plus the ones that ended in
+// the last TnEndedShowMinutes, most urgent first. No range check: they are the player's own.
+func (s *Service) MyTethers(ctx context.Context, playerID int64) ([]store.MyTether, error) {
+	settings := s.Settings(ctx)
+	list, err := store.MyTethers(ctx, s.db, playerID,
+		time.Duration(settings.TnEndedShowMinutes*float64(time.Minute)),
+		time.Duration(settings.TnUnderAttackMinutes*float64(time.Minute)),
+		settings.TnLinkRadiusM)
+	if err != nil {
+		return nil, err
+	}
+	urgency := make(map[int64]game.TetherUrgency, len(list))
+	for i := range list {
+		t := &list[i]
+		t.MaxHealth = settings.TnMaxHealth
+		u := game.TetherUrgency{
+			Ended: t.Status != "active", UnderAttack: t.UnderAttack,
+			Threatened: t.SpikeFiresAt != nil || t.DroneArrivesAt != nil,
+			Jammed:     t.JammedUntil != nil, ExpiresAt: t.ExpiresAt,
+		}
+		if t.EndedAt != nil {
+			u.EndedAt = *t.EndedAt
+		}
+		urgency[t.ID] = u
+	}
+	sort.SliceStable(list, func(i, j int) bool { return game.MoreUrgent(urgency[list[i].ID], urgency[list[j].ID]) })
+	return list, nil
 }

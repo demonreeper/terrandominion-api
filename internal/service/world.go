@@ -51,6 +51,8 @@ type HarvestOutcome struct {
 	XP       int              `json:"xp"`
 	Progress game.Progress    `json:"progress"`
 	LevelUp  bool             `json:"levelUp"`
+	// ReadyInSec is how long until this player may harvest the node again.
+	ReadyInSec int `json:"readyInSec"`
 }
 
 // Harvest takes resources from a node. The node and the player are locked for the transaction,
@@ -145,6 +147,7 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		out = HarvestOutcome{
 			Resource: node.Resource, Amount: result.Amount, Reserve: reserve, Carried: carried,
 			XP: settings.XpHarvest, Progress: progress, LevelUp: levelUp,
+			ReadyInSec: game.HarvestReadyIn(settings, &now, now),
 		}
 		return nil
 	})

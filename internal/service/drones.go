@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -42,7 +41,7 @@ func (s *Service) CraftGear(ctx context.Context, playerID int64, typeID string) 
 			return apperr.CraftUnknown
 		}
 		if player.Level < gear.MinLevel {
-			return apperr.FactionLevelLow.With("%s needs level %d", gear.ID, gear.MinLevel)
+			return game.LevelError(gear.MinLevel, player.Level)
 		}
 		if err := s.payCost(ctx, tx, playerID, gear.Cost); err != nil {
 			return err
@@ -69,10 +68,11 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 	var out DroneOutcome
 
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		ownerID, tether, losesProtection, err := s.prepareAttack(ctx, tx, attackerID, tetherID, settings)
+		target, err := s.prepareAttack(ctx, tx, attackerID, tetherID, settings)
 		if err != nil {
 			return err
 		}
+		tether := target.Tether
 		bay, err := store.EquippedDroneBay(ctx, tx, attackerID)
 		if errors.Is(err, store.ErrNotFound) {
 			return apperr.NoDroneBay
@@ -106,7 +106,7 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 		if err := store.LaunchDrone(ctx, tx, tetherID, attackerID, bay.Damage, arrives); err != nil {
 			return err
 		}
-		if losesProtection {
+		if target.LosesProtection {
 			until := now.Add(time.Duration(settings.ProtectionLossDays * 24 * float64(time.Hour)))
 			if err := store.LoseProtection(ctx, tx, attackerID, until); err != nil {
 				return err
@@ -118,12 +118,15 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 		}); err != nil {
 			return err
 		}
-		place, err := store.TetherPlace(ctx, tx, tetherID)
+		place, err := store.TetherPlace(ctx, tx, tetherID, settings.TnLinkRadiusM)
 		if err != nil {
 			return err
 		}
-		body := fmt.Sprintf("A drone is inbound to %s. It lands in %d s.", place, int(arrives.Sub(now).Seconds()))
-		if err := notify(ctx, tx, ownerID, tetherID, "drone_inbound", body); err != nil {
+		damage := game.Damage(bay.Damage)
+		if err := notify(ctx, tx, store.NewNotice{
+			PlayerID: target.OwnerID, TetherID: tetherID, ActorID: attackerID, Amount: amountOf(damage),
+			Kind: "drone_inbound", Body: game.NoticeDroneInbound(target.AttackerName, place, arrives.Sub(now), damage),
+		}); err != nil {
 			return err
 		}
 		out = DroneOutcome{ArrivesAt: arrives, DistanceM: distance}
@@ -163,7 +166,11 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 		if err != nil || !landed || tether.Status != "active" {
 			return err
 		}
-		place, err := store.TetherPlace(ctx, tx, drone.TetherID)
+		place, err := store.TetherPlace(ctx, tx, drone.TetherID, settings.TnLinkRadiusM)
+		if err != nil {
+			return err
+		}
+		owner, launcher, err := playerNames(ctx, tx, drone.OwnerID, drone.LaunchedBy)
 		if err != nil {
 			return err
 		}
@@ -174,18 +181,22 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 		if err := store.MarkTetherAttacked(ctx, tx, drone.TetherID); err != nil {
 			return err
 		}
-		if health <= 0 {
+		damage := game.Damage(drone.Damage)
+		destroyed := health <= 0
+		toOwner := store.NewNotice{PlayerID: drone.OwnerID, TetherID: drone.TetherID, ActorID: drone.LaunchedBy,
+			Amount: amountOf(damage), Kind: "attacked", Body: game.NoticeHit(launcher, "drone", place, damage)}
+		if destroyed {
 			if err := s.endTether(ctx, tx, drone.TetherID, tether, "destroyed", settings); err != nil {
 				return err
 			}
-			if err := notify(ctx, tx, drone.OwnerID, drone.TetherID, "destroyed", capitalize(place)+" was destroyed by a drone."); err != nil {
-				return err
-			}
-			return notify(ctx, tx, drone.LaunchedBy, drone.TetherID, "drone_result", "Your drone destroyed the Tether Node.")
+			toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(launcher, "drone", place)
 		}
-		if err := notify(ctx, tx, drone.OwnerID, drone.TetherID, "attacked", "A drone hit "+place+"."); err != nil {
+		if err := notify(ctx, tx, toOwner); err != nil {
 			return err
 		}
-		return notify(ctx, tx, drone.LaunchedBy, drone.TetherID, "drone_result", "Your drone hit its target.")
+		return notify(ctx, tx, store.NewNotice{
+			PlayerID: drone.LaunchedBy, TetherID: drone.TetherID, ActorID: drone.OwnerID, Amount: amountOf(damage),
+			Kind: "drone_result", Body: game.NoticeResult("drone", owner, place, damage, destroyed),
+		})
 	})
 }

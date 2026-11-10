@@ -69,7 +69,7 @@ func (s *Service) UpgradeGear(ctx context.Context, playerID, gearID int64) (Craf
 			return err
 		}
 		if player.Level < next.MinLevel {
-			return apperr.FactionLevelLow.With("%s needs level %d", next.ID, next.MinLevel)
+			return game.LevelError(next.MinLevel, player.Level)
 		}
 		if err := s.payCost(ctx, tx, playerID, next.Cost); err != nil {
 			return err

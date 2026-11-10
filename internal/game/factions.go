@@ -24,7 +24,7 @@ func CanLead(p PlayerFactionState, f FactionState, s Settings) *apperr.Error {
 	case p.InFaction:
 		return apperr.FactionMemberAlready
 	case p.Level < s.LeadFactionLevel:
-		return apperr.FactionLevelLow
+		return LevelError(s.LeadFactionLevel, p.Level)
 	case f.HasLeader:
 		return apperr.FactionClaimed
 	case !f.Locked:
@@ -40,7 +40,7 @@ func CanJoin(p PlayerFactionState, f FactionState, s Settings) *apperr.Error {
 	case p.InFaction:
 		return apperr.FactionMemberAlready
 	case p.Level < s.JoinFactionLevel:
-		return apperr.FactionLevelLow
+		return LevelError(s.JoinFactionLevel, p.Level)
 	case f.Locked:
 		return apperr.FactionLocked
 	}

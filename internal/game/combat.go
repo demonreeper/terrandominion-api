@@ -57,11 +57,11 @@ func DroneFlight(s Settings, distanceM float64) time.Duration {
 // the caller's choosing, and reports the distance.
 func CheckInRange(s Settings, player Fix, last *Fix, lat, lon, rangeM float64) (float64, *apperr.Error) {
 	if player.AccuracyM <= 0 || player.AccuracyM > s.HarvestMaxAccuracyM {
-		return 0, apperr.HarvestGPSWeak
+		return 0, GPSWeakError(s, player.AccuracyM)
 	}
 	distance := DistanceM(player.Lat, player.Lon, lat, lon)
 	if distance > rangeM+math.Min(player.AccuracyM, rangeM) {
-		return distance, apperr.OutOfRange
+		return distance, RangeError(apperr.OutOfRange, distance, rangeM, "")
 	}
 	return distance, checkTravel(s, last, player)
 }

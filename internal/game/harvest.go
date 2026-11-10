@@ -48,23 +48,22 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 	var out HarvestResult
 
 	if in.Player.AccuracyM <= 0 || in.Player.AccuracyM > s.HarvestMaxAccuracyM {
-		return out, apperr.HarvestGPSWeak
+		return out, GPSWeakError(s, in.Player.AccuracyM)
 	}
 
 	out.DistanceM = DistanceM(in.Player.Lat, in.Player.Lon, in.NodeLat, in.NodeLon)
 	// Give the player the benefit of their GPS error, capped so a bad fix cannot stretch the range.
 	allowance := math.Min(in.Player.AccuracyM, s.HarvestRangeM)
 	if out.DistanceM > s.HarvestRangeM+allowance {
-		return out, apperr.HarvestTooFar
+		return out, RangeError(apperr.HarvestTooFar, out.DistanceM, s.HarvestRangeM, "the node")
 	}
 
 	if err := checkTravel(s, in.LastAnyFix, in.Player); err != nil {
 		return out, err
 	}
 
-	if in.LastAtNode != nil && s.HarvestCooldownSec > 0 &&
-		in.Player.At.Sub(*in.LastAtNode) < time.Duration(s.HarvestCooldownSec)*time.Second {
-		return out, apperr.HarvestCooldown
+	if wait := HarvestReadyIn(s, in.LastAtNode, in.Player.At); wait > 0 {
+		return out, CooldownError(wait)
 	}
 
 	if in.NodeReserve < 0.01 {
@@ -84,6 +83,19 @@ func EvaluateHarvest(in HarvestInput) (HarvestResult, *apperr.Error) {
 	out.Amount = amount
 	out.ReserveCost = math.Min(in.NodeReserve, s.HarvestReserveCost)
 	return out, nil
+}
+
+// HarvestReadyIn is how many seconds until a player may harvest a node again after their last
+// harvest there (0 = now). Rounded up, so the app never offers a harvest the server refuses.
+func HarvestReadyIn(s Settings, lastAtNode *time.Time, now time.Time) int {
+	if lastAtNode == nil || s.HarvestCooldownSec <= 0 {
+		return 0
+	}
+	left := time.Duration(s.HarvestCooldownSec)*time.Second - now.Sub(*lastAtNode)
+	if left <= 0 {
+		return 0
+	}
+	return int(math.Ceil(left.Seconds()))
 }
 
 // harvestAmount is what one harvest yields. A drained node gives less: full yield above half

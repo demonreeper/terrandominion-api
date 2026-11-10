@@ -45,13 +45,13 @@ func TestTetherBuildRules(t *testing.T) {
 
 	full := tetherBase()
 	full.ActiveOwned = full.Settings.TnMaxPerPlayer
-	if _, err := EvaluateTetherBuild(full); err != apperr.TetherCap {
+	if _, err := EvaluateTetherBuild(full); !isErr(err, apperr.TetherCap) {
 		t.Fatalf("expected cap reached, got %v", err)
 	}
 
 	weak := tetherBase()
 	weak.Player.AccuracyM = 120
-	if _, err := EvaluateTetherBuild(weak); err != apperr.HarvestGPSWeak {
+	if _, err := EvaluateTetherBuild(weak); !isErr(err, apperr.HarvestGPSWeak) {
 		t.Fatalf("expected weak GPS, got %v", err)
 	}
 
@@ -102,12 +102,12 @@ func TestCheckAtTether(t *testing.T) {
 	if _, err := CheckAtTether(s, near, nil, 4.1755, 73.5094); err != nil {
 		t.Fatalf("should be in range: %v", err)
 	}
-	if _, err := CheckAtTether(s, near, nil, 4.1755, 73.5110); err != apperr.TetherTooFar {
+	if _, err := CheckAtTether(s, near, nil, 4.1755, 73.5110); !isErr(err, apperr.TetherTooFar) {
 		t.Fatalf("expected too far, got %v", err)
 	}
 	weak := near
 	weak.AccuracyM = 120
-	if _, err := CheckAtTether(s, weak, nil, 4.1755, 73.5094); err != apperr.HarvestGPSWeak {
+	if _, err := CheckAtTether(s, weak, nil, 4.1755, 73.5094); !isErr(err, apperr.HarvestGPSWeak) {
 		t.Fatalf("expected weak GPS, got %v", err)
 	}
 }

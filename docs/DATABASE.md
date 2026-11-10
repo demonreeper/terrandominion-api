@@ -80,7 +80,10 @@ inserts so two simultaneous builds cannot both pass.
 ### notices and push
 `notices` is what happened to a player. `push_state` makes it an outbox: a pushable kind is written as
 `pending` in the action's own transaction, and the sender loop (every 2 s) moves it to `sent`,
-`skipped` or `failed`. `tn_id` is the Tether Node concerned, used to throttle repeats.
+`skipped` or `failed`. `tn_id` is the Tether Node concerned, used to throttle repeats. `actor_id` is
+the other player involved (attacker, planter, contest opponent; set null if they are deleted) and
+`amount` the damage involved; the API joins the actor's display name when listing. A notice's
+severity is not stored: it follows from its kind (`internal/game/notices.go`).
 `push_tokens` holds one FCM token per phone, tied to the session that registered it; only tokens with
 a live session receive pushes. `players.push_attacks` and `push_results` are the player's switches.
 

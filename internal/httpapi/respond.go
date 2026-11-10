@@ -10,8 +10,9 @@ import (
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 )
 
-// Every response is {"data": ...} or {"error": {"code": 1200, "message": "..."}}. Clients switch
-// on the numeric code; the message is for display.
+// Every response is {"data": ...} or {"error": {"code": 1200, "message": "...", "data": {...}}}.
+// Clients switch on the numeric code; the message is a sentence for display, and the error's data
+// (left out when empty) holds the numbers behind it.
 type envelope struct {
 	Data  any           `json:"data,omitempty"`
 	Error *apperr.Error `json:"error,omitempty"`
