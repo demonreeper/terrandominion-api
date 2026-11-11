@@ -114,7 +114,12 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 			return err
 		}
 		membership, err = store.MembershipOf(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
 		describeMembership(membership)
+		// The chosen power speaks once, its short line (freelancer-path-plan.md C3).
+		membership.PowerName, membership.PowerLine, err = store.FactionVoice(ctx, tx, faction.ID)
 		return err
 	})
 	if err == nil && lead {

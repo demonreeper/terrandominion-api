@@ -129,7 +129,7 @@ var (
 	FactionMemberAlready = def(1302, http.StatusConflict, "You already belong to a faction.")
 	FactionClaimed       = def(1303, http.StatusConflict, "This faction already has a Regional Commander here.")
 	// 1304 is no longer used: a faction is claimed per region, so an active one can still be claimed elsewhere.
-	PrimaryAdminFreelancer = def(1305, http.StatusForbidden, "This account stays a freelancer. It can't lead or join a faction.")
+	PrimaryAdminFreelancer = def(1305, http.StatusForbidden, "This account stays a freelancer. It can't pledge to a faction.")
 	FactionNotLocked       = def(1304, http.StatusConflict, "This faction is already active.")
 	// 1305 is log-only: account cleanup skipped a faction head (succession is decided by hand).
 

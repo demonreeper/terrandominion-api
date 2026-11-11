@@ -356,3 +356,50 @@ func (s *Service) AdminStats(ctx context.Context) (GameStatsView, error) {
 	}
 	return GameStatsView{GameStats: stats, RetentionPct: game.RetentionPct(stats.Retained, stats.RetainedOf), AsOf: now.UTC()}, nil
 }
+
+// AdminReleasePledge returns a member to freelancer: the fix for a mistaken pledge, since a pledge
+// can't be undone by the player (freelancer-path-plan.md C5). A reason is required and it is logged.
+// A Regional Commander's seat is left empty.
+func (s *Service) AdminReleasePledge(ctx context.Context, adminID int64, code, reason string) (*PlayerInfo, error) {
+	reason = strings.TrimSpace(reason)
+	if game.CheckSanction(s.Settings(ctx), game.SanctionWarn, 0, reason) != game.SanctionOK {
+		return nil, apperr.AdjustBad.Say("Give a reason (3 to 500 characters).")
+	}
+	var info *PlayerInfo
+	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		targetID, err := staffTargetByCode(ctx, tx, code)
+		if err != nil {
+			return err
+		}
+		if _, err := store.GetPlayerForUpdate(ctx, tx, targetID); err != nil {
+			return err
+		}
+		faction, err := store.ReleaseMember(ctx, tx, targetID)
+		if err != nil {
+			return err
+		}
+		if faction == 0 {
+			return apperr.AdjustBad.Say("This player has not pledged to a faction.")
+		}
+		if err := releaseDeviceMarks(ctx, tx, targetID); err != nil {
+			return err
+		}
+		detail, _ := json.Marshal(map[string]any{"faction": faction, "reason": reason})
+		if err := store.LogAdminAction(ctx, tx, adminID, "player.release_pledge", fmt.Sprint(targetID), string(detail)); err != nil {
+			return err
+		}
+		admin, err := store.GetPlayer(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		info, err = s.playerInfo(ctx, tx, admin, targetID)
+		return err
+	})
+	return info, err
+}
+
+// releaseDeviceMarks forgets the faction on the device marks of a released player. Device marks
+// come with phase 2 of freelancer-path-plan.md; until then there is nothing to clear.
+func releaseDeviceMarks(ctx context.Context, q db.Querier, playerID int64) error {
+	return nil
+}

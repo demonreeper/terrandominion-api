@@ -190,6 +190,31 @@ type Membership struct {
 	// Region is the branch's country (MV); RankTitle names the rank. Filled by the service.
 	Region    string `json:"region,omitempty"`
 	RankTitle string `json:"rankTitle,omitempty"`
+	// PowerName and PowerLine are only on a pledge's answer: the chosen power and its short line
+	// (its motto), shown once after HOLD TO PLEDGE.
+	PowerName string `json:"powerName,omitempty"`
+	PowerLine string `json:"powerLine,omitempty"`
+}
+
+// FactionVoice is a faction's power and its motto.
+func FactionVoice(ctx context.Context, q db.Querier, factionID int) (persona, motto string, err error) {
+	err = q.QueryRowContext(ctx, `SELECT persona, motto FROM td.factions WHERE id = $1`, factionID).Scan(&persona, &motto)
+	return persona, motto, err
+}
+
+// ReleaseMember takes a player out of their faction (an admin's RELEASE PLEDGE). A Regional
+// Commander's seat in that country is left empty. Reports the faction released from (0 when none).
+func ReleaseMember(ctx context.Context, q db.Querier, playerID int64) (int, error) {
+	var faction int
+	err := q.QueryRowContext(ctx, `DELETE FROM td.faction_members WHERE player_id = $1 RETURNING faction_id`, playerID).Scan(&faction)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	_, err = q.ExecContext(ctx, `UPDATE td.faction_branches SET leader_player_id = NULL WHERE leader_player_id = $1`, playerID)
+	return faction, err
 }
 
 // MembershipOf returns nil for a freelancer.

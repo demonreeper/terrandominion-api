@@ -113,3 +113,21 @@ func (s *Server) adminFaction(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, inside)
 }
+
+// adminReleasePledge returns a member to freelancer (a mistaken pledge).
+func (s *Server) adminReleasePledge(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	info, err := s.svc.AdminReleasePledge(r.Context(), playerID, r.PathValue("code"), body.Reason)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, info)
+}

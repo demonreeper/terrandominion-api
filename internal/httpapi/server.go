@@ -123,6 +123,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/admin/players/{code}/adjust", s.admin(s.adminAdjustPlayer))
 	mux.HandleFunc("POST /v1/admin/players/{code}/reset-callsign", s.admin(s.adminResetCallsign))
 	mux.HandleFunc("PUT /v1/admin/players/{code}/mod", s.admin(s.adminSetMod))
+	mux.HandleFunc("POST /v1/admin/players/{code}/release-pledge", s.admin(s.adminReleasePledge))
 	mux.HandleFunc("GET /v1/admin/stats", s.admin(s.adminStats))
 	mux.HandleFunc("GET /v1/admin/factions", s.admin(s.adminFactions))
 	mux.HandleFunc("GET /v1/admin/factions/{code}", s.admin(s.adminFaction))
