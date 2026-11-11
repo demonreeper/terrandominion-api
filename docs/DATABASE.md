@@ -179,6 +179,12 @@ name is never used), `findable_by_email` and `accept_friends` their switches. `e
 email per player for `EmailSearchesPerDay`; an email is only ever compared whole and never returned. `friend_declines`
 remembers who declined whom, for `FriendRedeclineDays`.
 
+### signal echoes
+`signal_echoes` (0058) are the echoes standing now: a point, the seeding `cell` (`EchoCellM`), the line they carry
+(`echo_set`, `line`, counting from 1 into `game.EchoSets`) and `moves_at`, after which the row is removed and the cell
+refilled. `echo_reads` is each player's CODEX, one row per line read, kept for good (deleted with the player). A
+finished set adds a `player_badges` row `codex_set_<n>` with no faction.
+
 ## Rules the database enforces itself
 - carried resources and XP never go negative (CHECK)
 - node reserve stays between 0 and 1 (CHECK)

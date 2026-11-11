@@ -347,7 +347,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## Tether Nodes
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, each with `owner {code, name}` (a PlayerRef, see Players), within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
+| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, each with `owner {code, name}` (a PlayerRef, see Players), within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none), `factionColor` (the owner's faction colour `#rrggbb`, left out for a freelancer; looks only, for living TNs in AR) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
 | GET | `/tethers/mine` | – | Every TN the player owns, wherever it is (no range check), plus ones that ended in the last `TnEndedShowMinutes` (60). Most urgent first; see My Tether Nodes below |
 | POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then stored), and links free nodes in range. Returns `tether, carried, stored, xp, progress, levelUp` |
 | GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
@@ -459,6 +459,16 @@ Contest notices have `tnId` null.
 |---|---|---|---|
 | GET | `/drops/nearby` | `lat, lon` | What ended Tether Nodes left on the map, within the scanner's range, each with `expiresAt`: a drop lasts `DropLifetimeHours` (48, the same as a Tether Node's life), then the Undersignal reclaims it and the Tether Node's owner gets a `drop_reclaimed` notice (info, in the game only) |
 | POST | `/drops/{id}/pick` | `lat, lon, accuracyM` | In range. Moves what fits into carried; the rest stays on the map |
+
+## Signal echoes (no-ar-support-plan.md milestone 7)
+Faint traces in the Undersignal, seen and read only in the AR view. Looks and story only: no resources, no XP, no combat information.
+| Method | Path | Body / query | Notes |
+|---|---|---|---|
+| GET | `/echoes/nearby` | `lat, lon` | Echoes within `EchoViewRadiusM` (150), nearest first: `{id, lat, lon, distanceM, known}` (`known`: the line is already in your CODEX). The line itself is not sent. The cells around are filled first: `EchoesPerCell` (3) per `EchoCellM` (400 m) cell, each placed `EchoOffsetMinM`..`EchoOffsetMaxM` (6–18 m) beside an active node or Tether Node, carrying a random line; after about `EchoMoveHours` (24, spread ±25%) it moves (removed, and the cell gets a new one) |
+| POST | `/echoes/{id}/read` | `lat, lon, accuracyM, arView` | `arView` must be true (1615). Within `HarvestRangeM` (40 m) with the node accuracy and travel checks (1614); a moved echo is 1613. Returns `{set, line, text, new, found, total, badge?}`: the line goes into the CODEX; a finished set gives the badge `codex_set_<n>` (a title with no faction) |
+
+`/me` has `codex`: every set `{set, found, total, complete, lines: [{line, text?}]}`; a locked line has no `text`.
+The lines live in `game.EchoSets`; only lines the owner approved go there (first set approved 2026-11-11).
 
 ## Orders and daily missions
 | Method | Path | Body | Notes |
@@ -615,6 +625,9 @@ never reads as inside the range).
 | 1610 | Too far from the map drop | `distanceM, rangeM` |
 | 1611 | Not allowed to attack this Tether Node | |
 | 1612 | Too close to another Tether Node | `spacingM` |
+| 1613 | The echo has faded (moved) | |
+| 1614 | Move closer to the echo | `distanceM, rangeM` |
+| 1615 | Echoes are read in the AR view | |
 | 1700 | Unknown recipe | |
 | 1701 | Gear not owned | |
 | 1702 | Gear already at its top tier | |

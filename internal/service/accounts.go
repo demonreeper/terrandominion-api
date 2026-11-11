@@ -358,6 +358,8 @@ type MeView struct {
 	// SpoofExempt (admins only): the admin's own SPOOF EXEMPT switch on the ADMIN page, off by default.
 	SpoofExempt           bool `json:"spoofExempt,omitempty"`
 	FriendRequestsWaiting int  `json:"friendRequestsWaiting"`
+	// Codex is the signal echoes found, set by set (no-ar-support-plan.md milestone 7). Your own only.
+	Codex []CodexSet `json:"codex"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -499,6 +501,9 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		if at := game.CallsignChangeAt(&player.CallsignChangedAt.Time, settings.CallsignChangeDays); at.After(s.now()) {
 			me.CallsignChangeAt = &at
 		}
+	}
+	if me.Codex, err = codex(ctx, q, playerID); err != nil {
+		return nil, err
 	}
 	return me, nil
 }

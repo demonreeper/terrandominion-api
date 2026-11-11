@@ -27,6 +27,16 @@ type Settings struct {
 	MaxTravelSpeedKmh   float64
 	NearbyMaxRadiusM    float64
 
+	// Signal echoes (no-ar-support-plan.md milestone 7): how many per cell, the cell size, how long one
+	// stays before the Undersignal moves it, how far the AR view sees them, and how far from the node or
+	// Tether Node it is placed beside.
+	EchoesPerCell   int
+	EchoCellM       float64
+	EchoMoveHours   float64
+	EchoViewRadiusM float64
+	EchoOffsetMinM  float64
+	EchoOffsetMaxM  float64
+
 	WelcomeCrystal int
 	WelcomeAlloy   int
 	WelcomeData    int
@@ -285,6 +295,13 @@ func DefaultSettings() Settings {
 		MaxTravelSpeedKmh:   80,
 		NearbyMaxRadiusM:    1500,
 
+		EchoesPerCell:   3,
+		EchoCellM:       400,
+		EchoMoveHours:   24,
+		EchoViewRadiusM: 150,
+		EchoOffsetMinM:  6,
+		EchoOffsetMaxM:  18,
+
 		WelcomeCrystal: 800,
 		WelcomeAlloy:   600,
 		WelcomeData:    200,
@@ -526,6 +543,13 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("HarvestReserveCost", &s.HarvestReserveCost)
 	f("MaxTravelSpeedKmh", &s.MaxTravelSpeedKmh)
 	f("NearbyMaxRadiusM", &s.NearbyMaxRadiusM)
+
+	i("EchoesPerCell", &s.EchoesPerCell)
+	f("EchoCellM", &s.EchoCellM)
+	f("EchoMoveHours", &s.EchoMoveHours)
+	f("EchoViewRadiusM", &s.EchoViewRadiusM)
+	f("EchoOffsetMinM", &s.EchoOffsetMinM)
+	f("EchoOffsetMaxM", &s.EchoOffsetMaxM)
 
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)

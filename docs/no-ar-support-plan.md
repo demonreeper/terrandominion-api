@@ -134,6 +134,19 @@ never an edge in a fight or a harvest. A non-AR player misses the show, never a 
 - It shows only what the map already shows (an icon and the result). No hidden attackers, no early warning.
 - Effects follow the effects restyle plan (`effects-restyle-plan.md`): clean, not childish.
 
+## Built (2026-11-12, not committed yet)
+
+Milestones 1 to 8 are built and on the owner's phone (builds 143 to the last one of the run); the rules are in
+`GAME_DESIGN.md` (Field and AR, "Phones without AR"). Notes from building:
+- Milestone 3: no first-TN walkthrough existed yet, so it was built from `field-ar-plan.md` milestone 8, with the
+  map-only path.
+- Milestone 4: VIEW TN on the TN panel opens the default view (AR when it is possible here, else the holo table).
+- Milestone 5: AR didn't show other players' TNs yet; it does now (nearest 4 within 300 m), in the owner's faction
+  colour, from a new `factionColor` on TN views.
+- Milestone 7: echoes are 3 per 400 m cell beside nodes and TNs, seen within 150 m, moved after about a day (all
+  admin settings, group `echoes`). The CODEX shows on AR phones, or once a line is found.
+- Milestone 9 (bases) is phase 4 and not part of this run.
+
 ## Open (owner's choice)
 
 - ~~Bases on non-AR phones~~: **decided A, holo table**, available on AR phones too (owner, 2026-11-11).

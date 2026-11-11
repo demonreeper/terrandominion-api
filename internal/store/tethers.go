@@ -23,18 +23,21 @@ type Tether struct {
 	ID      int64 `json:"id"`
 	OwnerID int64 `json:"-"`
 	// Owner is who built it, as other players see them (their profile opens from the code).
-	Owner     PlayerRef    `json:"owner"`
-	Mine      bool         `json:"mine"`
-	FactionID *int         `json:"factionId"`
-	Lat       float64      `json:"lat"`
-	Lon       float64      `json:"lon"`
-	Tier      int          `json:"tier"`
-	Status    string       `json:"status"`
-	Health    float64      `json:"health"`
-	BuiltAt   time.Time    `json:"builtAt"`
-	ExpiresAt time.Time    `json:"expiresAt"`
-	DistanceM float64      `json:"distanceM"`
-	Links     []TetherLink `json:"links"`
+	Owner     PlayerRef `json:"owner"`
+	Mine      bool      `json:"mine"`
+	FactionID *int      `json:"factionId"`
+	// FactionColor is the owner's faction colour (#rrggbb), empty for a freelancer. Looks only: the
+	// living Tether Nodes in AR wear it (no-ar-support-plan.md milestone 5); profiles show the faction anyway.
+	FactionColor string       `json:"factionColor,omitempty"`
+	Lat          float64      `json:"lat"`
+	Lon          float64      `json:"lon"`
+	Tier         int          `json:"tier"`
+	Status       string       `json:"status"`
+	Health       float64      `json:"health"`
+	BuiltAt      time.Time    `json:"builtAt"`
+	ExpiresAt    time.Time    `json:"expiresAt"`
+	DistanceM    float64      `json:"distanceM"`
+	Links        []TetherLink `json:"links"`
 
 	JammedUntil    *time.Time `json:"jammedUntil,omitempty"`
 	AttackedAt     *time.Time `json:"attackedAt,omitempty"`
@@ -86,7 +89,8 @@ const tetherColumns = `
 	t.jammed_until, t.attacked_at,
 	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
 	(SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
-	t.shield_tier, ` + inboundDronesSQL + `, COALESCE(t.collected_at, t.built_at)`
+	t.shield_tier, ` + inboundDronesSQL + `, COALESCE(t.collected_at, t.built_at),
+	COALESCE((SELECT f.color FROM td.factions f WHERE f.id = t.faction_id), '')`
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether
@@ -95,7 +99,7 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 	var jammed, attacked, spike, drone sql.NullTime
 	if err := row.Scan(&t.ID, &t.OwnerID, &t.Owner.Code, &t.Owner.Name, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
 		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &drone, &t.ShieldTier, &drones,
-		&t.SpeedFrom, &t.DistanceM); err != nil {
+		&t.SpeedFrom, &t.FactionColor, &t.DistanceM); err != nil {
 		return t, err
 	}
 	t.JammedUntil, t.AttackedAt, t.SpikeFiresAt = timePtr(jammed), timePtr(attacked), timePtr(spike)

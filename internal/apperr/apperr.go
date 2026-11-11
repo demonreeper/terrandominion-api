@@ -153,6 +153,11 @@ var (
 	TetherCantAttack = def(1611, http.StatusForbidden, "You can't attack this Tether Node.")
 	TetherTooClose   = def(1612, http.StatusConflict, "Too close to another Tether Node.") // data: spacingM
 
+	// Signal echoes (no-ar-support-plan.md milestone 7).
+	EchoGone    = def(1613, http.StatusNotFound, "The echo has faded.")
+	EchoTooFar  = def(1614, http.StatusConflict, "Move closer to the echo.") // data: distanceM, rangeM
+	EchoNotInAr = def(1615, http.StatusBadRequest, "Echoes are read in the AR view.")
+
 	CraftUnknown  = def(1700, http.StatusBadRequest, "That can't be crafted.")
 	GearMissing   = def(1701, http.StatusNotFound, "You don't own that gear.")
 	GearNoUpgrade = def(1702, http.StatusConflict, "This gear is already at its top tier.")

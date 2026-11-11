@@ -110,6 +110,8 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /v1/drops/nearby", s.authed(s.located(s.nearbyDrops)))
 	mux.HandleFunc("POST /v1/drops/{id}/pick", s.authed(s.located(s.pickDrop)))
+	mux.HandleFunc("GET /v1/echoes/nearby", s.authed(s.located(s.nearbyEchoes)))
+	mux.HandleFunc("POST /v1/echoes/{id}/read", s.authed(s.located(s.readEcho)))
 
 	mux.HandleFunc("GET /v1/jobs", s.authed(s.jobs))
 	mux.HandleFunc("POST /v1/jobs", s.authed(s.located(s.postJob)))
@@ -944,6 +946,52 @@ func (s *Server) pickDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.svc.PickDrop(r.Context(), playerID, id, fix)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+// ---- signal echoes (no-ar-support-plan.md milestone 7) ---------------------------------
+
+func (s *Server) nearbyEchoes(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("lat and lon are required"))
+		return
+	}
+	echoes, err := s.svc.NearbyEchoes(r.Context(), playerID, lat, lon)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, echoes)
+}
+
+func (s *Server) readEcho(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("echo id"))
+		return
+	}
+	var body struct {
+		Lat       float64 `json:"lat"`
+		Lon       float64 `json:"lon"`
+		AccuracyM float64 `json:"accuracyM"`
+		// ArView: the AR view was open. Echoes are read only there.
+		ArView bool `json:"arView"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.ReadEcho(r.Context(), playerID, id,
+		service.TetherFix{Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM}, body.ArView)
 	if err != nil {
 		fail(w, r, err)
 		return
