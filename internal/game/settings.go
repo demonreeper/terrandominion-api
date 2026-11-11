@@ -216,6 +216,10 @@ type Settings struct {
 	JobGuardMinutes    int
 	JobGuardRadiusM    int
 	JobGuardGapSeconds int
+	// Friends.
+	FriendsMax           int
+	FriendRequestsPerDay int
+	EmailSearchesPerDay  int
 
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
@@ -431,6 +435,9 @@ func DefaultSettings() Settings {
 		JobGuardMinutes:            60,
 		JobGuardRadiusM:            40,
 		JobGuardGapSeconds:         90,
+		FriendsMax:                 200,
+		FriendRequestsPerDay:       20,
+		EmailSearchesPerDay:        10,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -602,6 +609,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("JobGuardMinutes", &s.JobGuardMinutes)
 	i("JobGuardRadiusM", &s.JobGuardRadiusM)
 	i("JobGuardGapSeconds", &s.JobGuardGapSeconds)
+	i("FriendsMax", &s.FriendsMax)
+	i("FriendRequestsPerDay", &s.FriendRequestsPerDay)
+	i("EmailSearchesPerDay", &s.EmailSearchesPerDay)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

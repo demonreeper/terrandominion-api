@@ -198,5 +198,11 @@ var (
 	JobNotYours = def(1773, http.StatusForbidden, "You can't take that job.")
 	JobFunds    = def(1774, http.StatusConflict, "You don't have enough in storage to pay that job.") // data: short
 
+	// Friends. The message says which rule refused it.
+	FriendRefused   = def(1780, http.StatusConflict, "That friend request can't be sent.")
+	FriendNoRequest = def(1781, http.StatusNotFound, "There is no request from that player.")
+	FriendNameBad   = def(1782, http.StatusBadRequest, "Use letters only, up to 32, for the name your friends see.")
+	SearchLimit     = def(1783, http.StatusTooManyRequests, "That is enough email searches for today.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

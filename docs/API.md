@@ -173,6 +173,20 @@ gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`. A finished job 
 (notice `job_paid`; the poster gets `job_done`). Past the deadline unfinished takes fail and the reward for every unpaid
 slot goes back to the poster (`job_ended`). Errors 1770 to 1774.
 
+### Friends
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/friends` | | `incoming`, `friends`, `outgoing` (`FriendRow {player, level, faction, friendName, status}`; `friendName` only for accepted friends) and your `settings {friendName, findableByEmail, acceptFriends}` |
+| GET | `/friends/search?q=` | | Text with `@` is an email: only the whole address matches (case aside), only players with `findableByEmail`, at most `EmailSearchesPerDay` a day (1783). Otherwise a piece of a callsign or a whole share code (2+ characters). Returns `[{player, level, faction, status, accepts}]`; never an email or real name |
+| POST | `/friends/{code}` | | Sends a request (notice `friend_request`, pushed). If they had asked you, accepts theirs. Refused (1780, the message says why): yourself, already friends or pending, they don't take requests, `FriendsMax` on either side, `FriendRequestsPerDay` |
+| POST | `/friends/{code}/accept` | | Accepts their request (notice `friend_accepted` to them). 1781 if there is none |
+| POST | `/friends/{code}/decline` | | Declines it; nobody is told |
+| DELETE | `/friends/{code}` | | Ends a friendship or takes back a request; nobody is told |
+| PUT | `/me/friends` | `friendName, findableByEmail, acceptFriends` | The name friends see: typed, optional, letters (any script), spaces, `'.-`, up to 32, blocked words refused (1782). The Google/Apple name is never sent |
+
+`GET /players/{code}` adds `friend` ("", `friend`, `incoming`, `outgoing`), `acceptsFriends`, and `friendName` for a friend.
+
 ### Unbound titles
 F2 (phase 5): past the faction level a freelancer who has heard from the seventh voice is given titles, each a badge
 on their profile (`badges [{badge, factionCode: "", factionName: "", region: ""}]`) and a message from `LANGIS`:
@@ -503,6 +517,10 @@ never reads as inside the range).
 | 1772 | That job has no slot left, or it ended | |
 | 1773 | You can't take that job (the message says why) | |
 | 1774 | Not enough in storage to pay every slot | `short` |
+| 1780 | Friend request refused (message says why) | |
+| 1781 | No friend request from that player | |
+| 1782 | The name for friends can't be used | |
+| 1783 | Too many email searches today | |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

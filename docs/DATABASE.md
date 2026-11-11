@@ -159,6 +159,12 @@ severity is not stored: it follows from its kind (`internal/game/notices.go`).
 `push_tokens` holds one FCM token per phone, tied to the session that registered it; only tokens with
 a live session receive pushes. `players.push_attacks` and `push_results` are the player's switches.
 
+### friends
+`friendships` keeps one row per pair (`low_id < high_id`), `requested_by`, `pending` until the other accepts.
+`players.friend_name` is the name a player typed for friends (shown only to accepted friends; the Google/Apple
+name is never used), `findable_by_email` and `accept_friends` their switches. `email_searches` counts searches by
+email per player for `EmailSearchesPerDay`; an email is only ever compared whole and never returned.
+
 ## Rules the database enforces itself
 - carried resources and XP never go negative (CHECK)
 - node reserve stays between 0 and 1 (CHECK)

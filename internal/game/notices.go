@@ -39,13 +39,15 @@ var noticeSeverity = map[string]string{
 	"drop_reclaimed":  SeverityInfo,
 	"report_reviewed": SeverityInfo,
 
-	"mission_done": SeverityInfo,
-	"job_done":     SeverityInfo,
-	"job_paid":     SeverityInfo,
-	"job_ended":    SeverityInfo,
-	"invitation":   SeverityInfo,
-	"call":         SeverityInfo,
-	"warden":       SeverityInfo,
+	"mission_done":    SeverityInfo,
+	"job_done":        SeverityInfo,
+	"job_paid":        SeverityInfo,
+	"job_ended":       SeverityInfo,
+	"friend_request":  SeverityInfo,
+	"friend_accepted": SeverityInfo,
+	"invitation":      SeverityInfo,
+	"call":            SeverityInfo,
+	"warden":          SeverityInfo,
 }
 
 // NoticeDropReclaimed tells an owner that what their ended Tether Node left on the map was never

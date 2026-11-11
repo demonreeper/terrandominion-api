@@ -53,6 +53,12 @@ type ProfileView struct {
 	// IsMe: the asker is looking at their own profile.
 	IsMe     bool   `json:"isMe"`
 	ShareURL string `json:"shareUrl"`
+	// Friend is how the viewer stands with this player: "", friend, incoming or outgoing.
+	// FriendName (the name they typed for friends) is only sent to a friend. AcceptsFriends: ADD FRIEND
+	// can be offered.
+	Friend         string `json:"friend"`
+	FriendName     string `json:"friendName,omitempty"`
+	AcceptsFriends bool   `json:"acceptsFriends"`
 }
 
 // ProfileFaction is a member's faction as their profile shows it, in the faction's colour.
@@ -105,6 +111,19 @@ func (s *Service) Profile(ctx context.Context, viewerID int64, code string) (*Pr
 	}
 	if view.Record, err = store.PlayerRecord(ctx, s.db, playerID); err != nil {
 		return nil, err
+	}
+	if viewerID != 0 && !view.IsMe {
+		if view.Friend, err = store.FriendStatus(ctx, s.db, viewerID, playerID); err != nil {
+			return nil, err
+		}
+		settings, err := store.FriendSettingsOf(ctx, s.db, playerID)
+		if err != nil {
+			return nil, err
+		}
+		view.AcceptsFriends = settings.AcceptFriends && player.Type == "player"
+		if view.Friend == "friend" {
+			view.FriendName = settings.FriendName
+		}
 	}
 	return view, nil
 }
