@@ -74,6 +74,23 @@ not a side effect, it is the experiment. Every war players fight was set up by t
 | 3 | Regional Commanders and Wardens | Command orders from rival powers that only make sense together |
 | 4 | **Open** | The reveal itself is undecided and, for now, never fully confirmed. It happens only if the story opens a good moment |
 
+## Langis, the seventh voice
+
+Decided 2026-11-11 (owner). Full plan: `docs/freelancer-path-plan.md`.
+
+- **Who players think it is:** a person. A freelancer who walked the Undersignal before any power called, never
+  pledged, and warns others not to bind themselves to the power-hungry powers. Its line: "Stay free."
+- **What it is:** another persona of the Undersignal, its seventh strategy, "stay unbound", the experiment's control
+  group. Never said in game, and never linked to the six (own voice, rhythm and look; no faction colour).
+- **Name:** Langis, "signal" spelled backwards. Never pointed out. In code `signal_unbound`, system account id 8.
+- **Never heard of before its first call** (halfway through level 18). Nothing a player sees mentions it earlier:
+  intro, tutorials, videos, store text, menus, help, FACTIONS screen, API responses. Internal docs may.
+- **How the name surfaces:** the call says "They call me Langis."; the "Unknown caller" id flickers to LANGIS just
+  before the line drops; from the next written message the inbox sender is LANGIS.
+- **Look:** no silhouette and no lit eyes. Broken static only, no symbols.
+- **Voice:** Kokoro `am_adam`, fast and urgent, through a rough bad-line filter with static (unlike the powers' light
+  phone filter). Never contacts a member; it goes silent for good the moment a player pledges.
+
 ## The player's story
 
 The player is a **freelancer**: someone whose phone has started showing the Undersignal, and who walks it for whoever
@@ -87,13 +104,18 @@ pays.
    them. It is only an offer, because the player can't choose until 20. Day 1 the call, day 2 a repeat call, day 3 a
    written message ("Choose wisely"), then it stops. Intro line: "They are watching you walk. In time, one will call
    you."
-4. **Level 20.** The FACTIONS screen highlights the inviting faction, with "You were invited. The choice is yours."
-   The player may choose any faction, or stay a freelancer forever.
-5. **Member, Warden, Regional Commander.** Once a player joins a faction, only that faction's power sends missions,
+4. **Level 18 and 19: Langis.** Halfway through level 18 an "Unknown caller" rings: Langis, the seventh voice,
+   urging the player to stay free (see below). The JOBS board opens after that call. One written message after the
+   level 19 "Choose wisely", and one more call the day after.
+5. **Level 20.** The FACTIONS screen highlights the inviting faction, with "You were invited. The choice is yours.
+   It is also final." and Langis's line "Stay free." The player may **pledge** to any faction, or stay a freelancer
+   forever. A pledge can't be undone, not even by deleting the account: it is bound to the device and sign-in.
+   Lore: "You tether yourself to one power. A tether to a power never breaks."
+6. **Member, Warden, Regional Commander.** Once a player pledges a faction, only that faction's power sends missions,
    and the goal becomes building bases (**Open**: bases and their missions wait until bases are designed). The first
    player to claim a faction's empty seat in their country becomes its Regional Commander and Founder. The power
    stays the faction's global head above them.
-6. **Later: the global seat.** Once enough countries are live, the global head may be elected from the Regional
+7. **Later: the global seat.** Once enough countries are live, the global head may be elected from the Regional
    Commanders. **Open**: not open yet; what happens to the powers then is decided when it opens.
 
 **How the game systems fit the story:**
@@ -108,6 +130,8 @@ pays.
 | Drone Bay and strikes | Remote reach, earned with level. The further you can strike, the more the powers trust you |
 | Shield | Lattice folded back on itself. It never stops everything, so no single hit ends a TN |
 | Daily missions and orders | The powers' voice in the game. Every order comes with a short lore message |
+| JOBS board | Where faction players hire freelancers for paid work. Langis points freelancers to it at level 18 |
+| Pledge | Tethering yourself to one power. Final: the tether never breaks, even if the account is deleted |
 | "Dormant here: awaiting a commander" | Lock text. The power is awake, but has no one to act for it in your country yet |
 
 ## Voices
@@ -117,6 +141,8 @@ pays.
 - **Each power has its own distinct voice**, heard through a light phone-call filter: Signum `im_nicola`, Shingō
   `jm_kumo`, Sēma `af_nicole`, Ishāra `hf_alpha`, Tohu `pm_alex`, Merki `am_onyx` (all Kokoro).
 - **No power says its own name aloud.** The call screen shows who is calling.
+- **Langis:** Kokoro `am_adam`, speed 1.12, short pauses, rough bad-line filter with static. It is the only voice that
+  says its own name, once, in the level 18 call.
 - Recipes, render scripts and the recorded lines are kept in the project files (`audio/power-voices/`).
 
 ## Tone and rules
