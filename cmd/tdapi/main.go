@@ -1,4 +1,4 @@
-// Command tdapi is the Terran Dominion game server.
+// Command tdapi is the Tether Rise game server.
 //
 //	tdapi serve         run the HTTP API (applies pending migrations first)
 //	tdapi migrate       apply pending migrations and exit

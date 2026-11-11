@@ -1,5 +1,5 @@
 [Unit]
-Description=Terran Dominion API (dev)
+Description=Tether Rise API (dev)
 After=network-online.target
 Wants=network-online.target
 

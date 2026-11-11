@@ -1,4 +1,4 @@
-# Terran Dominion: lore
+# Tether Rise: lore
 
 The game's base story, final as of 2026-11-11 (owner). Where this file and `GAME_DESIGN.md` (mobile repo) disagree on
 story, this file wins; on mechanics, `GAME_DESIGN.md` wins. Changes and the work they need are tracked in

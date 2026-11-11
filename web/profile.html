@@ -6,7 +6,7 @@
 <title>{{.Title}}</title>
 <meta name="description" content="{{.Description}}">
 <meta property="og:type" content="profile">
-<meta property="og:site_name" content="Terran Dominion">
+<meta property="og:site_name" content="Tether Rise">
 <meta property="og:title" content="{{.Title}}">
 <meta property="og:description" content="{{.Description}}">
 <meta property="og:url" content="{{.URL}}">
@@ -47,7 +47,7 @@
 </head>
 <body>
 <main>
-  <div class="kicker">// TERRAN DOMINION</div>
+  <div class="kicker">// TETHER RISE</div>
   <h1>OPERATIVE RECORD</h1>
 {{if .Gone}}
   <p class="gone">This operative is no longer active.</p>
@@ -75,11 +75,11 @@
   {{end}}
 {{end}}
   <div class="actions">
-    {{if not .Gone}}<a class="button" href="{{.URL}}">OPEN IN TERRAN DOMINION</a>{{end}}
+    {{if not .Gone}}<a class="button" href="{{.URL}}">OPEN IN TETHER RISE</a>{{end}}
     {{if .PlayURL}}<a class="button second" href="{{.PlayURL}}">GET IT ON GOOGLE PLAY</a>{{end}}
     {{if .AppStoreURL}}<a class="button second" href="{{.AppStoreURL}}">DOWNLOAD ON THE APP STORE</a>{{end}}
   </div>
-  <p class="note">Terran Dominion is a game you play by walking the real world.{{if not (or .PlayURL .AppStoreURL)}} It is in pre-alpha testing: not in the stores yet.{{end}}</p>
+  <p class="note">Tether Rise is a game you play by walking the real world.{{if not (or .PlayURL .AppStoreURL)}} It is in pre-alpha testing: not in the stores yet.{{end}}</p>
 </main>
 </body>
 </html>

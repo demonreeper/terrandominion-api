@@ -25,7 +25,7 @@ func (s *Server) profilePage(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, apperr.NotFound):
 		status = http.StatusNotFound
 		page.Gone = true
-		page.Title = "Terran Dominion"
+		page.Title = "Tether Rise"
 		page.Description = "This operative is no longer active."
 	case err != nil:
 		fail(w, r, err)
@@ -53,7 +53,7 @@ func (s *Server) profilePage(w http.ResponseWriter, r *http.Request) {
 // profilePageOf lays a public profile out for the page: the same words the game's profile uses.
 func profilePageOf(p *service.ProfileView, page web.ProfilePage) web.ProfilePage {
 	name := strings.ToUpper(p.Name)
-	page.Title = name + " // Terran Dominion"
+	page.Title = name + " // Tether Rise"
 	page.URL = p.ShareURL
 	page.Name = name
 	page.Initials = initials(p.Name)

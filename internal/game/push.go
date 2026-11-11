@@ -39,7 +39,7 @@ var pushRules = map[string]PushRule{
 	"friend_accepted": {Title: "New friend", Channel: PushChannelResults},
 
 	// A power's call the app did not pick up. The body is "Incoming call: <power>".
-	"call": {Title: "Terran Dominion", Channel: PushChannelResults, Always: true},
+	"call": {Title: "Tether Rise", Channel: PushChannelResults, Always: true},
 }
 
 // PushRuleFor returns the rule for a notice kind; false means it stays in the game only.

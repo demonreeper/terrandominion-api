@@ -78,7 +78,7 @@ first day of the month the account was made.
 `GET /p/{code}` (public, no sign-in, not under `/v1`): the web page behind a profile share link, HTML from
 `web/profile.html` embedded in `tdapi`. It shows the same public fields as `GET /v1/players/{code}`, with Open
 Graph and Twitter tags (`og:title`, `og:description`, `og:url`) so chat apps draw a preview card, an
-"Open in Terran Dominion" link (the share link itself: it opens the game once App Links are set up, P3) and a
+"Open in Tether Rise" link (the share link itself: it opens the game once App Links are set up, P3) and a
 store button for each of `TD_PLAY_URL` and `TD_APPSTORE_URL` that is set. An unknown, deleted or banned player,
 or text that is not a code, gets the same page saying "This operative is no longer active." with 404.
 `Cache-Control: public, max-age=300`; rate limited per IP like every request. `/me` and a profile carry the

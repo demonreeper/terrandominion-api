@@ -1,4 +1,4 @@
-// Package game holds the rules of Terran Dominion as plain functions over plain values: no SQL,
+// Package game holds the rules of Tether Rise as plain functions over plain values: no SQL,
 // no HTTP. The service layer loads state, asks these functions what happens, and stores the
 // result. Keeping the rules here makes them unit-testable and lets them move onto another server
 // framework (such as Nakama) unchanged.

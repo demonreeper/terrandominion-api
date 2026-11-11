@@ -43,7 +43,7 @@ func AppealCode(kind string, hash []byte) string {
 
 // AppealMailto is the APPEAL link: an email to support with the appeal code filled in.
 func AppealMailto(code string) string {
-	subject := "Terran Dominion appeal " + code
+	subject := "Tether Rise appeal " + code
 	body := "Appeal code: " + code + "\n\nTell us what happened. If you bought this phone second-hand, attach a proof of purchase."
 	return "mailto:" + SupportEmail + "?subject=" + url.PathEscape(subject) + "&body=" + url.PathEscape(body)
 }

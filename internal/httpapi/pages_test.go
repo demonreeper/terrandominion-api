@@ -18,7 +18,7 @@ func TestProfilePageOf(t *testing.T) {
 		Record: store.ServiceRecord{ActiveSince: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), NodesHarvested: 214, TethersBuilt: 9},
 	}, web.ProfilePage{})
 
-	if page.Title != "ECHO-7 // Terran Dominion" || page.Name != "ECHO-7" || page.Initials != "E7" {
+	if page.Title != "ECHO-7 // Tether Rise" || page.Name != "ECHO-7" || page.Initials != "E7" {
 		t.Errorf("title %q name %q initials %q", page.Title, page.Name, page.Initials)
 	}
 	if page.Standing != "LUMEN COLLECTIVE // WARDEN" || page.FactionColor != "#4fd8ff" {

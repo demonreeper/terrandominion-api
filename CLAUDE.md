@@ -1,4 +1,4 @@
-# CLAUDE.md: Terran Dominion API
+# CLAUDE.md: Tether Rise API
 
 Go game server (PostgreSQL + PostGIS). Workspace layout, servers and deploy flow are in
 `../CLAUDE.md` (the ProjectAR folder). Game rules: `../TerranDominion-Mobile/docs/GAME_DESIGN.md`.

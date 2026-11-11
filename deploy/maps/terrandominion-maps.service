@@ -1,5 +1,5 @@
 [Unit]
-Description=Terran Dominion map tiles (TileServer GL)
+Description=Tether Rise map tiles (TileServer GL)
 After=network-online.target
 Wants=network-online.target
 
