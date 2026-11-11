@@ -121,7 +121,7 @@ never an edge in a fight or a harvest. A non-AR player misses the show, never a 
 - **Lore rules:** follow `LORE.md` and the screen rules (never link the six powers, no "AI", no power
   says its name, country-neutral). **Never a hint of a seventh voice**: no "someone walked here before
   you", no "stay free", nothing about unbound freelancers.
-- **First set (draft, owner to approve):**
+- **First set (approved by the owner 2026-11-11):**
   1. "Before the first map, this street was already listening."
   2. "Something counted your steps. It did not lose count."
   3. "A signal folded here and never unfolded."
@@ -138,5 +138,5 @@ never an edge in a fight or a harvest. A non-AR player misses the show, never a 
 
 - ~~Bases on non-AR phones~~: **decided A, holo table**, available on AR phones too (owner, 2026-11-11).
 - ~~AR advantage~~: **decided, looks only, no gameplay bonus** (owner, 2026-11-11).
-- ~~AR sees more~~: **now**, milestones 5 to 8 (owner, 2026-11-11). Echo lines need the owner's OK.
+- ~~AR sees more~~: **now**, milestones 5 to 8 (owner, 2026-11-11). First echo set approved.
 - ~~Use AR view setting~~: **decided yes**, AR phones can pick the holo table (owner, 2026-11-11).

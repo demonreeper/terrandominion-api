@@ -19,7 +19,7 @@ Don't wait for my go between milestones unless a build fails or something in the
 6. AR photo mode (share sheet + save).
 7. Signal echoes + CODEX: needs the API side first (echo placement, `GET /v1/echoes/nearby`,
    `POST /v1/echoes/{id}/read`, codex in `/me` and profile badges). Use only the five echo lines in the
-   plan once I've approved them; never add others yourself.
+   plan (approved 2026-11-11); never add others yourself.
 8. Sky battles: only if drone strikes are already built; otherwise skip and say so.
 
 Rules: everything built in code; the lore screen rules in CLAUDE.md; nothing AR-only may give resources,
