@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/db"
@@ -60,7 +61,7 @@ func Friends(ctx context.Context, q db.Querier, playerID int64) ([]FriendRow, er
 		JOIN td.players p ON p.id = CASE WHEN fr.low_id = $1 THEN fr.high_id ELSE fr.low_id END
 		LEFT JOIN td.faction_members m ON m.player_id = p.id
 		LEFT JOIN td.factions f ON f.id = m.faction_id
-		WHERE (fr.low_id = $1 OR fr.high_id = $1) AND p.status <> 'deleted'
+		WHERE (fr.low_id = $1 OR fr.high_id = $1) AND p.status NOT IN ('deleted', 'banned')
 		ORDER BY td.player_name(p.callsign, p.public_code, p.status)`, playerID)
 	if err != nil {
 		return nil, err
@@ -169,7 +170,7 @@ var foundFriendSQL = `
 	FROM td.players p
 	LEFT JOIN td.faction_members m ON m.player_id = p.id
 	LEFT JOIN td.factions f ON f.id = m.faction_id
-	WHERE p.status = 'active' AND p.type = 'player' AND p.id <> $1`
+	WHERE p.status IN ('active', 'suspended') AND p.type = 'player' AND p.id <> $1`
 
 func scanFound(rows *sql.Rows) ([]FoundFriend, error) {
 	defer rows.Close()
@@ -184,11 +185,13 @@ func scanFound(rows *sql.Rows) ([]FoundFriend, error) {
 	return out, rows.Err()
 }
 
-// FindPlayersByCallsign finds players by a piece of their callsign or their whole share code.
+// FindPlayersByCallsign finds players whose callsign starts with the typed letters, or by their whole
+// share code.
 func FindPlayersByCallsign(ctx context.Context, q db.Querier, searcherID int64, typed string, limit int) ([]FoundFriend, error) {
+	prefix := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(typed) + "%"
 	rows, err := q.QueryContext(ctx, foundFriendSQL+`
-		  AND p.callsign IS NOT NULL AND (p.callsign ILIKE $2 OR p.public_code = upper($3))
-		ORDER BY p.last_seen_at DESC NULLS LAST LIMIT $4`, searcherID, likePattern(typed), typed, limit)
+		  AND ((p.callsign IS NOT NULL AND p.callsign ILIKE $2) OR p.public_code = upper($3))
+		ORDER BY p.callsign LIMIT $4`, searcherID, prefix, typed, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -236,4 +239,72 @@ func FriendTargetByCode(ctx context.Context, q db.Querier, code string) (FriendT
 		return t, ErrNotFound
 	}
 	return t, err
+}
+
+// PendingSentBy counts a player's requests still waiting for an answer.
+func PendingSentBy(ctx context.Context, q db.Querier, playerID int64) (int, error) {
+	var n int
+	err := q.QueryRowContext(ctx, `
+		SELECT count(*) FROM td.friendships WHERE requested_by = $1 AND status = 'pending'`, playerID).Scan(&n)
+	return n, err
+}
+
+// RequestsWaiting counts requests waiting for this player's answer (from players who can be seen).
+func RequestsWaiting(ctx context.Context, q db.Querier, playerID int64) (int, error) {
+	var n int
+	err := q.QueryRowContext(ctx, `
+		SELECT count(*) FROM td.friendships fr JOIN td.players p ON p.id = fr.requested_by
+		WHERE (fr.low_id = $1 OR fr.high_id = $1) AND fr.requested_by <> $1 AND fr.status = 'pending'
+		  AND p.status NOT IN ('deleted', 'banned')`, playerID).Scan(&n)
+	return n, err
+}
+
+// RecordDecline remembers that to declined from, for the ask-again rule.
+func RecordDecline(ctx context.Context, q db.Querier, from, to int64) error {
+	_, err := q.ExecContext(ctx, `
+		INSERT INTO td.friend_declines (from_player, to_player) VALUES ($1, $2)
+		ON CONFLICT (from_player, to_player) DO UPDATE SET declined_at = now()`, from, to)
+	return err
+}
+
+// DeclinedSince says whether to declined a request from from at or after a time.
+func DeclinedSince(ctx context.Context, q db.Querier, from, to int64, since time.Time) (bool, error) {
+	var yes bool
+	err := q.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM td.friend_declines WHERE from_player = $1 AND to_player = $2 AND declined_at >= $3)`,
+		from, to, since).Scan(&yes)
+	return yes, err
+}
+
+// ExpireFriendRequests drops pending requests older than a time.
+func ExpireFriendRequests(ctx context.Context, q db.Querier, before time.Time) (int64, error) {
+	res, err := q.ExecContext(ctx, `DELETE FROM td.friendships WHERE status = 'pending' AND created_at < $1`, before)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// FriendStates gives how a viewer stands with each of several players ("" when nothing).
+func FriendStates(ctx context.Context, q db.Querier, viewerID int64, others []int64) (map[int64]string, error) {
+	out := map[int64]string{}
+	rows, err := q.QueryContext(ctx, `
+		SELECT CASE WHEN low_id = $1 THEN high_id ELSE low_id END,
+		       CASE WHEN status = 'accepted' THEN 'friend' WHEN requested_by = $1 THEN 'outgoing' ELSE 'incoming' END
+		FROM td.friendships
+		WHERE (low_id = $1 AND high_id = ANY($2::bigint[])) OR (high_id = $1 AND low_id = ANY($2::bigint[]))`,
+		viewerID, int64Array(others))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var state string
+		if err := rows.Scan(&id, &state); err != nil {
+			return nil, err
+		}
+		out[id] = state
+	}
+	return out, rows.Err()
 }

@@ -352,6 +352,10 @@ type MeView struct {
 	SignalLockLine    string     `json:"signalLockLine,omitempty"`
 	// OpenReports is how many players have open reports (staff only), for the ADMIN button.
 	OpenReports int `json:"openReports,omitempty"`
+	// EmailSearchable: other players can find this one by their whole email (FR1). FriendRequestsWaiting:
+	// requests waiting for this player's answer (the FRIENDS row's count).
+	EmailSearchable       bool `json:"emailSearchable"`
+	FriendRequestsWaiting int  `json:"friendRequestsWaiting"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -463,6 +467,14 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		return nil, err
 	}
 	if err := s.signalLock(ctx, q, me, settings); err != nil {
+		return nil, err
+	}
+	if friendSettings, err := store.FriendSettingsOf(ctx, q, playerID); err != nil {
+		return nil, err
+	} else {
+		me.EmailSearchable = friendSettings.FindableByEmail
+	}
+	if me.FriendRequestsWaiting, err = store.RequestsWaiting(ctx, q, playerID); err != nil {
 		return nil, err
 	}
 	if player.IsAdmin || player.IsMod {

@@ -218,6 +218,8 @@ type BranchMember struct {
 	Level     int    `json:"level"`
 	Rank      int    `json:"rank"`
 	RankTitle string `json:"rankTitle"`
+	// FriendState is how the asker stands with them: "", friend, incoming or outgoing (FR1).
+	FriendState string `json:"friendState"`
 }
 
 // BranchMembers lists a branch, highest rank first.

@@ -258,8 +258,17 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	if err != nil {
 		return BranchView{}, err
 	}
+	ids := make([]int64, 0, len(members))
 	for i := range members {
 		members[i].RankTitle = game.RankTitle(members[i].Rank)
+		ids = append(ids, members[i].PlayerID)
+	}
+	states, err := store.FriendStates(ctx, s.db, playerID, ids)
+	if err != nil {
+		return BranchView{}, err
+	}
+	for i := range members {
+		members[i].FriendState = states[members[i].PlayerID]
 	}
 	return BranchView{
 		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: membership.Region,

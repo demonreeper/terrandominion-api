@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
@@ -59,12 +60,16 @@ func (s *Service) Friends(ctx context.Context, playerID int64) (FriendsView, err
 // callsign or a share code.
 func (s *Service) FindPlayers(ctx context.Context, playerID int64, typed string) ([]store.FoundFriend, error) {
 	typed = strings.TrimSpace(typed)
-	if game.IsEmailSearch(typed) {
+	settings := s.Settings(ctx)
+	if !friendSearches.allow(playerID, settings.FriendSearchPerMinute, s.now()) {
+		return nil, apperr.SearchLimit.Say("That is enough searches for a minute.")
+	}
+	kind, long := game.FriendSearchKind(typed)
+	if kind == "email" {
 		email := game.NormaliseEmail(typed)
 		if len(email) < 5 || len(email) > 254 || strings.Count(email, "@") != 1 {
 			return nil, apperr.BadRequest.Say("Type the whole email.")
 		}
-		settings := s.Settings(ctx)
 		var found []store.FoundFriend
 		err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
 			if _, err := store.GetPlayerForUpdate(ctx, tx, playerID); err != nil {
@@ -85,11 +90,10 @@ func (s *Service) FindPlayers(ctx context.Context, playerID int64, typed string)
 		})
 		return found, err
 	}
-	q, ok := game.CleanPlayerSearch(typed)
-	if !ok {
-		return nil, apperr.BadRequest.Say("Type at least 2 characters.")
+	if !long {
+		return nil, apperr.BadRequest.Say("Type at least %d letters of a callsign.", game.CallsignSearchMin)
 	}
-	return store.FindPlayersByCallsign(ctx, s.db, playerID, q, friendsFound)
+	return store.FindPlayersByCallsign(ctx, s.db, playerID, typed, friendsFound)
 }
 
 // RequestFriend sends a request to the player behind a share code. If they had already asked this
@@ -137,9 +141,18 @@ func (s *Service) RequestFriend(ctx context.Context, playerID int64, code string
 		if err != nil {
 			return err
 		}
+		pending, err := store.PendingSentBy(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
+		declined, err := store.DeclinedSince(ctx, tx, playerID, target.ID, now.Add(-time.Duration(settings.FriendRedeclineDays)*dayLength))
+		if err != nil {
+			return err
+		}
 		why := game.CheckFriendRequest(settings, game.FriendRequest{
 			Self: target.ID == playerID, Exists: exists, TargetAccepts: target.AcceptFriends,
 			TargetPlayer: target.IsPlayer && me.Type == "player", MineCount: mine, TheirsCount: theirs, SentToday: sent,
+			PendingOut: pending, DeclinedRecently: declined,
 		})
 		if why != game.FriendOK {
 			return apperr.FriendRefused.Say("%s", friendRefusal(why))
@@ -150,7 +163,7 @@ func (s *Service) RequestFriend(ctx context.Context, playerID int64, code string
 		status = "outgoing"
 		return store.InsertNotice(ctx, tx, store.NewNotice{
 			PlayerID: target.ID, ActorID: playerID, Kind: "friend_request",
-			Body: me.Name + " wants to be friends.", PushState: game.NoticePushState("friend_request"),
+			Body: me.Name + " sent you a friend request.", PushState: game.NoticePushState("friend_request"),
 		})
 	})
 	return status, err
@@ -168,6 +181,10 @@ func friendRefusal(why string) string {
 		return "One of you has as many friends as the game allows."
 	case game.FriendTooMany:
 		return "That is enough friend requests for today."
+	case game.FriendPending:
+		return "Too many of your requests are waiting for an answer."
+	case game.FriendTooSoon:
+		return "Not yet. Try again in a few days."
 	}
 	return "That player can't be added."
 }
@@ -202,6 +219,10 @@ func (s *Service) AnswerFriend(ctx context.Context, playerID int64, code string,
 			return err
 		}
 		if !accept {
+			// Silent: the sender sees nothing, and can't ask again for FriendRedeclineDays.
+			if err := store.RecordDecline(ctx, tx, otherID, playerID); err != nil {
+				return err
+			}
 			return store.DeleteFriendship(ctx, tx, low, high)
 		}
 		return s.acceptFriend(ctx, tx, playerID, me.Name, otherID, low, high)
@@ -233,4 +254,56 @@ func (s *Service) SetFriendSettings(ctx context.Context, playerID int64, in stor
 		return in, err
 	}
 	return in, nil
+}
+
+// expireFriendRequests drops requests nobody answered in FriendRequestExpireDays (the tick calls it).
+func (s *Service) expireFriendRequests(ctx context.Context) {
+	days := s.Settings(ctx).FriendRequestExpireDays
+	if days <= 0 {
+		return
+	}
+	if _, err := store.ExpireFriendRequests(ctx, s.db, s.now().Add(-time.Duration(days)*dayLength)); err != nil && ctx.Err() == nil {
+		slogError("friend request expiry failed", err)
+	}
+}
+
+// searchLimiter counts each player's searches in the last minute (in memory: a restart forgets it).
+type searchLimiter struct {
+	mu   sync.Mutex
+	hits map[int64][]time.Time
+}
+
+var friendSearches = &searchLimiter{hits: map[int64][]time.Time{}}
+
+func (l *searchLimiter) allow(playerID int64, perMinute int, now time.Time) bool {
+	if perMinute <= 0 {
+		return true
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	kept := l.hits[playerID][:0]
+	for _, at := range l.hits[playerID] {
+		if now.Sub(at) < time.Minute {
+			kept = append(kept, at)
+		}
+	}
+	if len(kept) >= perMinute {
+		l.hits[playerID] = kept
+		return false
+	}
+	l.hits[playerID] = append(kept, now)
+	if len(l.hits) > 10000 {
+		l.hits = map[int64][]time.Time{playerID: l.hits[playerID]}
+	}
+	return true
+}
+
+// SetEmailSearchable is the LET PLAYERS FIND ME BY EMAIL switch on the player's own profile.
+func (s *Service) SetEmailSearchable(ctx context.Context, playerID int64, on bool) (store.FriendSettings, error) {
+	current, err := store.FriendSettingsOf(ctx, s.db, playerID)
+	if err != nil {
+		return current, err
+	}
+	current.FindableByEmail = on
+	return current, store.SetFriendSettings(ctx, s.db, playerID, current)
 }

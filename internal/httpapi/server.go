@@ -66,6 +66,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/friends/{code}/decline", s.authed(s.answerFriend(false)))
 	mux.HandleFunc("DELETE /v1/friends/{code}", s.authed(s.removeFriend))
 	mux.HandleFunc("PUT /v1/me/friends", s.authed(s.setFriendSettings))
+	mux.HandleFunc("PUT /v1/me/privacy", s.authed(s.setPrivacy))
 	mux.HandleFunc("POST /v1/players/{code}/report", s.authed(s.reportPlayer))
 
 	// Moderation: mods and admins.

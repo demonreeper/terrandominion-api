@@ -53,6 +53,8 @@ const (
 	FriendClosed     = "closed"   // the other player doesn't accept requests
 	FriendFull       = "full"     // FriendsMax reached, on either side
 	FriendTooMany    = "too_many" // FriendRequestsPerDay sent today
+	FriendPending    = "pending"  // FriendRequestsPendingMax waiting
+	FriendTooSoon    = "too_soon" // they declined this player inside FriendRedeclineDays
 	FriendNotAPlayer = "not_player"
 )
 
@@ -65,6 +67,24 @@ type FriendRequest struct {
 	MineCount     int
 	TheirsCount   int
 	SentToday     int
+	PendingOut    int
+	// DeclinedRecently: the target declined this player inside FriendRedeclineDays.
+	DeclinedRecently bool
+}
+
+// CallsignSearchMin is how many letters a callsign search needs (starts-with, so nobody browses the list).
+const CallsignSearchMin = 3
+
+// FriendSearchKind says how a search is read: an email (has @), a share code (8 characters of the code
+// alphabet), or the start of a callsign. ok is false when it is too short to search.
+func FriendSearchKind(q string) (kind string, ok bool) {
+	switch {
+	case IsEmailSearch(q):
+		return "email", true
+	case ValidPublicCode(strings.ToUpper(q)):
+		return "code", true
+	}
+	return "callsign", utf8.RuneCountInString(q) >= CallsignSearchMin
 }
 
 func CheckFriendRequest(s Settings, r FriendRequest) string {
@@ -81,6 +101,10 @@ func CheckFriendRequest(s Settings, r FriendRequest) string {
 		return FriendFull
 	case r.SentToday >= s.FriendRequestsPerDay:
 		return FriendTooMany
+	case r.PendingOut >= s.FriendRequestsPendingMax:
+		return FriendPending
+	case r.DeclinedRecently:
+		return FriendTooSoon
 	}
 	return FriendOK
 }

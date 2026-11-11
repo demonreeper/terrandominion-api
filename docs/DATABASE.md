@@ -170,7 +170,8 @@ accepted, for the teleport check.
 `friendships` keeps one row per pair (`low_id < high_id`), `requested_by`, `pending` until the other accepts.
 `players.friend_name` is the name a player typed for friends (shown only to accepted friends; the Google/Apple
 name is never used), `findable_by_email` and `accept_friends` their switches. `email_searches` counts searches by
-email per player for `EmailSearchesPerDay`; an email is only ever compared whole and never returned.
+email per player for `EmailSearchesPerDay`; an email is only ever compared whole and never returned. `friend_declines`
+remembers who declined whom, for `FriendRedeclineDays`.
 
 ## Rules the database enforces itself
 - carried resources and XP never go negative (CHECK)

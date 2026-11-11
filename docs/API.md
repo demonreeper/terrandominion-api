@@ -199,14 +199,18 @@ parameters. Old builds that send neither still work.
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `/friends` | | `incoming`, `friends`, `outgoing` (`FriendRow {player, level, faction, friendName, status}`; `friendName` only for accepted friends) and your `settings {friendName, findableByEmail, acceptFriends}` |
-| GET | `/friends/search?q=` | | Text with `@` is an email: only the whole address matches (case aside), only players with `findableByEmail`, at most `EmailSearchesPerDay` a day (1783). Otherwise a piece of a callsign or a whole share code (2+ characters). Returns `[{player, level, faction, status, accepts}]`; never an email or real name |
-| POST | `/friends/{code}` | | Sends a request (notice `friend_request`, pushed). If they had asked you, accepts theirs. Refused (1780, the message says why): yourself, already friends or pending, they don't take requests, `FriendsMax` on either side, `FriendRequestsPerDay` |
+| GET | `/friends/search?q=` | | Text with `@` is an email: only the whole address matches (case aside), only players with `findableByEmail`, at most `EmailSearchesPerDay` a day (1783). Otherwise a whole share code, or the first 3+ letters of a callsign (starts-with, up to 20). At most `FriendSearchPerMinute` searches a minute (1783). Returns `[{player, level, faction, status, accepts}]`; never an email or real name |
+| POST | `/friends/{code}` | | Sends a request (notice `friend_request`, pushed). If they had asked you, accepts theirs. Refused (1780, the message says why): yourself, already friends or pending, they don't take requests, `FriendsMax` on either side, `FriendRequestsPerDay`, `FriendRequestsPendingMax` waiting, or they declined you inside `FriendRedeclineDays`. Unanswered requests expire after `FriendRequestExpireDays` |
 | POST | `/friends/{code}/accept` | | Accepts their request (notice `friend_accepted` to them). 1781 if there is none |
-| POST | `/friends/{code}/decline` | | Declines it; nobody is told |
+| POST | `/friends/{code}/decline` | | Declines it; nobody is told, and they can't ask again for `FriendRedeclineDays` |
+| PUT | `/me/privacy` | `emailSearchable` | LET PLAYERS FIND ME BY EMAIL (on by default) |
 | DELETE | `/friends/{code}` | | Ends a friendship or takes back a request; nobody is told |
 | PUT | `/me/friends` | `friendName, findableByEmail, acceptFriends` | The name friends see: typed, optional, letters (any script), spaces, `'.-`, up to 32, blocked words refused (1782). The Google/Apple name is never sent |
 
 `GET /players/{code}` adds `friend` ("", `friend`, `incoming`, `outgoing`), `acceptsFriends`, and `friendName` for a friend.
+Branch members (`/factions/branch`) carry `friendState`; `/me` has `emailSearchable` and `friendRequestsWaiting`. Friend
+pushes carry `kind` and `actor` (the other player's share code). Banned players drop out of friend lists (a lifted ban
+brings them back); suspended players can still be found and added.
 
 ### Unbound titles
 F2 (phase 5): past the faction level a freelancer who has heard from the seventh voice is given titles, each a badge

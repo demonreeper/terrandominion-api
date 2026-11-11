@@ -51,6 +51,8 @@ func TestCheckFriendRequest(t *testing.T) {
 		FriendClosed:     with(func(r *FriendRequest) { r.TargetAccepts = false }),
 		FriendFull:       with(func(r *FriendRequest) { r.TheirsCount = s.FriendsMax }),
 		FriendTooMany:    with(func(r *FriendRequest) { r.SentToday = s.FriendRequestsPerDay }),
+		FriendPending:    with(func(r *FriendRequest) { r.PendingOut = s.FriendRequestsPendingMax }),
+		FriendTooSoon:    with(func(r *FriendRequest) { r.DeclinedRecently = true }),
 	} {
 		if got := CheckFriendRequest(s, r); got != want {
 			t.Errorf("want %q, got %q", want, got)
@@ -58,5 +60,16 @@ func TestCheckFriendRequest(t *testing.T) {
 	}
 	if low, high := FriendPair(9, 3); low != 3 || high != 9 {
 		t.Error("pairs keep the low id first")
+	}
+}
+
+func TestFriendSearchKind(t *testing.T) {
+	for q, want := range map[string]string{"a@b.mv": "email", "K7QX3M9P": "code", "k7qx3m9p": "code", "Gal": "callsign"} {
+		if kind, ok := FriendSearchKind(q); kind != want || !ok {
+			t.Errorf("%q: %s %v, want %s", q, kind, ok, want)
+		}
+	}
+	if _, ok := FriendSearchKind("Ga"); ok {
+		t.Error("a callsign search needs 3 letters")
 	}
 }

@@ -217,9 +217,13 @@ type Settings struct {
 	JobGuardRadiusM    int
 	JobGuardGapSeconds int
 	// Friends.
-	FriendsMax           int
-	FriendRequestsPerDay int
-	EmailSearchesPerDay  int
+	FriendsMax               int
+	FriendRequestsPerDay     int
+	EmailSearchesPerDay      int
+	FriendRequestsPendingMax int
+	FriendSearchPerMinute    int
+	FriendRequestExpireDays  int
+	FriendRedeclineDays      int
 	// Anti-cheat (social-signal-plan.md Part C). The two switches are 1 (on) or 0.
 	SpoofLockEnabled   int
 	SpoofCheckMockFlag int
@@ -448,6 +452,10 @@ func DefaultSettings() Settings {
 		FriendsMax:                 200,
 		FriendRequestsPerDay:       20,
 		EmailSearchesPerDay:        10,
+		FriendRequestsPendingMax:   50,
+		FriendSearchPerMinute:      20,
+		FriendRequestExpireDays:    14,
+		FriendRedeclineDays:        7,
 		SpoofLockEnabled:           1,
 		SpoofCheckMockFlag:         1,
 		SpoofLockMinutes1:          30,
@@ -631,6 +639,10 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("FriendsMax", &s.FriendsMax)
 	i("FriendRequestsPerDay", &s.FriendRequestsPerDay)
 	i("EmailSearchesPerDay", &s.EmailSearchesPerDay)
+	i("FriendRequestsPendingMax", &s.FriendRequestsPendingMax)
+	i("FriendSearchPerMinute", &s.FriendSearchPerMinute)
+	i("FriendRequestExpireDays", &s.FriendRequestExpireDays)
+	i("FriendRedeclineDays", &s.FriendRedeclineDays)
 	i("SpoofLockEnabled", &s.SpoofLockEnabled)
 	i("SpoofCheckMockFlag", &s.SpoofCheckMockFlag)
 	i("SpoofLockMinutes1", &s.SpoofLockMinutes1)

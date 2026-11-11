@@ -203,6 +203,9 @@ func (s *Service) deliverPush(ctx context.Context, tx *sql.Tx, notice store.Pend
 
 func pushMessage(notice store.PendingPush, rule game.PushRule) push.Message {
 	data := map[string]string{"kind": notice.Kind, "noticeId": strconv.FormatInt(notice.ID, 10)}
+	if notice.ActorCode != "" && strings.HasPrefix(notice.Kind, "friend_") {
+		data["actor"] = notice.ActorCode
+	}
 	group := ""
 	if notice.TetherID != 0 {
 		data["tnId"] = strconv.FormatInt(notice.TetherID, 10)

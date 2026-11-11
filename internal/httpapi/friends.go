@@ -74,3 +74,20 @@ func (s *Server) setFriendSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, saved)
 }
+
+func (s *Server) setPrivacy(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		EmailSearchable bool `json:"emailSearchable"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	saved, err := s.svc.SetEmailSearchable(r.Context(), playerID, body.EmailSearchable)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, saved)
+}
