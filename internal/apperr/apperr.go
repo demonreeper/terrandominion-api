@@ -111,7 +111,7 @@ var (
 	ReportNotDismissed = def(1120, http.StatusConflict, "Only a dismissed report can be reopened.")
 	AdjustBad          = def(1121, http.StatusBadRequest, "That change is not allowed.")
 	// The callsign errors carry data.error: "callsign_invalid", "callsign_taken" or "callsign_too_soon".
-	CallsignInvalid = def(1109, http.StatusBadRequest, "Use 3 to 16 letters, digits, - or _, starting and ending with a letter or digit.")
+	CallsignInvalid = def(1109, http.StatusBadRequest, "Pick one of the callsigns offered.")
 	CallsignTaken   = def(1110, http.StatusConflict, "That callsign is taken or not allowed. Try another.")
 	CallsignTooSoon = def(1111, http.StatusConflict, "You changed your callsign recently.") // data: changeAt, days
 	ProviderLinked  = def(1108, http.StatusConflict, "A different account of that kind is already linked. Unlink it first.")

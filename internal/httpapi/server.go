@@ -54,6 +54,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /v1/settings", s.publicSettings)
 	mux.HandleFunc("GET /v1/me", s.authed(s.me))
+	mux.HandleFunc("GET /v1/me/callsign/options", s.authed(s.callsignOptions))
 	mux.HandleFunc("PUT /v1/me/callsign", s.authed(s.setCallsign))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 	mux.HandleFunc("PUT /v1/me/push", s.authed(s.setPushPrefs))
@@ -506,6 +507,17 @@ func (s *Server) playerProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, profile)
+}
+
+// callsignOptions offers a handful of made-up callsigns to pick from; every call offers new ones.
+func (s *Server) callsignOptions(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	options, err := s.svc.CallsignOptions(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, options)
 }
 
 // setCallsign picks or changes the name other players see, and answers with the new /me.

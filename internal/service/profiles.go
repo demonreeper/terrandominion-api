@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math/rand/v2"
 	"strings"
+	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 	"github.com/demonreeper/terrandominion/api/internal/db"
@@ -107,7 +109,50 @@ func (s *Service) Profile(ctx context.Context, viewerID int64, code string) (*Pr
 	return view, nil
 }
 
-// SetCallsign gives the player the callsign they typed: checked for shape, reserved and blocked
+// CallsignOptions is what the callsign screen offers: a handful of made-up callsigns nobody has,
+// and when the player may next change (zero for the first pick). Every call offers new ones.
+type CallsignOptions struct {
+	Options  []string   `json:"options"`
+	ChangeAt *time.Time `json:"changeAt,omitempty"`
+}
+
+func (s *Service) CallsignOptions(ctx context.Context, playerID int64) (CallsignOptions, error) {
+	out := CallsignOptions{Options: []string{}}
+	player, err := store.GetPlayer(ctx, s.db, playerID)
+	if err != nil {
+		return out, err
+	}
+	if player.CallsignChangedAt.Valid {
+		at := game.CallsignChangeAt(&player.CallsignChangedAt.Time, s.Settings(ctx).CallsignChangeDays)
+		if s.now().Before(at) {
+			at = at.UTC()
+			out.ChangeAt = &at
+		}
+	}
+	blocked, err := store.BlockedCallsignWords(ctx, s.db)
+	if err != nil {
+		return out, err
+	}
+	seen := map[string]bool{}
+	// Nearly every made-up callsign is free; the cap only matters if the lists ever run low.
+	for tries := 0; len(out.Options) < game.CallsignOptionCount && tries < 60; tries++ {
+		callsign := game.MakeCallsign(rand.IntN)
+		if seen[callsign] || game.CallsignBlocked(callsign, blocked) {
+			continue
+		}
+		seen[callsign] = true
+		taken, err := store.CallsignTaken(ctx, s.db, callsign, playerID)
+		if err != nil {
+			return out, err
+		}
+		if !taken {
+			out.Options = append(out.Options, callsign)
+		}
+	}
+	return out, nil
+}
+
+// SetCallsign gives the player the callsign they picked from CallsignOptions: checked for shape, reserved and blocked
 // words, that nobody else has it (in any letter case), and that CallsignChangeDays have passed
 // since the last change. The first pick is free of the wait. Returns the player's new /me.
 func (s *Service) SetCallsign(ctx context.Context, playerID int64, typed string) (*MeView, error) {
@@ -132,6 +177,11 @@ func (s *Service) SetCallsign(ctx context.Context, playerID int64, typed string)
 			return err
 		}
 		caseOnly := player.Callsign.Valid && strings.EqualFold(player.Callsign.String, callsign)
+		// Callsigns are picked from the ones the game offers, never typed: anything else is refused,
+		// whoever sends it. A callsign typed before this rule stays until its owner changes it.
+		if !game.IsMadeCallsign(callsign) {
+			return apperr.CallsignInvalid.WithData(map[string]any{"error": "callsign_invalid"})
+		}
 
 		blocked, err := store.BlockedCallsignWords(ctx, tx)
 		if err != nil {
