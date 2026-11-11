@@ -16,13 +16,15 @@ import (
 // Orders and daily missions (docs/regional-command-plan.md). Each mission comes from one faction's
 // lore power. Nothing here tells players the six powers are one.
 
-// MissionsView is GET /v1/missions: today's missions, when the next ones come, and the invitation a
-// freelancer got at level 20.
+// MissionsView is GET /v1/missions: today's missions and when the next ones come.
 type MissionsView struct {
 	Day         string                `json:"day"`
 	RefreshesAt time.Time             `json:"refreshesAt"`
 	Missions    []store.PlayerMission `json:"missions"`
-	Invitation  *store.Invitation     `json:"invitation"`
+	// Invitation is retired and always null: the level 20 invitation is plain game text on the
+	// FACTIONS screen now (GET /v1/factions, "invited"), not a power speaking in ORDERS. The field
+	// stays so app builds that still read it show nothing.
+	Invitation *struct{} `json:"invitation"`
 }
 
 // Missions gives the player today's missions if they have none yet, and lists them.
@@ -45,8 +47,7 @@ func (s *Service) Missions(ctx context.Context, playerID int64) (MissionsView, e
 			missions[i].Title = game.MissionTitle(missions[i].Goal, missions[i].GoalKey, missions[i].Count)
 		}
 		out.Missions = missions
-		out.Invitation, err = store.InvitationOf(ctx, tx, playerID)
-		return err
+		return nil
 	})
 	return out, err
 }
@@ -109,6 +110,10 @@ func advanceMissions(ctx context.Context, tx *sql.Tx, playerID int64, goal, key 
 	settings game.Settings, now time.Time) error {
 	day, _ := game.MissionDay(settings, now)
 	if err := ensureMissions(ctx, tx, playerID, day, settings); err != nil {
+		return err
+	}
+	// Every action that can advance a mission also says something about how the player plays.
+	if err := scorePlaystyle(ctx, tx, playerID, goal, key); err != nil {
 		return err
 	}
 	finished, err := store.AdvanceMissions(ctx, tx, playerID, day, goal, key, amount)
@@ -178,38 +183,32 @@ func (s *Service) ClaimMission(ctx context.Context, playerID, missionID int64) (
 	return out, err
 }
 
-// maybeInvite runs when a player's level rises: a freelancer crossing LeadFactionLevel is invited
-// by the lore power whose missions they finished most (any one if they finished none).
-func maybeInvite(ctx context.Context, q db.Querier, playerID int64, before, after int, settings game.Settings) error {
+// maybeInvite runs when a player's level rises: a freelancer crossing LeadFactionLevel is invited by
+// the one power that speaks to them, the same one that made the level 19 offer. The invitation is
+// plain game text (a notice, and the FACTIONS screen); no power speaks here. Whatever of the offer
+// has not come due is dropped.
+func maybeInvite(ctx context.Context, q db.Querier, playerID int64, before, after int, settings game.Settings,
+	now time.Time) error {
 	if before >= settings.LeadFactionLevel || after < settings.LeadFactionLevel {
 		return nil
+	}
+	if err := store.CancelOffer(ctx, q, playerID, now); err != nil {
+		return err
 	}
 	membership, err := store.MembershipOf(ctx, q, playerID)
 	if err != nil || membership != nil {
 		return err
 	}
-	counts, err := store.FollowCounts(ctx, q, playerID)
+	factionID, err := offerPower(ctx, q, playerID)
 	if err != nil {
 		return err
-	}
-	factionID, ok := game.MostFollowed(counts)
-	if !ok {
-		ids, err := store.FactionIDs(ctx, q)
-		if err != nil || len(ids) == 0 {
-			return err
-		}
-		factionID = ids[rand.IntN(len(ids))]
 	}
 	invited, err := store.Invite(ctx, q, playerID, factionID)
 	if err != nil || !invited {
 		return err
 	}
-	name, persona, line, err := store.FactionPersona(ctx, q, factionID)
-	if err != nil {
-		return err
-	}
 	return store.InsertNotice(ctx, q, store.NewNotice{
-		PlayerID: playerID, Kind: "invitation", Body: game.NoticeInvitation(persona, name, line),
+		PlayerID: playerID, Kind: "invitation", Body: game.NoticeInvited(),
 		PushState: game.NoticePushState("invitation"),
 	})
 }

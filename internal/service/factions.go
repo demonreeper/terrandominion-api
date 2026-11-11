@@ -12,8 +12,25 @@ import (
 	"github.com/demonreeper/terrandominion/api/internal/store"
 )
 
-func (s *Service) Factions(ctx context.Context) ([]store.Faction, error) {
-	return store.ListFactions(ctx, s.db, game.LaunchRegion)
+// Factions lists the six factions, marking the one that invited this player at the faction level.
+// A player already in a faction is not shown an invitation.
+func (s *Service) Factions(ctx context.Context, playerID int64) ([]store.Faction, error) {
+	factions, err := store.ListFactions(ctx, s.db, game.LaunchRegion)
+	if err != nil {
+		return nil, err
+	}
+	membership, err := store.MembershipOf(ctx, s.db, playerID)
+	if err != nil || membership != nil {
+		return factions, err
+	}
+	invited, err := store.InvitedFaction(ctx, s.db, playerID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range factions {
+		factions[i].Invited = invited != 0 && factions[i].ID == invited
+	}
+	return factions, nil
 }
 
 // LeadFaction claims a dormant faction. Both the faction row and the player row are locked, and

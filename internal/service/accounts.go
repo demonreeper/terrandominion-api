@@ -390,13 +390,18 @@ func awardXPAgainst(ctx context.Context, q db.Querier, playerID int64, action st
 		return game.Progress{}, false, err
 	}
 	progress := game.ProgressFor(total, settings)
+	now := time.Now()
+	// Halfway through level 10 and level 19 the matching power calls a freelancer.
+	if err := startCalls(ctx, q, playerID, before.XP, total, settings, now); err != nil {
+		return progress, false, err
+	}
 	// Levels only ever go up: an admin may grant a level by hand, and XP must not take it away.
 	if progress.Level > before.Level {
 		if err := store.SetLevel(ctx, q, playerID, progress.Level); err != nil {
 			return progress, false, err
 		}
-		// A freelancer reaching the faction level is invited by the lore power they followed most.
-		if err := maybeInvite(ctx, q, playerID, before.Level, progress.Level, settings); err != nil {
+		// A freelancer reaching the faction level is invited by the power that speaks to them.
+		if err := maybeInvite(ctx, q, playerID, before.Level, progress.Level, settings, now); err != nil {
 			return progress, false, err
 		}
 		return progress, true, nil

@@ -308,6 +308,9 @@ func (s *Service) DefuseSpike(ctx context.Context, playerID, tetherID int64, fix
 		if err != nil {
 			return err
 		}
+		if err := scorePlaystyle(ctx, tx, playerID, game.PlayDefuse, ""); err != nil {
+			return err
+		}
 		return notify(ctx, tx, store.NewNotice{
 			PlayerID: planter, TetherID: tetherID, ActorID: playerID,
 			Kind: "defused", Body: game.NoticeDefused(owner.DisplayName, place),

@@ -93,6 +93,17 @@ Locked factions cannot be joined. A player is in at most one faction (`faction_m
 by player); no row means freelancer. Ranks are numbers for now (1 member to 100 head).
 Branches belong to a faction and a region (atoll or city) with a sub-leader the head appoints.
 
+### the powers: missions, playstyle, calls and messages
+`mission_types` is the pool the day's missions are drawn from and `player_missions` what each player was given
+(6 a day for a freelancer, one per power; after joining, only their own faction's power). `player_playstyle` scores
+what a player mostly does, per power, inside each action's transaction; its highest row is the one power that calls,
+messages and invites them. `player_calls` holds one row per player per kind (`level10`, `level19`,
+`level19_repeat`): `due_at` is when the app may see it, `delivered_at` when the app fetched it, `pushed_at` when a
+push went out instead, `played_at` when it was heard and so ended. `player_messages` holds the powers' written
+messages (`level19_day3` first); `read_at` only clears the unread mark. `player_invitations` is the faction that
+invited a freelancer at `LeadFactionLevel`. `factions.persona_invite` is no longer read: the level 20 invitation is
+plain game text. Nothing in these tables joins the six powers.
+
 ### bases
 Faction bases grow in place (`tier`). The spacing rules are a trigger, so no code path can skip
 them: one base per faction within `BaseSpacingSameFactionM` (E1402), and none within

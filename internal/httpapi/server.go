@@ -97,6 +97,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/factions/branch/wardens", s.authed(s.appointWarden))
 	mux.HandleFunc("GET /v1/missions", s.authed(s.missions))
 	mux.HandleFunc("POST /v1/missions/{id}/claim", s.authed(s.claimMission))
+	mux.HandleFunc("GET /v1/calls", s.authed(s.calls))
+	mux.HandleFunc("POST /v1/calls/{id}/played", s.authed(s.playCall))
+	mux.HandleFunc("POST /v1/messages/{id}/read", s.authed(s.readMessage))
 
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
 	mux.HandleFunc("PUT /v1/admin/settings/{key}", s.admin(s.adminUpdateSetting))
@@ -844,10 +847,51 @@ func (s *Server) pickDrop(w http.ResponseWriter, r *http.Request) {
 	ok(w, res)
 }
 
+// ---- the powers' calls and messages ----------------------------------------------------
+
+func (s *Server) calls(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	res, err := s.svc.Calls(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) playCall(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("call id"))
+		return
+	}
+	if err := s.svc.PlayCall(r.Context(), playerID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "played")
+}
+
+func (s *Server) readMessage(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("message id"))
+		return
+	}
+	if err := s.svc.ReadMessage(r.Context(), playerID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "read")
+}
+
 // ---- factions --------------------------------------------------------------------------
 
 func (s *Server) factions(w http.ResponseWriter, r *http.Request) {
-	list, err := s.svc.Factions(r.Context())
+	playerID, _ := playerFrom(r.Context())
+	list, err := s.svc.Factions(r.Context(), playerID)
 	if err != nil {
 		fail(w, r, err)
 		return

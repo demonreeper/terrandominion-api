@@ -197,32 +197,8 @@ func FollowCounts(ctx context.Context, q db.Querier, playerID int64) (map[int]in
 	return out, rows.Err()
 }
 
-// Invitation is the lore power that invited a freelancer at level 20.
-type Invitation struct {
-	FactionCode string `json:"factionCode"`
-	FactionName string `json:"factionName"`
-	Persona     string `json:"persona"`
-	Color       string `json:"color"`
-	Line        string `json:"line"`
-}
-
-// InvitationOf returns nil when the player has none.
-func InvitationOf(ctx context.Context, q db.Querier, playerID int64) (*Invitation, error) {
-	var inv Invitation
-	err := q.QueryRowContext(ctx, `
-		SELECT f.code, f.name, f.persona, f.color, f.persona_invite
-		FROM td.player_invitations i JOIN td.factions f ON f.id = i.faction_id WHERE i.player_id = $1`, playerID).
-		Scan(&inv.FactionCode, &inv.FactionName, &inv.Persona, &inv.Color, &inv.Line)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &inv, nil
-}
-
-// Invite records a faction's invitation; a player is invited once.
+// Invite records the faction that invited a freelancer at the faction level (the power that
+// speaks to them); a player is invited once. Read it back with InvitedFaction.
 func Invite(ctx context.Context, q db.Querier, playerID int64, factionID int) (bool, error) {
 	res, err := q.ExecContext(ctx, `
 		INSERT INTO td.player_invitations (player_id, faction_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -232,31 +208,6 @@ func Invite(ctx context.Context, q db.Querier, playerID int64, factionID int) (b
 	}
 	n, err := res.RowsAffected()
 	return n == 1, err
-}
-
-// FactionPersona reads a faction's name and its lore power's name and invitation.
-func FactionPersona(ctx context.Context, q db.Querier, factionID int) (name, persona, invite string, err error) {
-	err = q.QueryRowContext(ctx, `SELECT name, persona, persona_invite FROM td.factions WHERE id = $1`, factionID).
-		Scan(&name, &persona, &invite)
-	return name, persona, invite, err
-}
-
-// FactionIDs lists every faction id, for picking one at random.
-func FactionIDs(ctx context.Context, q db.Querier) ([]int, error) {
-	rows, err := q.QueryContext(ctx, `SELECT id FROM td.factions ORDER BY id`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
 }
 
 // BranchMember is one player in a faction's branch.

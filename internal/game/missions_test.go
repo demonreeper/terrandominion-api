@@ -65,6 +65,18 @@ func TestPickMissionsOneFromEachPower(t *testing.T) {
 		}
 		seen[m.FactionID] = true
 	}
+	// A freelancer's day is six missions, one from each of the six powers.
+	six := PickMissions(cands, 6, true, rnd)
+	powers := map[int]bool{}
+	for _, m := range six {
+		powers[m.FactionID] = true
+	}
+	if len(six) != 6 || len(powers) != 6 {
+		t.Fatalf("expected one mission from each of six powers, got %v", six)
+	}
+	if DefaultSettings().MissionsPerDay != 6 {
+		t.Fatalf("MissionsPerDay default is %d, want 6", DefaultSettings().MissionsPerDay)
+	}
 	// A member's pool is one faction: four different missions from it, no repeats.
 	one := cands[:3]
 	if got := PickMissions(one, 4, false, rnd); len(got) != 3 {

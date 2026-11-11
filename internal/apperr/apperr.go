@@ -168,6 +168,8 @@ var (
 	NotRegionalCommander = def(1762, http.StatusForbidden, "Only your Regional Commander can do that.")
 	NotInBranch          = def(1763, http.StatusConflict, "That player isn't in your faction's branch here.")
 	AlreadyWarden        = def(1764, http.StatusConflict, "That player is already a Warden or above.")
+	CallGone             = def(1765, http.StatusNotFound, "That call has ended.")
+	MessageGone          = def(1766, http.StatusNotFound, "That message is gone.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

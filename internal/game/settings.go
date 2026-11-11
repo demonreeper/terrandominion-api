@@ -20,7 +20,7 @@ type Settings struct {
 	XpIntercept          int
 	XpAttackPerTargetDay int
 
-	HarvestRangeM      float64
+	HarvestRangeM       float64
 	HarvestMaxAccuracyM float64
 	HarvestCooldownSec  int
 	HarvestReserveCost  float64
@@ -139,6 +139,13 @@ type Settings struct {
 	MissionCreditPerLevel   int
 	MissionItemChance       float64
 	MissionCommandMult      float64
+
+	// The powers' calls (docs/lore-correction-plan.md).
+	CallPathLevel        int     // the level whose midpoint sets off the one call about the player's path
+	CallRepeatHours      float64 // the repeat call follows the offer by this long
+	CallMessageHours     float64 // the written message follows the offer by this long
+	CallRingSeconds      int     // a call older than this has rung out: the app offers to play it once
+	CallPushDelaySeconds int     // a call the app has not picked up for this long sends a push
 
 	// Node seeding (drone strike plan, milestone 0).
 	SeedCellM         float64
@@ -290,7 +297,7 @@ func DefaultSettings() Settings {
 		CraftShield4Data:      400,
 		CraftShield4Credit:    200,
 
-		MissionsPerDay:          4,
+		MissionsPerDay:          6,
 		MissionDayOffsetMinutes: 300,
 		MissionXpBase:           30,
 		MissionXpPerLevel:       5,
@@ -298,6 +305,12 @@ func DefaultSettings() Settings {
 		MissionCreditPerLevel:   1,
 		MissionItemChance:       0.25,
 		MissionCommandMult:      2,
+
+		CallPathLevel:        10,
+		CallRepeatHours:      24,
+		CallMessageHours:     48,
+		CallRingSeconds:      60,
+		CallPushDelaySeconds: 45,
 
 		SeedCellM:         250,
 		SeedPerCell:       4,
@@ -468,6 +481,11 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("MissionCreditPerLevel", &s.MissionCreditPerLevel)
 	f("MissionItemChance", &s.MissionItemChance)
 	f("MissionCommandMult", &s.MissionCommandMult)
+	i("CallPathLevel", &s.CallPathLevel)
+	f("CallRepeatHours", &s.CallRepeatHours)
+	f("CallMessageHours", &s.CallMessageHours)
+	i("CallRingSeconds", &s.CallRingSeconds)
+	i("CallPushDelaySeconds", &s.CallPushDelaySeconds)
 	f("SeedCellM", &s.SeedCellM)
 	i("SeedPerCell", &s.SeedPerCell)
 	f("SeedPathPerNodeM", &s.SeedPathPerNodeM)

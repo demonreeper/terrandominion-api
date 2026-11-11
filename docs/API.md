@@ -158,7 +158,8 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `drone_intercepted` | warning | both | The owner intercepted a drone: the share stopped, or shot down | the other player | null |
 | `shield_fitted` | info | TN owner | A shield was fitted to your TN | null | null |
 | `mission_done` | info | player | A mission is done; claim it in ORDERS (from its lore power) | null | null |
-| `invitation` | info | freelancer | At level 20, the lore power they followed most invites them to its faction | null | null |
+| `invitation` | info | freelancer | At `LeadFactionLevel`: "You were invited. The choice is yours. Open FACTIONS." Plain game text, no power speaking; the inviting faction is `invited` in `GET /factions` | null | null |
+| `call` | info | freelancer | "Incoming call: <power>": a power's call the app did not fetch within `CallPushDelaySeconds`. Always pushed, whatever the two push switches say | null | null |
 | `warden` | info | member | Their Regional Commander made them a Warden | commander | null |
 | `defused` | info | planter | The owner defused your spike | TN owner | null |
 
@@ -173,26 +174,53 @@ Contest notices have `tnId` null.
 ## Orders and daily missions
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET | `/missions` | – | Today's missions (the Maldives date; `MissionsPerDay` 4, refreshing at local midnight, `MissionDayOffsetMinutes` 300), given on first ask: freelancers get one from each of 4 different lore powers, members from their own faction's, Regional Commanders and Wardens one command order among theirs. Returns `day, refreshesAt, missions, invitation` |
+| GET | `/missions` | – | Today's missions (the Maldives date; `MissionsPerDay` 6, refreshing at local midnight, `MissionDayOffsetMinutes` 300), given on first ask: freelancers get one from each of the six lore powers, at any level; after joining, every mission comes from the player's own faction's power, and Regional Commanders and Wardens get one command order among theirs, also from their own power. Returns `day, refreshesAt, missions`, and `invitation`, which is retired and always null (see `invited` in `GET /factions`) |
 | POST | `/missions/{id}/claim` | – | Pays a done mission: XP, credits into storage, its item if any. Returns `reward, xp, progress, levelUp` |
 
 Each mission: `{id, persona, factionCode, color, audience, goal, goalKey, count, progress, status (active, done, claimed),
 reward {xp, credits, item, itemCount}, line, title}`. `persona` is the lore power that gave it (Signum, Shingō,
-Sēma, Ishaaraath, Tohu, Merki); `line` is its message; `title` says what to do ("Harvest crystal 3 times"; harvest missions count harvests, not amounts). Progress counts
+Sēma, Ishāra, Tohu, Merki); `line` is its message; `title` says what to do ("Harvest crystal 3 times"; harvest missions count harvests, not amounts). Progress counts
 on the server inside each action (harvest, build, upgrade and collect at a Tether Node, upload, craft, gear upgrade and
-repair, attack, drone, intercept, shield, appoint a Warden). `invitation` (`factionCode, factionName, persona, color,
-line`) is set once a freelancer reaches `LeadFactionLevel`: the lore power whose missions they finished most invites
-them. Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBase`, `MissionCreditPerLevel`),
+repair, attack, drone, intercept, shield, appoint a Warden). The same actions feed the player's playstyle score (below).
+Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBase`, `MissionCreditPerLevel`),
 `MissionItemChance` of a low-level item, command orders `MissionCommandMult` times.
 
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leaderName` (the Regional Commander here, empty when nobody holds it), `members` (here), `region` |
+| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leaderName` (the Regional Commander here, empty when nobody holds it), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
 | POST | `/factions/{code}/lead` | Claim regional command of the faction in your region (one Regional Commander per faction per country; first to claim wins). Rank 90. Returns the membership |
 | GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{playerId, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
 | POST | `/factions/branch/wardens` | `playerId`: the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |
 | POST | `/factions/{code}/join` | Join the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership |
+
+### The powers' calls and messages
+
+One power speaks to a player: the one that matches what they have mostly done (`docs/lore-correction-plan.md`,
+"Who calls"). The server keeps a **playstyle score** per power, added to inside each action's transaction: harvests
+(crystal most) for Signum; building and upgrading Tether Nodes, crafting, upgrading and repairing gear for Shingō;
+data harvests and jammers and spikes (crafted or used) for Sēma; uploads, collects and credit harvests for Ishāra;
+drones, EM pulses and ground covered between harvests (1 point per 100 m, at most 5) for Tohu; shields, intercepts and
+defused spikes for Merki. The highest score wins; a tie goes to the power whose daily missions the player finished
+most. The same power makes the level 19 offer and is the faction marked `invited` at `LeadFactionLevel`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/calls` | `calls`: the calls that have come due and were not played, oldest first; `messages`: the written messages that have arrived, newest first; `unread`. Fetching a call delivers it, so no push follows |
+| POST | `/calls/{id}/played` | The call was heard or ended: it never comes back. 1765 if it isn't there to play |
+| POST | `/messages/{id}/read` | Clears a message's unread mark; messages stay. 1766 |
+
+Each call: `{id, kind (level10, level19, level19_repeat), persona, factionCode, color, line, dueAt, voice, audio,
+missed}`. `voice` and `audio` name the app's sound file (`Audio/Voices/<voice>/<audio>`); `line` is the same words, for
+the screen. `missed` is true once the call is older than `CallRingSeconds` (60): the app then offers to play it once
+instead of ringing. Each message: `{id, persona, factionCode, color, body, at, read}`.
+
+Freelancers only. **Level 10:** when an XP gain carries the player past half of `CallPathLevel` (10), one call about
+the path they are on; no repeat. **Level 19:** past half of the level before `LeadFactionLevel`, the offer (a call),
+a repeat call `CallRepeatHours` (24) later and a written message `CallMessageHours` (48) later. Reaching
+`LeadFactionLevel` first drops whatever has not come due. A call the app has not fetched `CallPushDelaySeconds` (45; the app polls every 20 s)
+after it came due is pushed as "Incoming call: <power>" through the notices outbox. No power says its own name, and
+nothing here links the six.
 
 Memberships (here and `faction` on `/me`) carry `factionId, factionCode, factionName, rank, branchId,
 region, rankTitle`. `/me` also lists `badges`: `[{badge, factionCode, factionName, region}]`; `founder`
@@ -291,6 +319,8 @@ never reads as inside the range).
 | 1762 | Only the Regional Commander can do that | |
 | 1763 | Not in your faction's branch | |
 | 1764 | Already a Warden or above | |
+| 1765 | That call has ended (not yours, not due, or already played) | |
+| 1766 | That message is gone (not yours, or not arrived) | |
 | 1750 | Seeding map data not imported (admin seed calls; run `scripts/import-osm.ps1`) | |
 | 1900 | Server error | |
 
