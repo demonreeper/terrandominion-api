@@ -140,6 +140,10 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		if err := s.markPledge(ctx, tx, playerID, faction.Code); err != nil {
 			return err
 		}
+		// The seventh voice never speaks to a member: whatever of it has not reached them is gone.
+		if err := store.SilenceLangis(ctx, tx, playerID, s.now()); err != nil {
+			return err
+		}
 		membership, err = store.MembershipOf(ctx, tx, playerID)
 		if err != nil {
 			return err

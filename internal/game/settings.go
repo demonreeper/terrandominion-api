@@ -194,6 +194,11 @@ type Settings struct {
 	// The freelancer path (docs/freelancer-path-plan.md).
 	FavourPerkPct        int // a power's daily favour is this percent of its faction perk (F4)
 	MemberMissionsPerDay int // daily missions a member gets from their own power (F3)
+	// The seventh voice (phase 4).
+	LangisCallLevel         int     // halfway through this level its first call
+	LangisMessageDelayHours float64 // its message, after the power's level 19 day-3 message
+	LangisCallDelayHours    float64 // its second call, after its message
+	LangisRareEveryDays     int     // after the faction level, at most one rare message in this many days
 
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
@@ -390,6 +395,10 @@ func DefaultSettings() Settings {
 		PerkMerkiInterceptPct:      10,
 		FavourPerkPct:              40,
 		MemberMissionsPerDay:       1,
+		LangisCallLevel:            18,
+		LangisMessageDelayHours:    2,
+		LangisCallDelayHours:       24,
+		LangisRareEveryDays:        7,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -542,6 +551,10 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("MissionsPerDay", &s.MissionsPerDay)
 	i("FavourPerkPct", &s.FavourPerkPct)
 	i("MemberMissionsPerDay", &s.MemberMissionsPerDay)
+	i("LangisCallLevel", &s.LangisCallLevel)
+	f("LangisMessageDelayHours", &s.LangisMessageDelayHours)
+	f("LangisCallDelayHours", &s.LangisCallDelayHours)
+	i("LangisRareEveryDays", &s.LangisRareEveryDays)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

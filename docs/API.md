@@ -138,6 +138,23 @@ Suspend, ban and lift from a player's info use the moderation endpoints above. F
 request: at most one of each kind per player in `InfringementGapMinutes` (10), with the numbers behind
 it and the path, never a position.
 
+### The seventh voice
+Langis (freelancer-path-plan.md phase 4, LORE.md). Nothing in any answer names it before its first call is due:
+its account (id 8, `signal_unbound`) and lines stay on the server until then.
+
+- **Calls** (`GET /v1/calls`, same rules as the powers' calls): `langis_l18` halfway through `LangisCallLevel` (18) and
+  `langis_l19` `LangisCallDelayHours` (24) after its message. They carry `persona: "Unknown caller"`, no faction,
+  `voice: "langis"`, `audio` (`level18-call`, `level19-call`), `style: "static"` (no silhouette, no eyes) and
+  `reveal: "LANGIS"` (the caller id resolves to it in the call's last seconds). An unfetched call sends the push
+  "Missed call from Unknown caller".
+- **Messages**: `langis_l19_msg` `LangisMessageDelayHours` (2) after the power's level 19 day-3 message, from sender
+  `LANGIS`, colour `#C8D2DC`, `style: "glitch"`; after the faction level, rare messages at most once in
+  `LangisRareEveryDays` (7), in turn. All of its messages carry `style: "glitch"`.
+- **`/me`** carries `contact` (its first call was heard or turned down), `jobsUnlocked` (the same, for a freelancer)
+  and, at the faction level, `note: {text: "Stay free.", sign: "// L."}` for FACTIONS. A member never has them.
+- It never contacts a member: a pledge drops whatever of it has not reached the player, and reaching the faction
+  level drops its level 19 message and call if they had not come due.
+
 ### Freelancer standing and missions
 - **Neutral standing** (F5): a faction player can't hit a freelancer's Tether Node (1611 with the reason), at any level,
   unless that freelancer attacked a faction Tether Node in the last `ProtectionLossDays` (3). Freelancer against

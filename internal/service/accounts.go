@@ -324,9 +324,15 @@ type MeView struct {
 	// the APPEAL link for a second-hand phone.
 	PledgeBound string `json:"pledgeBound,omitempty"`
 	// FavourOpen: a freelancer, who earns a power's daily favour by finishing its mission (F4).
-	FavourOpen bool   `json:"favourOpen,omitempty"`
-	AppealCode string `json:"appealCode,omitempty"`
-	AppealURL  string `json:"appealUrl,omitempty"`
+	FavourOpen bool `json:"favourOpen,omitempty"`
+	// Contact: the seventh voice's first call has been heard or turned down, so its name is known.
+	// The key names nothing on purpose: nothing names it before that call. JobsUnlocked follows it
+	// for a freelancer (the JOBS board, F6). Note is its line on FACTIONS at the faction level.
+	Contact      bool       `json:"contact,omitempty"`
+	JobsUnlocked bool       `json:"jobsUnlocked,omitempty"`
+	Note         *VoiceNote `json:"note,omitempty"`
+	AppealCode   string     `json:"appealCode,omitempty"`
+	AppealURL    string     `json:"appealUrl,omitempty"`
 	// Badges are permanent marks, such as Founder of a faction's branch in a country.
 	Badges []store.Badge `json:"badges"`
 	// Linked are the sign-ins that open this account ("apple", "google"; "dev" on the dev server).
@@ -438,6 +444,15 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		me.ActivePerks = lines
 	}
 	me.FavourOpen = membership == nil
+	if membership == nil {
+		if me.Contact, err = store.LangisContact(ctx, q, playerID); err != nil {
+			return nil, err
+		}
+		me.JobsUnlocked = me.Contact
+		if me.Contact && player.Level >= settings.LeadFactionLevel {
+			me.Note = &VoiceNote{Text: game.LangisLineStayFree, Sign: game.LangisSign}
+		}
+	}
 	if me.Announcement, err = store.CurrentAnnouncement(ctx, q); err != nil {
 		return nil, err
 	}
@@ -497,4 +512,10 @@ func defaultDisplayName(name string) string {
 		return fmt.Sprintf("Freelancer-%04d", time.Now().UnixNano()%10000)
 	}
 	return name
+}
+
+// VoiceNote is a line shown on a screen in a voice's own text style, with its signature.
+type VoiceNote struct {
+	Text string `json:"text"`
+	Sign string `json:"sign"`
 }

@@ -92,6 +92,10 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 	}
 
 	if membership == nil {
+		// Past the faction level a freelancer may hear from the seventh voice now and then.
+		if err := maybeLangisRare(ctx, q, playerID, player.Level, true, day, settings, time.Now()); err != nil {
+			return err
+		}
 		return give(game.AudienceFreelancer, 0, n, true)
 	}
 	// A member hears only from their own power: MemberMissionsPerDay, and a command order for a

@@ -75,12 +75,23 @@ func offerPower(ctx context.Context, q db.Querier, playerID int64) (int, error) 
 func startCalls(ctx context.Context, q db.Querier, playerID int64, beforeXP, afterXP int64, settings game.Settings,
 	now time.Time) error {
 	path, offer := game.CallsDue(beforeXP, afterXP, settings)
-	if !path && !offer {
+	langis := game.LangisCallDue(beforeXP, afterXP, settings)
+	if !path && !offer && !langis {
 		return nil
 	}
 	membership, err := store.MembershipOf(ctx, q, playerID)
 	if err != nil || membership != nil {
 		return err
+	}
+	// The seventh voice: one call halfway through LangisCallLevel, its first contact.
+	if langis {
+		if _, err := store.InsertSenderCall(ctx, q, playerID, game.LangisCaller, game.CallLangis18,
+			game.LangisLineCall18, now); err != nil {
+			return err
+		}
+	}
+	if !path && !offer {
+		return nil
 	}
 	power, err := callingPower(ctx, q, playerID)
 	if err != nil {
@@ -104,8 +115,18 @@ func startCalls(ctx context.Context, q db.Querier, playerID int64, beforeXP, aft
 		game.PowerLine(power, game.CallLevel19Repeat), repeatAt); err != nil {
 		return err
 	}
-	return store.InsertMessage(ctx, q, playerID, power, game.MessageLevel19,
-		game.PowerLine(power, game.MessageLevel19), messageAt)
+	if err := store.InsertMessage(ctx, q, playerID, power, game.MessageLevel19,
+		game.PowerLine(power, game.MessageLevel19), messageAt); err != nil {
+		return err
+	}
+	// After the power's day-3 message, the seventh voice writes once, and calls the day after.
+	langisMessageAt, langisCallAt := game.LangisSchedule(messageAt, settings)
+	if err := store.InsertSystemMessage(ctx, q, playerID, game.LangisSender, game.MessageLangis19,
+		game.LangisLineMsg19, langisMessageAt); err != nil {
+		return err
+	}
+	_, err = store.InsertSenderCall(ctx, q, playerID, game.LangisCaller, game.CallLangis19, game.LangisLineCall19, langisCallAt)
+	return err
 }
 
 // CallsView is GET /v1/calls: the calls waiting for the player and their written messages.
@@ -131,8 +152,7 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 			return err
 		}
 		for i := range calls {
-			calls[i].Voice = game.PowerVoice(calls[i].FactionID)
-			calls[i].Audio = game.CallAudioKey(calls[i].Kind)
+			describeCall(&calls[i])
 			calls[i].Missed = game.CallMissed(calls[i].DueAt, now, settings)
 		}
 		out.Calls = calls
@@ -147,8 +167,7 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 		}
 		out.MissedCalls = []store.Call{}
 		for i := range log {
-			log[i].Voice = game.PowerVoice(log[i].FactionID)
-			log[i].Audio = game.CallAudioKey(log[i].Kind)
+			describeCall(&log[i])
 			log[i].Missed = log[i].Rejected
 			if log[i].Rejected && !log[i].Played {
 				out.MissedCalls = append(out.MissedCalls, log[i])
@@ -159,7 +178,10 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 		if err != nil {
 			return err
 		}
-		for _, m := range out.Messages {
+		for i, m := range out.Messages {
+			if game.IsLangisKind(m.Kind) {
+				out.Messages[i].Style = game.LangisGlitch
+			}
 			if !m.Read {
 				out.Unread++
 			}
@@ -218,8 +240,12 @@ func (s *Service) pushUnansweredCalls(ctx context.Context, settings game.Setting
 			return err
 		}
 		for _, call := range calls {
+			body := game.NoticeCall(call.Persona)
+			if game.IsLangisKind(call.Kind) {
+				body = game.NoticeMissedLangis()
+			}
 			if err := notify(ctx, tx, store.NewNotice{
-				PlayerID: call.PlayerID, Kind: "call", Body: game.NoticeCall(call.Persona),
+				PlayerID: call.PlayerID, Kind: "call", Body: body,
 			}); err != nil {
 				return err
 			}
@@ -232,4 +258,39 @@ func (s *Service) pushUnansweredCalls(ctx context.Context, settings game.Setting
 	if err != nil && ctx.Err() == nil {
 		slog.Error("E1900 call push failed", "err", err)
 	}
+}
+
+// describeCall names the app's sound for a call, and for the seventh voice's its look: broken
+// static, and the name its "Unknown caller" id resolves to in the last seconds.
+func describeCall(c *store.Call) {
+	if game.IsLangisKind(c.Kind) {
+		c.Voice, c.Audio = game.LangisVoice, game.LangisCallAudio(c.Kind)
+		c.Style, c.Reveal = game.LangisStyle, game.LangisSender
+		return
+	}
+	c.Voice = game.PowerVoice(c.FactionID)
+	c.Audio = game.CallAudioKey(c.Kind)
+}
+
+// maybeLangisRare sends one of the seventh voice's rare messages to a freelancer past the faction
+// level, at most once in LangisRareEveryDays, and only to one who has heard from it. Call it with the
+// player locked.
+func maybeLangisRare(ctx context.Context, q db.Querier, playerID int64, level int, freelancer bool,
+	day time.Time, settings game.Settings, now time.Time) error {
+	if !freelancer || level < settings.LeadFactionLevel {
+		return nil
+	}
+	contact, err := store.LangisContact(ctx, q, playerID)
+	if err != nil || !contact {
+		return err
+	}
+	last, sent, err := store.LangisLast(ctx, q, playerID, now)
+	if err != nil {
+		return err
+	}
+	if !game.LangisRareDue(settings, level, freelancer, contact, last, now) {
+		return nil
+	}
+	return store.InsertSystemMessage(ctx, q, playerID, game.LangisSender, game.LangisRareKind(day),
+		game.LangisRareLine(sent), now)
 }

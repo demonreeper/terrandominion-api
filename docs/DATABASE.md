@@ -56,12 +56,16 @@ counting id. Every player-facing query names a player through `td.player_name(ca
 status)` and `td.player_code(public_code, status)`: a deleted or banned account reads `Deleted player`
 with no code.
 
+**The seventh voice (0049):** `player_calls.faction_id` may be null with `sender` set ("Unknown caller"), for its
+calls `langis_l18` and `langis_l19`; its written messages are `player_messages` rows with sender `LANGIS` (kinds
+`langis_l19_msg`, `langis_rare_<day>`).
+
 **Device record (0047):** `device_marks` has one row per hash (`kind` device or signin, `hash` an HMAC with the
 device pepper), `faction_code`, `banned` with `ban_sanction_id` (no foreign key: a deleted account's sanctions go, the
 mark stays) and a unique `appeal_code`. `players.bound_faction_code` is the faction a marked new account returns to.
 
 **Reserved ids (0043):** 1 is the owner (primary admin, also a player), 2 to 7 the six powers (`system` accounts,
-faction id + 1), 8 to 10 held for later; the id counter starts at 11. Every foreign key to `players.id` is
+faction id + 1), 8 the seventh voice (`signal_unbound`, 0049), 9 and 10 held for later; the id counter starts at 11. Every foreign key to `players.id` is
 `ON UPDATE CASCADE`, which is how existing players were moved.
 
 Account types (`type`): `player`, `founder`, `bot`, `system`. Status: `active`, `banned`, `suspended` (0040:
