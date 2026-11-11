@@ -133,6 +133,10 @@ func (s *Service) spoofIncident(ctx context.Context, playerID int64, incident ga
 	if err != nil {
 		return err
 	}
+	// Walk together L1/L2: a fake flag or a lock on any member ends the link for everyone.
+	if err := s.endWalkFor(ctx, s.db, playerID, game.WalkEndLocked); err != nil {
+		return err
+	}
 	return refusal
 }
 

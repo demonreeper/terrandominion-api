@@ -470,6 +470,29 @@ Faint traces in the Undersignal, seen and read only in the AR view. Looks and st
 `/me` has `codex`: every set `{set, found, total, complete, lines: [{line, text?}]}`; a locked line has no `text`.
 The lines live in `game.EchoSets`; only lines the owner approved go there (first set approved 2026-11-11).
 
+## Walk together (docs/walk-together-plan.md)
+Two to four accepted friends standing together form a signal link (any faction mix). Every call carries a fix
+(`lat, lon, accuracyM`, and `mock`, `fixAt` or the G1 headers) and goes through the spoof checks. Settings group
+`walk` ("Walk together").
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| POST | `/walk/open` | fix | "I have WALK TOGETHER open." Returns `{nearby, asks, link}`: `nearby` = friends with theirs open (within `WalkLinkOpenSec`), within `WalkLinkFormM` after accuracy, on another phone, not linked (PlayerRefs only, never a distance); `asks` = who asked you (within `WalkLinkAskSec`); `link` your link or null |
+| POST | `/walk/ask` | `code` + fix | Ask a friend: 1811 not friends, 1812 not within reach or panel closed, 1813 your group is full, 1814 either side signal-locked, 1815 same phone (L6), 1816 your fix too weak, 1818 they are in a link, 1810 off |
+| POST | `/walk/ask/{code}/accept` | fix | Join the asker's group (or form one) after the proximity check; 1817 when the ask expired. Returns the panel |
+| POST | `/walk/heartbeat` | fix | Every `heartbeatSec` while linked. Returns the panel; `link {size, members [{player, me, lat?, lon?, outOfRange}], bonusActive, pausedReason (keep_walking, cap_spent, out_of_range, weak_fix), bonus {scanPct, yieldPct, xpPct}, heartbeatSec, bonusSecondsLeft, walkedM}`; positions are the other members' only. `ended` (and `link` null) when this beat ended your place: `fell_behind`, `alone`, `disabled`. 1819 when not linked |
+| DELETE | `/walk` | – | Leave (also on going to the background); a link left with one player ends |
+
+Proximity, on forming and every beat: fix taken within `WalkLinkFixAgeSec` (20 s), accuracy ≤ `WalkLinkMaxAccuracyM` (25),
+not fake (spoof-exempt testers skip this); distance less both accuracies (together at most `WalkLinkMaxAccuracyM`) ≤
+`WalkLinkFormM` (30) to form, ≤ `WalkLinkHoldM` (60) to at least one other member to hold; the two fixes within 20 s of each
+other; different devices. Out of range or silent for `WalkLinkGraceSec` (45) leaves the link. The bonus pauses until the
+player has moved `WalkLinkMoveM` (50) within `WalkLinkMoveWindowSec` (180), and stops for the day after
+`WalkLinkDailyMinutes` (120) of bonus time. While on: scan range, node harvests and map drop pickups (`linkBonus`
+on both outcomes, the percent; harvests also `linkXpBonus`) and harvest XP get `WalkLinkScanPct/YieldPct/XpPct` 2/3/4
+(25/40/50, 15/25/30, 10/20/30), added to any faction perk, never multiplied. Not on Tether Node collects, missions,
+drones, damage or shields. A signal lock or fake flag on any member (L1, L2) ends the link for everyone; an attack on a
+linked member's Tether Node ends it (`attack`). `/me` has `walkLink` (as above, or null) and `walkedTogetherM`.
+
 ## Orders and daily missions
 | Method | Path | Body | Notes |
 |---|---|---|---|
@@ -628,6 +651,16 @@ never reads as inside the range).
 | 1613 | The echo has faded (moved) | |
 | 1614 | Move closer to the echo | `distanceM, rangeM` |
 | 1615 | Echoes are read in the AR view | |
+| 1810 | Walk together is off (`walk_disabled`) | |
+| 1811 | Only with a friend (`walk_not_friends`) | |
+| 1812 | Stand closer together (`walk_too_far`) | |
+| 1813 | That group is full (`walk_group_full`) | |
+| 1814 | A signal is locked (`walk_locked`) | |
+| 1815 | Two accounts on one phone (`walk_same_device`) | |
+| 1816 | Position not accurate enough to link (`walk_weak_fix`) | |
+| 1817 | The ask expired (`walk_ask_gone`) | |
+| 1818 | Already walking with a group (`walk_busy`) | |
+| 1819 | Not walking with anyone (`walk_not_linked`) | |
 | 1700 | Unknown recipe | |
 | 1701 | Gear not owned | |
 | 1702 | Gear already at its top tier | |

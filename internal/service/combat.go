@@ -137,6 +137,10 @@ func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tet
 	if ruleErr != nil {
 		return out, ruleErr
 	}
+	// No truce between friends, but an attack on a linked member's Tether Node ends the link.
+	if err := s.endWalkOnAttack(ctx, tx, attackerID, ownerID); err != nil {
+		return out, err
+	}
 	return attackTarget{
 		OwnerID: ownerID, OwnerName: owner.Name, AttackerName: attacker.Name,
 		Tether: tether, LosesProtection: losesProtection,

@@ -37,6 +37,31 @@ type Settings struct {
 	EchoOffsetMinM  float64
 	EchoOffsetMaxM  float64
 
+	// Walk together (docs/walk-together-plan.md): the signal link between 2 to 4 friends walking together.
+	WalkLinkEnabled       int
+	WalkLinkMaxSize       int
+	WalkLinkGraceSec      int
+	WalkLinkHeartbeatSec  int
+	WalkLinkFixAgeSec     int
+	WalkLinkMoveWindowSec int
+	WalkLinkDailyMinutes  int
+	WalkLinkAskSec        int
+	WalkLinkOpenSec       int
+	WalkLinkScanPct2      int
+	WalkLinkScanPct3      int
+	WalkLinkScanPct4      int
+	WalkLinkYieldPct2     int
+	WalkLinkYieldPct3     int
+	WalkLinkYieldPct4     int
+	WalkLinkXpPct2        int
+	WalkLinkXpPct3        int
+	WalkLinkXpPct4        int
+	WalkLinkKeepDays      int
+	WalkLinkFormM         float64
+	WalkLinkHoldM         float64
+	WalkLinkMaxAccuracyM  float64
+	WalkLinkMoveM         float64
+
 	WelcomeCrystal int
 	WelcomeAlloy   int
 	WelcomeData    int
@@ -302,6 +327,30 @@ func DefaultSettings() Settings {
 		EchoOffsetMinM:  6,
 		EchoOffsetMaxM:  18,
 
+		WalkLinkEnabled:       1,
+		WalkLinkMaxSize:       4,
+		WalkLinkFormM:         30,
+		WalkLinkHoldM:         60,
+		WalkLinkGraceSec:      45,
+		WalkLinkHeartbeatSec:  15,
+		WalkLinkMaxAccuracyM:  25,
+		WalkLinkFixAgeSec:     20,
+		WalkLinkMoveM:         50,
+		WalkLinkMoveWindowSec: 180,
+		WalkLinkDailyMinutes:  120,
+		WalkLinkAskSec:        120,
+		WalkLinkOpenSec:       60,
+		WalkLinkScanPct2:      25,
+		WalkLinkScanPct3:      40,
+		WalkLinkScanPct4:      50,
+		WalkLinkYieldPct2:     15,
+		WalkLinkYieldPct3:     25,
+		WalkLinkYieldPct4:     30,
+		WalkLinkXpPct2:        10,
+		WalkLinkXpPct3:        20,
+		WalkLinkXpPct4:        30,
+		WalkLinkKeepDays:      90,
+
 		WelcomeCrystal: 800,
 		WelcomeAlloy:   600,
 		WelcomeData:    200,
@@ -550,6 +599,30 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("EchoViewRadiusM", &s.EchoViewRadiusM)
 	f("EchoOffsetMinM", &s.EchoOffsetMinM)
 	f("EchoOffsetMaxM", &s.EchoOffsetMaxM)
+
+	i("WalkLinkEnabled", &s.WalkLinkEnabled)
+	i("WalkLinkMaxSize", &s.WalkLinkMaxSize)
+	f("WalkLinkFormM", &s.WalkLinkFormM)
+	f("WalkLinkHoldM", &s.WalkLinkHoldM)
+	i("WalkLinkGraceSec", &s.WalkLinkGraceSec)
+	i("WalkLinkHeartbeatSec", &s.WalkLinkHeartbeatSec)
+	f("WalkLinkMaxAccuracyM", &s.WalkLinkMaxAccuracyM)
+	i("WalkLinkFixAgeSec", &s.WalkLinkFixAgeSec)
+	f("WalkLinkMoveM", &s.WalkLinkMoveM)
+	i("WalkLinkMoveWindowSec", &s.WalkLinkMoveWindowSec)
+	i("WalkLinkDailyMinutes", &s.WalkLinkDailyMinutes)
+	i("WalkLinkAskSec", &s.WalkLinkAskSec)
+	i("WalkLinkOpenSec", &s.WalkLinkOpenSec)
+	i("WalkLinkScanPct2", &s.WalkLinkScanPct2)
+	i("WalkLinkScanPct3", &s.WalkLinkScanPct3)
+	i("WalkLinkScanPct4", &s.WalkLinkScanPct4)
+	i("WalkLinkYieldPct2", &s.WalkLinkYieldPct2)
+	i("WalkLinkYieldPct3", &s.WalkLinkYieldPct3)
+	i("WalkLinkYieldPct4", &s.WalkLinkYieldPct4)
+	i("WalkLinkXpPct2", &s.WalkLinkXpPct2)
+	i("WalkLinkXpPct3", &s.WalkLinkXpPct3)
+	i("WalkLinkXpPct4", &s.WalkLinkXpPct4)
+	i("WalkLinkKeepDays", &s.WalkLinkKeepDays)
 
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)

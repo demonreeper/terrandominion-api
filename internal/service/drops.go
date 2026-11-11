@@ -32,9 +32,12 @@ func (s *Service) NearbyDrops(ctx context.Context, playerID int64, lat, lon floa
 }
 
 type PickDropOutcome struct {
-	Taken   map[string]int64 `json:"taken"`
-	Left    map[string]int64 `json:"left"`
-	Carried map[string]int64 `json:"carried"`
+	Taken map[string]int64 `json:"taken"`
+	// LinkBonus is the walk-together percent added to what was taken (0 when not linked); the extra is
+	// in Taken and Carried, never taken from the drop.
+	LinkBonus int              `json:"linkBonus,omitempty"`
+	Left      map[string]int64 `json:"left"`
+	Carried   map[string]int64 `json:"carried"`
 }
 
 // PickDrop moves what fits of a drop into the player's carried resources. Anything that does not
@@ -87,7 +90,23 @@ func (s *Service) PickDrop(ctx context.Context, playerID, dropID int64, fix Teth
 		if len(taken) == 0 {
 			return apperr.HarvestCarryFull
 		}
+		// Walk together: the link adds its percent on top of what was taken, as far as the rig can carry it.
+		// It comes from the link, not the drop, so the drop keeps what it had left.
+		linkPct := s.walkBonus(ctx, tx, playerID, settings).Yield
+		room := stats.CarryCapacity - total
+		for _, amount := range taken {
+			room -= amount
+		}
+		got := map[string]int64{}
 		for resource, amount := range taken {
+			got[resource] = amount
+			if linkPct > 0 && room > 0 {
+				extra := min(game.WalkAmount(amount, 1, linkPct)-amount, room)
+				got[resource] += extra
+				room -= extra
+			}
+		}
+		for resource, amount := range got {
 			if err := store.AddCarried(ctx, tx, playerID, resource, amount); err != nil {
 				return err
 			}
@@ -101,7 +120,10 @@ func (s *Service) PickDrop(ctx context.Context, playerID, dropID int64, fix Teth
 		if err != nil {
 			return err
 		}
-		out = PickDropOutcome{Taken: taken, Left: left, Carried: carried}
+		out = PickDropOutcome{Taken: got, Left: left, Carried: carried}
+		if linkPct > 0 {
+			out.LinkBonus = linkPct
+		}
 		return nil
 	})
 	return out, err

@@ -29,6 +29,8 @@ var SettingGroups = []SettingGroup{
 	{"profile", "Profile"},
 	{"moderation", "Moderation"},
 	{"anticheat", "Anti-cheat"},
+	{"echoes", "Signal echoes"},
+	{"walk", "Walk together"},
 	{"app", "App and accounts"},
 	{"other", "Other"},
 }

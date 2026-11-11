@@ -185,6 +185,14 @@ remembers who declined whom, for `FriendRedeclineDays`.
 refilled. `echo_reads` is each player's CODEX, one row per line read, kept for good (deleted with the player). A
 finished set adds a `player_badges` row `codex_set_<n>` with no faction.
 
+### walk together
+`walk_links` (0059) and `walk_link_members`: who linked with whom, when, how long (`bonus_seconds`), how far
+(`walked_m`), why it ended (`end_reason`, `left_reason`); kept `WalkLinkKeepDays` (90). A member's `last_lat/lng/acc`
+and `last_fix_at` is the latest fix only, overwritten each heartbeat and wiped on leaving; mods see no coordinates.
+One live link per player (partial unique index). `walk_link_trail` keeps a few minutes of fixes for the walking rule;
+`walk_link_asks` (2 minutes), `walk_open` (who has the panel open, with a fix, a minute) and `walk_bonus_days` (bonus
+seconds per player per mission day, for the cap). `players.walked_together_m` is the profile stat.
+
 ## Rules the database enforces itself
 - carried resources and XP never go negative (CHECK)
 - node reserve stays between 0 and 1 (CHECK)

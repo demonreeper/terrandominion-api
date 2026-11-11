@@ -158,6 +158,18 @@ var (
 	EchoTooFar  = def(1614, http.StatusConflict, "Move closer to the echo.") // data: distanceM, rangeM
 	EchoNotInAr = def(1615, http.StatusBadRequest, "Echoes are read in the AR view.")
 
+	// Walk together (docs/walk-together-plan.md). The plan's names in brackets.
+	WalkDisabled   = def(1810, http.StatusConflict, "Walk together is off for now.")                    // walk_disabled
+	WalkNotFriends = def(1811, http.StatusForbidden, "You can only walk together with a friend.")       // walk_not_friends
+	WalkTooFar     = def(1812, http.StatusConflict, "Stand closer together to link.")                   // walk_too_far
+	WalkGroupFull  = def(1813, http.StatusConflict, "That group is full.")                              // walk_group_full
+	WalkLocked     = def(1814, http.StatusConflict, "A link can't form while a signal is locked.")      // walk_locked
+	WalkSameDevice = def(1815, http.StatusConflict, "Two accounts on one phone can't link.")            // walk_same_device
+	WalkWeakFix    = def(1816, http.StatusConflict, "Your position isn't accurate enough to link yet.") // walk_weak_fix
+	WalkAskGone    = def(1817, http.StatusNotFound, "That ask has expired.")                            // walk_ask_gone
+	WalkBusy       = def(1818, http.StatusConflict, "Already walking with a group.")                    // walk_busy
+	WalkNotLinked  = def(1819, http.StatusConflict, "You aren't walking with anyone.")                  // walk_not_linked
+
 	CraftUnknown  = def(1700, http.StatusBadRequest, "That can't be crafted.")
 	GearMissing   = def(1701, http.StatusNotFound, "You don't own that gear.")
 	GearNoUpgrade = def(1702, http.StatusConflict, "This gear is already at its top tier.")

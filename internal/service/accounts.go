@@ -360,6 +360,9 @@ type MeView struct {
 	FriendRequestsWaiting int  `json:"friendRequestsWaiting"`
 	// Codex is the signal echoes found, set by set (no-ar-support-plan.md milestone 7). Your own only.
 	Codex []CodexSet `json:"codex"`
+	// WalkLink is the player's walk-together link, or null; WalkedTogetherM the profile stat (own only).
+	WalkLink        *WalkLinkView `json:"walkLink"`
+	WalkedTogetherM float64       `json:"walkedTogetherM"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -503,6 +506,16 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		}
 	}
 	if me.Codex, err = codex(ctx, q, playerID); err != nil {
+		return nil, err
+	}
+	if linkID, err := store.LiveWalkLink(ctx, q, playerID); err != nil {
+		return nil, err
+	} else if linkID != 0 {
+		if me.WalkLink, err = s.walkLinkView(ctx, q, linkID, playerID, settings); err != nil {
+			return nil, err
+		}
+	}
+	if me.WalkedTogetherM, err = store.WalkedTogether(ctx, q, playerID); err != nil {
 		return nil, err
 	}
 	return me, nil

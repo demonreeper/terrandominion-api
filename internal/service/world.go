@@ -23,6 +23,15 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 	if err != nil {
 		return nil, err
 	}
+	// Walk together: the link's scan percent is added to the faction perk's, never multiplied
+	// (Sēma's +100% and a 2-link's +25% make +125% on the gear's own range).
+	linkScan := s.walkBonus(ctx, s.db, playerID, settings).Scan
+	if linkScan > 0 && stats.ScanRangeM > 0 && perks.ScanRangeMult > 0 {
+		base := stats.ScanRangeM / perks.ScanRangeMult
+		stats.ScanRangeM = game.WalkScanRange(base, perks.ScanRangeMult, linkScan)
+		perks.RareRangeMult += float64(linkScan) / 100
+		perks.ScanRangeMult += float64(linkScan) / 100
+	}
 	limit := settings.NearbyMaxRadiusM
 	if stats.ScanRangeM > 0 {
 		limit = math.Min(limit, stats.ScanRangeM)
@@ -72,6 +81,9 @@ type HarvestOutcome struct {
 	ReadyInSec int `json:"readyInSec"`
 	// PerkTag is set when a faction perk raised the amount ("+25% SIGNUM").
 	PerkTag string `json:"perkTag,omitempty"`
+	// LinkBonus is the walk-together percent added to the amount (and LinkXpBonus to the XP) when linked.
+	LinkBonus   int `json:"linkBonus,omitempty"`
+	LinkXpBonus int `json:"linkXpBonus,omitempty"`
 }
 
 // Harvest takes resources from a node. The node and the player are locked for the transaction,
@@ -140,16 +152,33 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		if ruleErr != nil {
 			return ruleErr
 		}
-		// A faction perk gives more crystal, as far as the player can still carry it.
+		// A faction perk gives more crystal, and a walk-together link more of anything; the two add, never
+		// multiply. As far as the player can still carry it.
 		perkTag := ""
-		if node.Resource == "crystal" && perks.CrystalMult != 1 {
-			boosted := min(game.PerkAmount(int64(result.Amount), perks.CrystalMult), in.CarryCapacity-in.CarriedTotal)
-			if boosted > int64(result.Amount) {
+		perkMult := 1.0
+		if node.Resource == "crystal" {
+			perkMult = perks.CrystalMult
+		}
+		link := s.walkBonus(ctx, tx, playerID, settings)
+		linkPct := 0
+		if perkMult != 1 || link.Yield > 0 {
+			base := int64(result.Amount)
+			boosted := min(game.WalkAmount(base, perkMult, link.Yield), in.CarryCapacity-in.CarriedTotal)
+			if boosted > base {
 				result.Amount = int(boosted)
-				if _, lines, err := s.perksOf(ctx, tx, playerID, settings); err == nil {
-					perkTag = game.PerkTagIn(lines, game.PerkCrystal)
+				if perkMult != 1 {
+					if _, lines, err := s.perksOf(ctx, tx, playerID, settings); err == nil {
+						perkTag = game.PerkTagIn(lines, game.PerkCrystal)
+					}
+				}
+				if link.Yield > 0 {
+					linkPct = link.Yield
 				}
 			}
+		}
+		xp := settings.XpHarvest
+		if link.XP > 0 {
+			xp = int(game.WalkAmount(int64(xp), 1, link.XP))
 		}
 
 		if err := checkNodeHold(ctx, tx, playerID, node.ID); err != nil {
@@ -177,7 +206,7 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 				return err
 			}
 		}
-		progress, levelUp, err := awardXP(ctx, tx, playerID, "harvest", settings.XpHarvest, harvestID, settings)
+		progress, levelUp, err := awardXP(ctx, tx, playerID, "harvest", xp, harvestID, settings)
 		if err != nil {
 			return err
 		}
@@ -185,8 +214,11 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		carried[node.Resource] += int64(result.Amount)
 		out = HarvestOutcome{
 			Resource: node.Resource, Amount: result.Amount, Reserve: reserve, Carried: carried,
-			XP: settings.XpHarvest, Progress: progress, LevelUp: levelUp,
-			ReadyInSec: game.HarvestReadyIn(settings, &now, now), PerkTag: perkTag,
+			XP: xp, Progress: progress, LevelUp: levelUp,
+			ReadyInSec: game.HarvestReadyIn(settings, &now, now), PerkTag: perkTag, LinkBonus: linkPct,
+		}
+		if xp > settings.XpHarvest {
+			out.LinkXpBonus = link.XP
 		}
 		return nil
 	})

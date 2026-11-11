@@ -457,6 +457,8 @@ const (
 	tetherTickInterval = time.Minute
 	// Spike fuses and contests are shown to the second, so they resolve much sooner than the tick.
 	combatTickInterval = 2 * time.Second
+	// Walk together: how often members who stopped beating are taken out of their links.
+	walkTickInterval = 10 * time.Second
 )
 
 // RunTetherLoop harvests ready links once a minute until ctx ends. A tick that overruns simply
@@ -466,6 +468,8 @@ func (s *Service) RunTetherLoop(ctx context.Context) {
 	defer ticker.Stop()
 	combat := time.NewTicker(combatTickInterval)
 	defer combat.Stop()
+	walk := time.NewTicker(walkTickInterval)
+	defer walk.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -474,6 +478,8 @@ func (s *Service) RunTetherLoop(ctx context.Context) {
 			s.tetherTick(ctx)
 			s.endSuspensions(ctx)
 			s.expireFriendRequests(ctx)
+		case <-walk.C:
+			s.walkTick(ctx)
 		case <-combat.C:
 			s.resolveCombat(ctx, s.Settings(ctx))
 		}

@@ -111,6 +111,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/drops/nearby", s.authed(s.located(s.nearbyDrops)))
 	mux.HandleFunc("POST /v1/drops/{id}/pick", s.authed(s.located(s.pickDrop)))
 	mux.HandleFunc("GET /v1/echoes/nearby", s.authed(s.located(s.nearbyEchoes)))
+	// Walk together (docs/walk-together-plan.md): every call carries a fix, so the spoof checks cover it.
+	mux.HandleFunc("POST /v1/walk/open", s.authed(s.located(s.walkOpen)))
+	mux.HandleFunc("POST /v1/walk/ask", s.authed(s.located(s.walkAsk)))
+	mux.HandleFunc("POST /v1/walk/ask/{code}/accept", s.authed(s.located(s.walkAccept)))
+	mux.HandleFunc("POST /v1/walk/heartbeat", s.authed(s.located(s.walkHeartbeat)))
+	mux.HandleFunc("DELETE /v1/walk", s.authed(s.walkLeave))
 	mux.HandleFunc("POST /v1/echoes/{id}/read", s.authed(s.located(s.readEcho)))
 
 	mux.HandleFunc("GET /v1/jobs", s.authed(s.jobs))
@@ -997,6 +1003,100 @@ func (s *Server) readEcho(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, res)
+}
+
+// ---- walk together (docs/walk-together-plan.md) ----------------------------------------
+
+// walkBody is what every walk call sends: the fix (with the fake flag and the fix's time, also accepted
+// from the G1 headers) and, for an ask, the friend's share code.
+type walkBody struct {
+	Code      string     `json:"code"`
+	Lat       float64    `json:"lat"`
+	Lon       float64    `json:"lon"`
+	AccuracyM float64    `json:"accuracyM"`
+	Mock      bool       `json:"mock"`
+	FixAt     *time.Time `json:"fixAt"`
+}
+
+func readWalk(w http.ResponseWriter, r *http.Request) (walkBody, service.WalkFixIn, error) {
+	var body walkBody
+	if err := decode(w, r, &body); err != nil {
+		return body, service.WalkFixIn{}, err
+	}
+	fix, _ := readFix(r)
+	in := service.WalkFixIn{Lat: body.Lat, Lon: body.Lon, AccuracyM: body.AccuracyM, Mock: body.Mock || fix.Mock, FixAt: body.FixAt}
+	if in.FixAt == nil {
+		in.FixAt = fix.FixAt
+	}
+	return body, in, nil
+}
+
+func (s *Server) walkOpen(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	_, in, err := readWalk(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.OpenWalk(r.Context(), playerID, sessionFrom(r.Context()), in)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) walkAsk(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	body, in, err := readWalk(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.AskWalk(r.Context(), playerID, sessionFrom(r.Context()), body.Code, in); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]bool{"asked": true})
+}
+
+func (s *Server) walkAccept(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	_, in, err := readWalk(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.AcceptWalk(r.Context(), playerID, sessionFrom(r.Context()), r.PathValue("code"), in)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) walkHeartbeat(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	_, in, err := readWalk(w, r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	res, err := s.svc.WalkHeartbeat(r.Context(), playerID, in)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, res)
+}
+
+func (s *Server) walkLeave(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	if err := s.svc.LeaveWalk(r.Context(), playerID); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]bool{"left": true})
 }
 
 // ---- the powers' calls and messages ----------------------------------------------------
