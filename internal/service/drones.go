@@ -122,11 +122,11 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 		}
 
 		// The launcher's faction may make the drone faster; the owner's may soften the hit.
-		attackerPerks, _, err := perksOf(ctx, tx, attackerID, settings)
+		attackerPerks, _, err := s.perksOf(ctx, tx, attackerID, settings)
 		if err != nil {
 			return err
 		}
-		ownerPerks, _, err := perksOf(ctx, tx, target.OwnerID, settings)
+		ownerPerks, _, err := s.perksOf(ctx, tx, target.OwnerID, settings)
 		if err != nil {
 			return err
 		}
@@ -220,7 +220,7 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 		}
 		// Intercept and shield stack; a shield also stops one hit from destroying the node.
 		// The owner's faction may soften the hit.
-		ownerPerks, _, err := perksOf(ctx, tx, drone.OwnerID, settings)
+		ownerPerks, _, err := s.perksOf(ctx, tx, drone.OwnerID, settings)
 		if err != nil {
 			return err
 		}
@@ -234,6 +234,10 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 			return err
 		}
 		if err := store.MarkTetherAttacked(ctx, tx, drone.TetherID); err != nil {
+			return err
+		}
+		// A landed drone is a hit for the launcher's hit job on this Tether Node (F6).
+		if err := s.jobHit(ctx, tx, drone.LaunchedBy, drone.TetherID); err != nil {
 			return err
 		}
 		damage := game.Damage(hit)
@@ -303,7 +307,7 @@ func (s *Service) InterceptDrone(ctx context.Context, playerID, tetherID int64, 
 			return err
 		}
 		// The defender's faction may make the intercept stop more.
-		perks, _, err := perksOf(ctx, tx, playerID, settings)
+		perks, _, err := s.perksOf(ctx, tx, playerID, settings)
 		if err != nil {
 			return err
 		}

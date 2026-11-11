@@ -54,7 +54,9 @@ func TestProfileViewHasOnlyPublicFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowed := map[string]bool{"code": true, "name": true, "level": true, "faction": true, "badges": true,
-		"record": true, "isMe": true, "shareUrl": true}
+		"record": true, "isMe": true, "shareUrl": true,
+		// How the viewer stands with them. friendName is only filled for a friend (omitted here).
+		"friend": true, "acceptsFriends": true}
 	for key := range fields {
 		if !allowed[key] {
 			t.Errorf("profile has a field that is not on the public list: %q", key)

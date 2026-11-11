@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"time"
@@ -260,6 +261,10 @@ type TetherAttack struct {
 	OwnerID         int64
 	OwnerLevel      int
 	TetherFaction   *int
+	// OwnerFreelancer: the owner has not pledged. OwnerProtected: and has not attacked a faction's
+	// Tether Node in the last ProtectionLossDays, so faction players can't hit their Tether Node.
+	OwnerFreelancer bool
+	OwnerProtected  bool
 }
 
 // CanAttackTether applies the attack rules. It reports whether the attacker loses their freelancer
@@ -272,10 +277,13 @@ func CanAttackTether(s Settings, a TetherAttack) (losesProtection bool, err *app
 		return a.AttackerFaction == nil, nil
 	}
 	if a.AttackerFaction != nil {
-		if a.OwnerLevel > s.JoinFactionLevel {
-			return false, nil
+		// Neutral standing (freelancer-path-plan.md F5): a freelancer's Tether Node is off limits to
+		// faction players, unless that freelancer attacked a faction lately.
+		if a.OwnerFreelancer && a.OwnerProtected {
+			return false, apperr.TetherCantAttack.Say("This freelancer is neutral. Their Tether Node can be hit only if they attacked a faction in the last %s.",
+				daysText(s.ProtectionLossDays))
 		}
-		return false, apperr.TetherCantAttack
+		return false, nil
 	}
 	if diff := a.AttackerLevel - a.OwnerLevel; diff > s.PvpLevelBand || -diff > s.PvpLevelBand {
 		return false, apperr.TetherCantAttack
@@ -350,4 +358,12 @@ func MoreUrgent(a, b TetherUrgency) bool {
 		return a.EndedAt.After(b.EndedAt)
 	}
 	return a.ExpiresAt.Before(b.ExpiresAt)
+}
+
+// daysText says a number of days in a sentence: "3 days", "1 day".
+func daysText(days float64) string {
+	if days == 1 {
+		return "1 day"
+	}
+	return fmt.Sprintf("%g days", days)
 }

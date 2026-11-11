@@ -180,6 +180,11 @@ type Infringement struct {
 	Detail string    `json:"detail"`
 	Path   string    `json:"path"`
 	At     time.Time `json:"at"`
+	// Hard: it started (or would have started) a signal lock. Evidence holds the two fixes of a
+	// spoofing incident; it is only in the admin-only private block.
+	Hard      bool            `json:"hard,omitempty"`
+	Dismissed bool            `json:"dismissed,omitempty"`
+	Evidence  json.RawMessage `json:"evidence,omitempty"`
 }
 
 func InfringementKinds(ctx context.Context, q db.Querier, playerID int64) ([]InfringementKind, error) {
@@ -203,7 +208,7 @@ func InfringementKinds(ctx context.Context, q db.Querier, playerID int64) ([]Inf
 
 func RecentInfringements(ctx context.Context, q db.Querier, playerID int64, limit int) ([]Infringement, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT kind, detail, path, created_at FROM td.infringements
+		SELECT kind, detail, path, created_at, hard, dismissed, evidence FROM td.infringements
 		WHERE player_id = $1 ORDER BY created_at DESC LIMIT $2`, playerID, limit)
 	if err != nil {
 		return nil, err
@@ -212,8 +217,12 @@ func RecentInfringements(ctx context.Context, q db.Querier, playerID int64, limi
 	out := []Infringement{}
 	for rows.Next() {
 		var i Infringement
-		if err := rows.Scan(&i.Kind, &i.Detail, &i.Path, &i.At); err != nil {
+		var evidence []byte
+		if err := rows.Scan(&i.Kind, &i.Detail, &i.Path, &i.At, &i.Hard, &i.Dismissed, &evidence); err != nil {
 			return nil, err
+		}
+		if len(evidence) > 2 {
+			i.Evidence = json.RawMessage(evidence)
 		}
 		out = append(out, i)
 	}

@@ -92,15 +92,25 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 	}
 
 	if membership == nil {
-		return give(game.AudienceFreelancer, 0, n, true)
-	}
-	if membership.Rank >= game.RankWarden && n > 0 {
-		if err := give(game.AudienceCommand, membership.FactionID, 1, false); err != nil {
+		// Past the faction level a freelancer may hear from the seventh voice now and then.
+		if err := maybeLangisRare(ctx, q, playerID, player.Level, true, day, settings, time.Now()); err != nil {
 			return err
 		}
-		n--
+		// A title whose level was reached before titles existed (or before its call) is given now.
+		if err := grantTitles(ctx, q, playerID, player.Level, settings, time.Now()); err != nil {
+			return err
+		}
+		return give(game.AudienceFreelancer, 0, n, true)
 	}
-	return give(game.AudienceMember, membership.FactionID, n, false)
+	// A member hears only from their own power: MemberMissionsPerDay, and a command order for a
+	// Warden or above (freelancer-path-plan.md F3).
+	command, own := game.MissionCounts(settings, true, membership.Rank)
+	if command > 0 {
+		if err := give(game.AudienceCommand, membership.FactionID, command, false); err != nil {
+			return err
+		}
+	}
+	return give(game.AudienceMember, membership.FactionID, own, false)
 }
 
 // advanceMissions counts an action toward the player's missions for today, giving them first if
@@ -166,13 +176,13 @@ func (s *Service) ClaimMission(ctx context.Context, playerID, missionID int64) (
 		// A faction perk may pay more credit, for as long as the player is a member.
 		perkTag := ""
 		if mission.Reward.Credits > 0 {
-			perks, faction, err := perksOf(ctx, tx, playerID, settings)
+			perks, lines, err := s.perksOf(ctx, tx, playerID, settings)
 			if err != nil {
 				return err
 			}
 			if boosted := int(game.PerkAmount(int64(mission.Reward.Credits), perks.MissionCreditMult)); boosted > mission.Reward.Credits {
 				mission.Reward.Credits = boosted
-				perkTag = game.PerkTag(settings, faction, game.PerkMissionCredit)
+				perkTag = game.PerkTagIn(lines, game.PerkMissionCredit)
 			}
 			if err := store.AddUploaded(ctx, tx, playerID, "credit", int64(mission.Reward.Credits)); err != nil {
 				return err
@@ -232,8 +242,14 @@ type BranchView struct {
 	FactionName string               `json:"factionName"`
 	Region      string               `json:"region"`
 	Members     []store.BranchMember `json:"members"`
-	// CanAppoint is true for the branch's Regional Commander.
+	// CanAppoint is true for the branch's Regional Commander (in their home region only).
 	CanAppoint bool `json:"canAppoint"`
+	// Visiting: this is another unlocked region of the faction, viewed (R2): talk only. Home is the player's own
+	// region; Visitors are members from other regions viewing this one.
+	Visiting   bool                 `json:"visiting"`
+	Home       string               `json:"home"`
+	RegionName string               `json:"regionName"`
+	Visitors   []store.BranchMember `json:"visitors"`
 }
 
 func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error) {
@@ -244,16 +260,54 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	if membership == nil || membership.BranchID == nil {
 		return BranchView{}, apperr.NotInBranch
 	}
-	members, err := store.BranchMembers(ctx, s.db, *membership.BranchID)
+	shown, err := s.viewedBranch(ctx, playerID, *membership.BranchID)
+	if err != nil {
+		return BranchView{}, err
+	}
+	visiting := shown != *membership.BranchID
+	region := membership.Region
+	if visiting {
+		b, err := store.BranchByID(ctx, s.db, shown)
+		if err != nil {
+			return BranchView{}, err
+		}
+		region = b.Region
+	}
+	members, err := store.BranchMembers(ctx, s.db, shown)
+	if err != nil {
+		return BranchView{}, err
+	}
+	visitors, err := store.BranchVisitors(ctx, s.db, shown)
+	if err != nil {
+		return BranchView{}, err
+	}
+	regionName, err := store.CountryName(ctx, s.db, region)
+	if err != nil {
+		return BranchView{}, err
+	}
+	if regionName == "" {
+		regionName = game.RegionName(region)
+	}
+	ids := make([]int64, 0, len(members))
+	for i := range members {
+		members[i].RankTitle = game.RankTitle(members[i].Rank)
+		ids = append(ids, members[i].PlayerID)
+	}
+	states, err := store.FriendStates(ctx, s.db, playerID, ids)
 	if err != nil {
 		return BranchView{}, err
 	}
 	for i := range members {
-		members[i].RankTitle = game.RankTitle(members[i].Rank)
+		members[i].FriendState = states[members[i].PlayerID]
+	}
+	for i := range visitors {
+		visitors[i].RankTitle = game.RankTitle(visitors[i].Rank)
 	}
 	return BranchView{
-		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: membership.Region,
-		Members: members, CanAppoint: membership.Rank >= game.RankRegionalCommander,
+		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: region, RegionName: regionName,
+		Members: members, Visitors: visitors, Visiting: visiting, Home: membership.Region,
+		// No rank works away from home: the Commander appoints only in their own region.
+		CanAppoint: !visiting && membership.Rank >= game.RankRegionalCommander,
 	}, nil
 }
 

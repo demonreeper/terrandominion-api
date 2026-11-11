@@ -65,15 +65,18 @@ func SetPushPrefs(ctx context.Context, q db.Querier, playerID int64, attacks, re
 type PendingPush struct {
 	ID, PlayerID, TetherID int64
 	Kind, Body             string
-	CreatedAt              time.Time
-	Attacks, Results       bool
+	// ActorCode is the other player's share code (friend requests open their profile), "" when none.
+	ActorCode        string
+	CreatedAt        time.Time
+	Attacks, Results bool
 }
 
 // ClaimPendingPushes locks the oldest notices waiting to be sent.
 func ClaimPendingPushes(ctx context.Context, q db.Querier, limit int) ([]PendingPush, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT n.id, n.player_id, COALESCE(n.tn_id, 0), n.kind, n.body, n.created_at, p.push_attacks, p.push_results
-		FROM td.notices n JOIN td.players p ON p.id = n.player_id
+		SELECT n.id, n.player_id, COALESCE(n.tn_id, 0), n.kind, n.body, COALESCE(a.public_code, ''), n.created_at,
+		       p.push_attacks, p.push_results
+		FROM td.notices n JOIN td.players p ON p.id = n.player_id LEFT JOIN td.players a ON a.id = n.actor_id
 		WHERE n.push_state = 'pending' ORDER BY n.id LIMIT $1 FOR UPDATE OF n SKIP LOCKED`, limit)
 	if err != nil {
 		return nil, err
@@ -82,7 +85,7 @@ func ClaimPendingPushes(ctx context.Context, q db.Querier, limit int) ([]Pending
 	out := make([]PendingPush, 0, limit)
 	for rows.Next() {
 		var p PendingPush
-		if err := rows.Scan(&p.ID, &p.PlayerID, &p.TetherID, &p.Kind, &p.Body, &p.CreatedAt, &p.Attacks, &p.Results); err != nil {
+		if err := rows.Scan(&p.ID, &p.PlayerID, &p.TetherID, &p.Kind, &p.Body, &p.ActorCode, &p.CreatedAt, &p.Attacks, &p.Results); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

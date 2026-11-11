@@ -35,6 +35,9 @@ var pushRules = map[string]PushRule{
 	"drone_intercepted": {Title: "Drone intercepted", Channel: PushChannelResults},
 	"spike_fired":       {Title: "Spike went off", Channel: PushChannelResults},
 
+	"friend_request":  {Title: "Friend request", Channel: PushChannelResults},
+	"friend_accepted": {Title: "New friend", Channel: PushChannelResults},
+
 	// A power's call the app did not pick up. The body is "Incoming call: <power>".
 	"call": {Title: "Terran Dominion", Channel: PushChannelResults, Always: true},
 }

@@ -59,8 +59,13 @@ type PlayerInfo struct {
 	// CanAct: this member of staff may warn, suspend or ban them.
 	CanAct bool `json:"canAct"`
 	// SuspendDays are the three lengths a suspension may have.
-	SuspendDays []int          `json:"suspendDays"`
-	Private     *PlayerPrivate `json:"private,omitempty"`
+	SuspendDays []int `json:"suspendDays"`
+	// SpoofExempt: a tester who may use a fake location; never signal-locked.
+	SpoofExempt bool `json:"spoofExempt"`
+	// Region is a member's home region; ViewingRegion the one they view, when another (R2).
+	Region        string         `json:"region,omitempty"`
+	ViewingRegion string         `json:"viewingRegion,omitempty"`
+	Private       *PlayerPrivate `json:"private,omitempty"`
 }
 
 // PlayerPrivate is the part of a player only admins see.
@@ -74,8 +79,10 @@ type PlayerPrivate struct {
 	Stored            map[string]int64         `json:"stored"`
 	SharedPhone       []store.PlayerRef        `json:"sharedPhone"`
 	InfringementKinds []store.InfringementKind `json:"infringementKinds"`
-	Infringements     []store.Infringement     `json:"infringements"`
-	Actions           []store.PlayerAction     `json:"actions"`
+	// Marks are the device record's entries on this player's phones and sign-ins.
+	Marks         []store.DeviceMark   `json:"marks"`
+	Infringements []store.Infringement `json:"infringements"`
+	Actions       []store.PlayerAction `json:"actions"`
 }
 
 // PlayerInfo reads one player for staff, by share code (a banned account too).
@@ -119,9 +126,22 @@ func (s *Service) playerInfo(ctx context.Context, q db.Querier, actor store.Play
 	if membership != nil {
 		describeMembership(membership)
 		info.Faction, info.RankTitle = membership.FactionName, membership.RankTitle
+		info.Region = membership.Region
+		if viewing, err := store.ViewingBranch(ctx, q, targetID); err != nil {
+			return nil, err
+		} else if viewing != 0 && (membership.BranchID == nil || viewing != *membership.BranchID) {
+			if b, err := store.BranchByID(ctx, q, viewing); err == nil {
+				info.ViewingRegion = b.Region
+			}
+		}
 	}
 	if info.Sanctions, err = store.SanctionsOf(ctx, q, targetID, s.now()); err != nil {
 		return nil, err
+	}
+	if spoof, err := store.SpoofStateOf(ctx, q, targetID, s.now()); err != nil {
+		return nil, err
+	} else {
+		info.SpoofExempt = spoof.Exempt
 	}
 	if !actor.IsAdmin {
 		return info, nil
@@ -150,6 +170,13 @@ func (s *Service) playerInfo(ctx context.Context, q db.Querier, actor store.Play
 		return nil, err
 	}
 	if private.Actions, err = store.PlayerActions(ctx, q, targetID, playerActionsMax); err != nil {
+		return nil, err
+	}
+	devices, signins, err := s.playerHashes(ctx, q, targetID)
+	if err != nil {
+		return nil, err
+	}
+	if private.Marks, err = store.MarksOf(ctx, q, devices, signins); err != nil {
 		return nil, err
 	}
 	info.Private = private
@@ -329,6 +356,8 @@ func (s *Service) NoteInfringement(ctx context.Context, playerID int64, e *apper
 		detail = fmt.Sprintf("accuracy %v m, limit %v m", e.Data["accuracyM"], e.Data["maxAccuracyM"])
 	case apperr.HarvestImplausible.Code:
 		kind, detail = game.InfringementTravelSpeed, e.Detail
+	case apperr.FixStale.Code:
+		kind, detail = game.InfringementStaleFix, "fix too old or from the future"
 	default:
 		return
 	}
@@ -355,4 +384,45 @@ func (s *Service) AdminStats(ctx context.Context) (GameStatsView, error) {
 		return GameStatsView{}, err
 	}
 	return GameStatsView{GameStats: stats, RetentionPct: game.RetentionPct(stats.Retained, stats.RetainedOf), AsOf: now.UTC()}, nil
+}
+
+// AdminReleasePledge returns a member to freelancer: the fix for a mistaken pledge, since a pledge
+// can't be undone by the player (freelancer-path-plan.md C5). A reason is required and it is logged.
+// A Regional Commander's seat is left empty.
+func (s *Service) AdminReleasePledge(ctx context.Context, adminID int64, code, reason string) (*PlayerInfo, error) {
+	reason = strings.TrimSpace(reason)
+	if game.CheckSanction(s.Settings(ctx), game.SanctionWarn, 0, reason) != game.SanctionOK {
+		return nil, apperr.AdjustBad.Say("Give a reason (3 to 500 characters).")
+	}
+	var info *PlayerInfo
+	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		targetID, err := staffTargetByCode(ctx, tx, code)
+		if err != nil {
+			return err
+		}
+		if _, err := store.GetPlayerForUpdate(ctx, tx, targetID); err != nil {
+			return err
+		}
+		faction, err := store.ReleaseMember(ctx, tx, targetID)
+		if err != nil {
+			return err
+		}
+		if faction == 0 {
+			return apperr.AdjustBad.Say("This player has not pledged to a faction.")
+		}
+		if err := releaseDeviceMarks(ctx, tx, s, targetID); err != nil {
+			return err
+		}
+		detail, _ := json.Marshal(map[string]any{"faction": faction, "reason": reason})
+		if err := store.LogAdminAction(ctx, tx, adminID, "player.release_pledge", fmt.Sprint(targetID), string(detail)); err != nil {
+			return err
+		}
+		admin, err := store.GetPlayer(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		info, err = s.playerInfo(ctx, tx, admin, targetID)
+		return err
+	})
+	return info, err
 }

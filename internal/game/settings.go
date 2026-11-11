@@ -191,6 +191,56 @@ type Settings struct {
 	PerkMerkiDamagePct         int // less damage to own Tether Nodes
 	PerkMerkiInterceptPct      int // more of a drone's damage stopped by an intercept (added to the share)
 
+	// The freelancer path (docs/freelancer-path-plan.md).
+	FavourPerkPct        int // a power's daily favour is this percent of its faction perk (F4)
+	MemberMissionsPerDay int // daily missions a member gets from their own power (F3)
+	// The seventh voice (phase 4).
+	LangisCallLevel         int     // halfway through this level its first call
+	LangisMessageDelayHours float64 // its message, after the power's level 19 day-3 message
+	LangisCallDelayHours    float64 // its second call, after its message
+	LangisRareEveryDays     int     // after the faction level, at most one rare message in this many days
+	// Unbound titles (F2): the levels a freelancer is given each at.
+	TitleDrifterLevel  int
+	TitleWayfarerLevel int
+	TitleUnboundLevel  int
+	// The JOBS board (F6).
+	JobSlotsMax        int
+	JobHoursMin        int
+	JobHoursMax        int
+	JobRewardMin       int
+	JobRewardMax       int
+	JobsOpenPerFaction int
+	JobsPostedPerDay   int
+	JobsTakenMax       int
+	JobScoutRadiusM    int
+	JobGuardMinutes    int
+	JobGuardRadiusM    int
+	JobGuardGapSeconds int
+	// Friends.
+	FriendsMax               int
+	FriendRequestsPerDay     int
+	EmailSearchesPerDay      int
+	FriendRequestsPendingMax int
+	FriendSearchPerMinute    int
+	FriendRequestExpireDays  int
+	FriendRedeclineDays      int
+	// Regions (social-signal-plan.md Part B).
+	CountryAtMaxKm float64
+	// Anti-cheat (social-signal-plan.md Part C). The two switches are 1 (on) or 0.
+	SpoofLockEnabled   int
+	SpoofCheckMockFlag int
+	SpoofLockMinutes1  int
+	SpoofLockMinutes2  int
+	SpoofLockMinutes3  int
+	SpoofRepeatDays    int
+	SpoofTeleportKmh   float64
+	SpoofTeleportMinKm float64
+	FixMaxAgeSeconds   int
+	// Movement patterns (G2): report only.
+	SpoofPatternEnabled  int
+	SpoofPatternFixes    int
+	SpoofPatternGapHours int
+
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
 	SuspendDays2      int
@@ -384,6 +434,47 @@ func DefaultSettings() Settings {
 		PerkTohuCarryPct:           25,
 		PerkMerkiDamagePct:         15,
 		PerkMerkiInterceptPct:      10,
+		FavourPerkPct:              40,
+		MemberMissionsPerDay:       1,
+		LangisCallLevel:            18,
+		LangisMessageDelayHours:    2,
+		LangisCallDelayHours:       24,
+		LangisRareEveryDays:        7,
+		TitleDrifterLevel:          22,
+		TitleWayfarerLevel:         26,
+		TitleUnboundLevel:          30,
+		JobSlotsMax:                3,
+		JobHoursMin:                1,
+		JobHoursMax:                24,
+		JobRewardMin:               10,
+		JobRewardMax:               2000,
+		JobsOpenPerFaction:         20,
+		JobsPostedPerDay:           5,
+		JobsTakenMax:               3,
+		JobScoutRadiusM:            150,
+		JobGuardMinutes:            60,
+		JobGuardRadiusM:            40,
+		JobGuardGapSeconds:         90,
+		FriendsMax:                 200,
+		FriendRequestsPerDay:       20,
+		EmailSearchesPerDay:        10,
+		FriendRequestsPendingMax:   50,
+		FriendSearchPerMinute:      20,
+		FriendRequestExpireDays:    14,
+		FriendRedeclineDays:        7,
+		CountryAtMaxKm:             60,
+		SpoofLockEnabled:           1,
+		SpoofCheckMockFlag:         1,
+		SpoofLockMinutes1:          30,
+		SpoofLockMinutes2:          120,
+		SpoofLockMinutes3:          720,
+		SpoofRepeatDays:            7,
+		SpoofTeleportKmh:           300,
+		SpoofTeleportMinKm:         5,
+		FixMaxAgeSeconds:           120,
+		SpoofPatternEnabled:        1,
+		SpoofPatternFixes:          30,
+		SpoofPatternGapHours:       24,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -534,6 +625,47 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("CraftShield4Data", &s.CraftShield4Data)
 	i("CraftShield4Credit", &s.CraftShield4Credit)
 	i("MissionsPerDay", &s.MissionsPerDay)
+	i("FavourPerkPct", &s.FavourPerkPct)
+	i("MemberMissionsPerDay", &s.MemberMissionsPerDay)
+	i("LangisCallLevel", &s.LangisCallLevel)
+	f("LangisMessageDelayHours", &s.LangisMessageDelayHours)
+	f("LangisCallDelayHours", &s.LangisCallDelayHours)
+	i("LangisRareEveryDays", &s.LangisRareEveryDays)
+	i("TitleDrifterLevel", &s.TitleDrifterLevel)
+	i("TitleWayfarerLevel", &s.TitleWayfarerLevel)
+	i("TitleUnboundLevel", &s.TitleUnboundLevel)
+	i("JobSlotsMax", &s.JobSlotsMax)
+	i("JobHoursMin", &s.JobHoursMin)
+	i("JobHoursMax", &s.JobHoursMax)
+	i("JobRewardMin", &s.JobRewardMin)
+	i("JobRewardMax", &s.JobRewardMax)
+	i("JobsOpenPerFaction", &s.JobsOpenPerFaction)
+	i("JobsPostedPerDay", &s.JobsPostedPerDay)
+	i("JobsTakenMax", &s.JobsTakenMax)
+	i("JobScoutRadiusM", &s.JobScoutRadiusM)
+	i("JobGuardMinutes", &s.JobGuardMinutes)
+	i("JobGuardRadiusM", &s.JobGuardRadiusM)
+	i("JobGuardGapSeconds", &s.JobGuardGapSeconds)
+	i("FriendsMax", &s.FriendsMax)
+	i("FriendRequestsPerDay", &s.FriendRequestsPerDay)
+	i("EmailSearchesPerDay", &s.EmailSearchesPerDay)
+	i("FriendRequestsPendingMax", &s.FriendRequestsPendingMax)
+	i("FriendSearchPerMinute", &s.FriendSearchPerMinute)
+	i("FriendRequestExpireDays", &s.FriendRequestExpireDays)
+	i("FriendRedeclineDays", &s.FriendRedeclineDays)
+	f("CountryAtMaxKm", &s.CountryAtMaxKm)
+	i("SpoofLockEnabled", &s.SpoofLockEnabled)
+	i("SpoofCheckMockFlag", &s.SpoofCheckMockFlag)
+	i("SpoofLockMinutes1", &s.SpoofLockMinutes1)
+	i("SpoofLockMinutes2", &s.SpoofLockMinutes2)
+	i("SpoofLockMinutes3", &s.SpoofLockMinutes3)
+	i("SpoofRepeatDays", &s.SpoofRepeatDays)
+	f("SpoofTeleportKmh", &s.SpoofTeleportKmh)
+	f("SpoofTeleportMinKm", &s.SpoofTeleportMinKm)
+	i("FixMaxAgeSeconds", &s.FixMaxAgeSeconds)
+	i("SpoofPatternEnabled", &s.SpoofPatternEnabled)
+	i("SpoofPatternFixes", &s.SpoofPatternFixes)
+	i("SpoofPatternGapHours", &s.SpoofPatternGapHours)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

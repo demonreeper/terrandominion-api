@@ -57,6 +57,34 @@ func TestPowerLinesKeepTheSecret(t *testing.T) {
 	}
 }
 
+// The day 3 message says the choice is final (freelancer-path-plan.md C4), and each power says it in
+// its own words: no closing sentence is shared, so the six stay unlinked.
+func TestDay3MessageSaysTheChoiceIsFinal(t *testing.T) {
+	finality := []string{"cannot", "once", "no exit", "no turning back", "never given back"}
+	seen := map[string]int{}
+	for _, power := range Powers {
+		line := PowerLine(power, MessageLevel19)
+		if !strings.Contains(line, "Choose") {
+			t.Errorf("power %d day 3 message lost its choice: %q", power, line)
+		}
+		final := false
+		for _, word := range finality {
+			if strings.Contains(strings.ToLower(line), word) {
+				final = true
+			}
+		}
+		if !final {
+			t.Errorf("power %d day 3 message doesn't say the choice is final: %q", power, line)
+		}
+		sentences := strings.Split(line, ". ")
+		last := sentences[len(sentences)-1]
+		if other, dup := seen[last]; dup {
+			t.Errorf("powers %d and %d end the day 3 message the same way: %q", other, power, last)
+		}
+		seen[last] = power
+	}
+}
+
 func TestPlaystylePoints(t *testing.T) {
 	cases := []struct {
 		action, key string

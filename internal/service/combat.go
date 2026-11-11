@@ -117,9 +117,22 @@ func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tet
 	if membership != nil {
 		attackerFaction = &membership.FactionID
 	}
+	ownerMembership, err := store.MembershipOf(ctx, tx, ownerID)
+	if err != nil {
+		return out, err
+	}
+	protected := false
+	if ownerMembership == nil {
+		until, err := store.ProtectionLostUntil(ctx, tx, ownerID)
+		if err != nil {
+			return out, err
+		}
+		protected = until == nil || !until.After(s.now())
+	}
 	losesProtection, ruleErr := game.CanAttackTether(settings, game.TetherAttack{
 		AttackerID: attackerID, AttackerFaction: attackerFaction, AttackerLevel: attacker.Level,
 		OwnerID: ownerID, OwnerLevel: owner.Level, TetherFaction: tether.FactionID,
+		OwnerFreelancer: ownerMembership == nil, OwnerProtected: protected,
 	})
 	if ruleErr != nil {
 		return out, ruleErr
@@ -180,7 +193,7 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			return err
 		}
 		// The owner's faction may soften the hit.
-		ownerPerks, _, err := perksOf(ctx, tx, ownerID, settings)
+		ownerPerks, _, err := s.perksOf(ctx, tx, ownerID, settings)
 		if err != nil {
 			return err
 		}
@@ -258,6 +271,10 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			if err := store.LoseProtection(ctx, tx, attackerID, until); err != nil {
 				return err
 			}
+		}
+		// A hit on a job's target Tether Node finishes the hitter's hit job on it (F6).
+		if err := s.jobHit(ctx, tx, attackerID, tetherID); err != nil {
+			return err
 		}
 		if err := advanceMissions(ctx, tx, attackerID, game.GoalAttack, weapon.ID, 1, settings, s.now()); err != nil {
 			return err
@@ -389,7 +406,7 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 			return err
 		}
 		// The owner's faction may soften the hit.
-		ownerPerks, _, err := perksOf(ctx, tx, spike.OwnerID, settings)
+		ownerPerks, _, err := s.perksOf(ctx, tx, spike.OwnerID, settings)
 		if err != nil {
 			return err
 		}

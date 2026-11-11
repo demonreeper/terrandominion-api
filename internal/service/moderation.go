@@ -206,8 +206,19 @@ func (s *Service) DismissReport(ctx context.Context, modID, reportID int64, reas
 			return err
 		}
 		ids := []int64{reportID}
+		spoofIDs := []int64{}
+		if report.Reason == game.ReportReasonSpoof {
+			spoofIDs = append(spoofIDs, reportID)
+		}
 		if all {
 			ids = nil
+			if spoofIDs, err = store.OpenSpoofReportIDs(ctx, tx, report.TargetID); err != nil {
+				return err
+			}
+		}
+		// A false alarm from Signal watch: the lock goes at once and the incidents stop counting.
+		if err := s.dismissSpoof(ctx, tx, modID, report.TargetID, spoofIDs, reason); err != nil {
+			return err
 		}
 		reporters, err := store.CloseReports(ctx, tx, report.TargetID, ids, "dismissed", modID, 0)
 		if err != nil {
@@ -223,7 +234,8 @@ func (s *Service) DismissReport(ctx context.Context, modID, reportID int64, reas
 
 // tellReporters sends each reporter one "Your report was reviewed." notice.
 func tellReporters(ctx context.Context, tx *sql.Tx, reporters []int64) error {
-	told := map[int64]bool{}
+	// Signal watch is no player: it is never told.
+	told := map[int64]bool{game.SignalWatchID: true}
 	for _, reporter := range reporters {
 		if told[reporter] {
 			continue
@@ -310,6 +322,12 @@ func (s *Service) Sanction(ctx context.Context, actorID int64, code string, req 
 			if err := store.DeletePlayerPushTokens(ctx, tx, targetID); err != nil {
 				return err
 			}
+			// A ban also bans the player's phones and sign-ins (freelancer-path-plan.md phase 2).
+			if req.Kind == game.SanctionBan {
+				if err := s.markBan(ctx, tx, targetID, id); err != nil {
+					return err
+				}
+			}
 			if err := store.RevokeAllSessions(ctx, tx, targetID); err != nil {
 				return err
 			}
@@ -390,6 +408,12 @@ func (s *Service) LiftSanction(ctx context.Context, adminID, sanctionID int64, r
 		}
 		if err := store.LiftSanction(ctx, tx, sanctionID, adminID, reason); err != nil {
 			return err
+		}
+		// Lifting a ban frees the phones and sign-ins it marked.
+		if sanction.Kind == game.SanctionBan {
+			if err := store.LiftBanMarks(ctx, tx, sanctionID); err != nil {
+				return err
+			}
 		}
 		status, end, err := store.StrongestActiveSanction(ctx, tx, sanction.PlayerID)
 		if err != nil {

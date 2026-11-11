@@ -110,6 +110,7 @@ var (
 	SanctionNotLive    = def(1119, http.StatusConflict, "That sanction is not running, so there is nothing to lift.")
 	ReportNotDismissed = def(1120, http.StatusConflict, "Only a dismissed report can be reopened.")
 	AdjustBad          = def(1121, http.StatusBadRequest, "That change is not allowed.")
+	DeviceBanned       = def(1122, http.StatusForbidden, "This device is banned.") // data: appealCode, appealUrl
 	// The callsign errors carry data.error: "callsign_invalid", "callsign_taken" or "callsign_too_soon".
 	CallsignInvalid = def(1109, http.StatusBadRequest, "Pick one of the callsigns offered.")
 	CallsignTaken   = def(1110, http.StatusConflict, "That callsign is taken or not allowed. Try another.")
@@ -129,7 +130,8 @@ var (
 	FactionMemberAlready = def(1302, http.StatusConflict, "You already belong to a faction.")
 	FactionClaimed       = def(1303, http.StatusConflict, "This faction already has a Regional Commander here.")
 	// 1304 is no longer used: a faction is claimed per region, so an active one can still be claimed elsewhere.
-	PrimaryAdminFreelancer = def(1305, http.StatusForbidden, "This account stays a freelancer. It can't lead or join a faction.")
+	PledgeStands           = def(1306, http.StatusConflict, "Your pledge stands. A tether to a power never breaks.") // data: faction, appealCode, appealUrl
+	PrimaryAdminFreelancer = def(1305, http.StatusForbidden, "This account stays a freelancer. It can't pledge to a faction.")
 	FactionNotLocked       = def(1304, http.StatusConflict, "This faction is already active.")
 	// 1305 is log-only: account cleanup skipped a faction head (succession is decided by hand).
 
@@ -189,6 +191,28 @@ var (
 	AlreadyWarden        = def(1764, http.StatusConflict, "That player is already a Warden or above.")
 	CallGone             = def(1765, http.StatusNotFound, "That call has ended.")
 	MessageGone          = def(1766, http.StatusNotFound, "That message is gone.")
+	// The JOBS board (freelancer-path-plan.md F6). The message says which rule refused it.
+	JobBad      = def(1770, http.StatusBadRequest, "That job can't be posted.")
+	JobLimit    = def(1771, http.StatusConflict, "That is over a limit of the JOBS board.")
+	JobGone     = def(1772, http.StatusConflict, "That job has no slot left, or it has ended.")
+	JobNotYours = def(1773, http.StatusForbidden, "You can't take that job.")
+	JobFunds    = def(1774, http.StatusConflict, "You don't have enough in storage to pay that job.") // data: short
+
+	// Friends. The message says which rule refused it.
+	FriendRefused   = def(1780, http.StatusConflict, "That friend request can't be sent.")
+	FriendNoRequest = def(1781, http.StatusNotFound, "There is no request from that player.")
+	FriendNameBad   = def(1782, http.StatusBadRequest, "Use letters only, up to 32, for the name your friends see.")
+	SearchLimit     = def(1783, http.StatusTooManyRequests, "That is enough email searches for today.")
+
+	// Anti GPS spoofing (social-signal-plan.md Part C).
+	SignalLocked = def(1790, http.StatusForbidden, "Signal rejected.") // data: until, incident (first or repeat)
+	FixStale     = def(1791, http.StatusBadRequest, "That position is too old. Wait for a fresh fix.")
+
+	// Regions (social-signal-plan.md Part B).
+	RegionUnknown = def(1795, http.StatusConflict, "Your region could not be found from where you stand.")
+	RegionNotLive = def(1796, http.StatusConflict, "The game hasn't launched in your region yet.") // data: region
+	RegionLocked  = def(1797, http.StatusConflict, "That region has no Regional Commander yet.")
+	NotAMember    = def(1798, http.StatusConflict, "Only faction members have regions.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

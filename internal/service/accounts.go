@@ -97,7 +97,13 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 	deviceHash := auth.HashDevice(device.DeviceID, s.cfg.DevicePepper)
 	var result AuthResult
 
+	signinHash := s.signinHash(provider, subject)
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		// The device record first: a banned phone or sign-in gets no account, new or old.
+		verdict, err := s.checkMarks(ctx, tx, deviceHash, signinHash)
+		if err != nil {
+			return err
+		}
 		playerID, err := store.FindIdentity(ctx, tx, provider, subject)
 		isNew := errors.Is(err, store.ErrNotFound)
 		if err != nil && !isNew {
@@ -164,6 +170,9 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 		}
 
 		if err := store.TouchPlayer(ctx, tx, playerID, device.AppVersion); err != nil {
+			return err
+		}
+		if err := s.applyMarks(ctx, tx, playerID, verdict, deviceHash, signinHash); err != nil {
 			return err
 		}
 
@@ -310,6 +319,20 @@ type MeView struct {
 	Recipes           []game.Recipe         `json:"recipes"`
 	CraftableGear     []store.CraftableGear `json:"craftableGear"`
 	Faction           *store.Membership     `json:"faction"`
+	// PledgeBound: a pledge made on this phone or sign-in before stands. At the faction level the
+	// player may pledge only to this faction ("Your pledge stands."). AppealCode and AppealURL go with
+	// the APPEAL link for a second-hand phone.
+	PledgeBound string `json:"pledgeBound,omitempty"`
+	// FavourOpen: a freelancer, who earns a power's daily favour by finishing its mission (F4).
+	FavourOpen bool `json:"favourOpen,omitempty"`
+	// Contact: the seventh voice's first call has been heard or turned down, so its name is known.
+	// The key names nothing on purpose: nothing names it before that call. JobsUnlocked follows it
+	// for a freelancer (the JOBS board, F6). Note is its line on FACTIONS at the faction level.
+	Contact      bool       `json:"contact,omitempty"`
+	JobsUnlocked bool       `json:"jobsUnlocked,omitempty"`
+	Note         *VoiceNote `json:"note,omitempty"`
+	AppealCode   string     `json:"appealCode,omitempty"`
+	AppealURL    string     `json:"appealUrl,omitempty"`
 	// Badges are permanent marks, such as Founder of a faction's branch in a country.
 	Badges []store.Badge `json:"badges"`
 	// Linked are the sign-ins that open this account ("apple", "google"; "dev" on the dev server).
@@ -323,6 +346,18 @@ type MeView struct {
 	ActivePerks []game.PerkLine `json:"activePerks"`
 	// Announcement is the one-line banner for the main menu while one is running (admin settings).
 	Announcement *store.Announcement `json:"announcement,omitempty"`
+	// SignalLockedUntil: a signal lock is running (anti-spoofing); location actions are refused until then.
+	// SignalLockLine is the narrator line it carries: first or repeat.
+	SignalLockedUntil *time.Time `json:"signalLockedUntil,omitempty"`
+	SignalLockLine    string     `json:"signalLockLine,omitempty"`
+	// OpenReports is how many players have open reports (staff only), for the ADMIN button.
+	OpenReports int `json:"openReports,omitempty"`
+	// EmailSearchable: other players can find this one by their whole email (FR1). FriendRequestsWaiting:
+	// requests waiting for this player's answer (the FRIENDS row's count).
+	EmailSearchable bool `json:"emailSearchable"`
+	// SpoofExempt (admins only): the admin's own SPOOF EXEMPT switch on the ADMIN page, off by default.
+	SpoofExempt           bool `json:"spoofExempt,omitempty"`
+	FriendRequestsWaiting int  `json:"friendRequestsWaiting"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -364,7 +399,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
-	stats, perks, err := equipped(ctx, q, playerID, settings)
+	stats, perks, err := s.equipped(ctx, q, playerID, settings)
 	// The costs this player pays: their faction may discount them.
 	own := game.SettingsWithPerks(settings, perks)
 	if err != nil {
@@ -397,15 +432,64 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(own), TetherUpgradeCost: game.TetherUpgradeCost(own), CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Badges: badges, Freelancer: membership == nil,
 	}
+	if membership == nil {
+		bound, err := store.BoundFaction(ctx, q, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if bound != "" {
+			me.PledgeBound = bound
+			if me.AppealCode, err = s.boundAppeal(ctx, q, playerID, bound); err != nil {
+				return nil, err
+			}
+			me.AppealURL = game.AppealMailto(me.AppealCode)
+		}
+	}
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time
 		me.DeleteAfter = &t
 	}
-	if membership != nil {
-		me.ActivePerks = game.FactionPerkLines(settings, membership.FactionID)
+	// Working on the player now: their faction's perks, or for a freelancer today's favour.
+	if _, lines, err := s.perksOf(ctx, q, playerID, settings); err != nil {
+		return nil, err
+	} else if lines != nil {
+		me.ActivePerks = lines
+	}
+	me.FavourOpen = membership == nil
+	if membership == nil {
+		if me.Contact, err = store.LangisContact(ctx, q, playerID); err != nil {
+			return nil, err
+		}
+		me.JobsUnlocked = me.Contact
+		if me.Contact && player.Level >= settings.LeadFactionLevel {
+			me.Note = &VoiceNote{Text: game.LangisLineStayFree, Sign: game.LangisSign}
+		}
 	}
 	if me.Announcement, err = store.CurrentAnnouncement(ctx, q); err != nil {
 		return nil, err
+	}
+	if err := s.signalLock(ctx, q, me, settings); err != nil {
+		return nil, err
+	}
+	if friendSettings, err := store.FriendSettingsOf(ctx, q, playerID); err != nil {
+		return nil, err
+	} else {
+		me.EmailSearchable = friendSettings.FindableByEmail
+	}
+	if me.FriendRequestsWaiting, err = store.RequestsWaiting(ctx, q, playerID); err != nil {
+		return nil, err
+	}
+	if player.IsAdmin || player.IsMod {
+		if me.OpenReports, err = store.OpenReportCount(ctx, q); err != nil {
+			return nil, err
+		}
+	}
+	if player.IsAdmin {
+		state, err := store.SpoofStateOf(ctx, q, playerID, s.now())
+		if err != nil {
+			return nil, err
+		}
+		me.SpoofExempt = state.Exempt
 	}
 	if player.Callsign.Valid {
 		callsign := player.Callsign.String
@@ -451,6 +535,10 @@ func awardXPAgainst(ctx context.Context, q db.Querier, playerID int64, action st
 		if err := maybeInvite(ctx, q, playerID, before.Level, progress.Level, settings, now); err != nil {
 			return progress, false, err
 		}
+		// Past it, a freelancer keeps earning Unbound titles from the seventh voice.
+		if err := grantTitles(ctx, q, playerID, progress.Level, settings, now); err != nil {
+			return progress, false, err
+		}
 		return progress, true, nil
 	}
 	progress.Level = before.Level
@@ -463,4 +551,10 @@ func defaultDisplayName(name string) string {
 		return fmt.Sprintf("Freelancer-%04d", time.Now().UnixNano()%10000)
 	}
 	return name
+}
+
+// VoiceNote is a line shown on a screen in a voice's own text style, with its signature.
+type VoiceNote struct {
+	Text string `json:"text"`
+	Sign string `json:"sign"`
 }

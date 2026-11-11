@@ -71,16 +71,73 @@ func CallerOf(ctx context.Context, q db.Querier, playerID int64, kind string) (i
 	return faction, err
 }
 
-// CancelOffer drops the repeat call and the written message that have not come due: the player
-// reached the faction level first.
+// CancelOffer drops the repeat call and the written message that have not come due, the power's
+// and the seventh voice's: the player reached the faction level first.
 func CancelOffer(ctx context.Context, q db.Querier, playerID int64, now time.Time) error {
 	if _, err := q.ExecContext(ctx, `
-		DELETE FROM td.player_calls WHERE player_id = $1 AND kind LIKE 'level19%' AND due_at > $2`, playerID, now); err != nil {
+		DELETE FROM td.player_calls WHERE player_id = $1 AND (kind LIKE 'level19%' OR kind = 'langis_l19') AND due_at > $2`,
+		playerID, now); err != nil {
 		return err
 	}
 	_, err := q.ExecContext(ctx, `
-		DELETE FROM td.player_messages WHERE player_id = $1 AND kind LIKE 'level19%' AND due_at > $2`, playerID, now)
+		DELETE FROM td.player_messages WHERE player_id = $1 AND (kind LIKE 'level19%' OR kind = 'langis_l19_msg') AND due_at > $2`,
+		playerID, now)
 	return err
+}
+
+// InsertSenderCall records a call from a voice that has no faction (the seventh voice); a player gets
+// each kind once. It reports whether this one was new.
+func InsertSenderCall(ctx context.Context, q db.Querier, playerID int64, sender, kind, line string, dueAt time.Time) (bool, error) {
+	res, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_calls (player_id, sender, kind, line, due_at) VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (player_id, kind) DO NOTHING`, playerID, sender, kind, line, dueAt)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
+// SilenceLangis drops everything of the seventh voice's that has not reached the player: they pledged.
+func SilenceLangis(ctx context.Context, q db.Querier, playerID int64, now time.Time) error {
+	if _, err := q.ExecContext(ctx, `
+		DELETE FROM td.player_calls WHERE player_id = $1 AND kind LIKE 'langis%'
+		  AND delivered_at IS NULL AND played_at IS NULL AND rejected_at IS NULL`, playerID); err != nil {
+		return err
+	}
+	_, err := q.ExecContext(ctx, `
+		DELETE FROM td.player_messages WHERE player_id = $1 AND kind LIKE 'langis%' AND due_at > $2`, playerID, now)
+	return err
+}
+
+// LangisContact says whether the player has had the seventh voice's first call: heard, or turned
+// down (the missed call then plays once). That is when its name is known and the JOBS board opens.
+func LangisContact(ctx context.Context, q db.Querier, playerID int64) (bool, error) {
+	var met bool
+	err := q.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM td.player_calls WHERE player_id = $1 AND kind = 'langis_l18'
+		               AND (played_at IS NOT NULL OR rejected_at IS NOT NULL))`, playerID).Scan(&met)
+	return met, err
+}
+
+// LangisLast is when the seventh voice last reached the player (a call or a message come due), and
+// how many rare messages it has sent them.
+func LangisLast(ctx context.Context, q db.Querier, playerID int64, now time.Time) (*time.Time, int, error) {
+	var last sql.NullTime
+	var rare int
+	err := q.QueryRowContext(ctx, `
+		SELECT GREATEST(
+		         (SELECT max(due_at) FROM td.player_calls WHERE player_id = $1 AND kind LIKE 'langis%' AND due_at <= $2),
+		         (SELECT max(due_at) FROM td.player_messages WHERE player_id = $1 AND kind LIKE 'langis%' AND due_at <= $2)),
+		       (SELECT count(*) FROM td.player_messages WHERE player_id = $1 AND kind LIKE 'langis_rare_%')`,
+		playerID, now).Scan(&last, &rare)
+	if err != nil {
+		return nil, 0, err
+	}
+	if !last.Valid {
+		return nil, rare, nil
+	}
+	return &last.Time, rare, nil
 }
 
 // Call is a power's call waiting for the player.
@@ -98,6 +155,10 @@ type Call struct {
 	Audio     string `json:"audio"`
 	Missed    bool   `json:"missed"`
 	FactionID int    `json:"-"`
+	// Style and Reveal only on the seventh voice's calls: "static" (no silhouette) and the name the
+	// "Unknown caller" id resolves to in the call's last seconds. Set by the service.
+	Style  string `json:"style,omitempty"`
+	Reveal string `json:"reveal,omitempty"`
 	// Only in the call log: Rejected says the player turned it down, Played that it has been heard,
 	// and CanPlay that PLAY still works (a rejected call once, an answered call once more).
 	Rejected bool `json:"rejected"`
@@ -109,8 +170,8 @@ type Call struct {
 // oldest first: the ones that ring.
 func DueCalls(ctx context.Context, q db.Querier, playerID int64, now time.Time) ([]Call, error) {
 	return scanCalls(q.QueryContext(ctx, `
-		SELECT c.id, c.kind, f.persona, f.code, f.color, c.line, c.due_at, c.faction_id
-		FROM td.player_calls c JOIN td.factions f ON f.id = c.faction_id
+		SELECT c.id, c.kind, COALESCE(c.sender, f.persona), COALESCE(f.code, ''), COALESCE(f.color, '#C8D2DC'), c.line, c.due_at, COALESCE(c.faction_id, 0)
+		FROM td.player_calls c LEFT JOIN td.factions f ON f.id = c.faction_id
 		WHERE c.player_id = $1 AND c.played_at IS NULL AND c.rejected_at IS NULL AND c.due_at <= $2
 		ORDER BY c.due_at, c.id`, playerID, now))
 }
@@ -119,10 +180,10 @@ func DueCalls(ctx context.Context, q db.Querier, playerID int64, now time.Time) 
 // rejected call can be played once; an answered one can be heard once more.
 func CallLog(ctx context.Context, q db.Querier, playerID int64, limit int) ([]Call, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT c.id, c.kind, f.persona, f.code, f.color, c.line, c.due_at, c.faction_id,
+		SELECT c.id, c.kind, COALESCE(c.sender, f.persona), COALESCE(f.code, ''), COALESCE(f.color, '#C8D2DC'), c.line, c.due_at, COALESCE(c.faction_id, 0),
 		       c.rejected_at IS NOT NULL, c.played_at IS NOT NULL,
 		       c.played_at IS NULL OR (c.rejected_at IS NULL AND c.replayed_at IS NULL)
-		FROM td.player_calls c JOIN td.factions f ON f.id = c.faction_id
+		FROM td.player_calls c LEFT JOIN td.factions f ON f.id = c.faction_id
 		WHERE c.player_id = $1 AND (c.played_at IS NOT NULL OR c.rejected_at IS NOT NULL)
 		ORDER BY GREATEST(c.played_at, c.rejected_at) DESC, c.id DESC LIMIT $2`, playerID, limit)
 	if err != nil {
@@ -200,14 +261,15 @@ func MarkCallPlayed(ctx context.Context, q db.Querier, playerID, id int64, now t
 type UnansweredCall struct {
 	ID, PlayerID int64
 	Persona      string
+	Kind         string
 }
 
 // ClaimUnansweredCalls locks the calls that came due before the cutoff and that the app has not
 // fetched, to push them.
 func ClaimUnansweredCalls(ctx context.Context, q db.Querier, cutoff time.Time, limit int) ([]UnansweredCall, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT c.id, c.player_id, f.persona
-		FROM td.player_calls c JOIN td.factions f ON f.id = c.faction_id
+		SELECT c.id, c.player_id, COALESCE(c.sender, f.persona), c.kind
+		FROM td.player_calls c LEFT JOIN td.factions f ON f.id = c.faction_id
 		WHERE c.delivered_at IS NULL AND c.pushed_at IS NULL AND c.played_at IS NULL AND c.due_at <= $1
 		ORDER BY c.due_at LIMIT $2 FOR UPDATE OF c SKIP LOCKED`, cutoff, limit)
 	if err != nil {
@@ -217,7 +279,7 @@ func ClaimUnansweredCalls(ctx context.Context, q db.Querier, cutoff time.Time, l
 	var out []UnansweredCall
 	for rows.Next() {
 		var c UnansweredCall
-		if err := rows.Scan(&c.ID, &c.PlayerID, &c.Persona); err != nil {
+		if err := rows.Scan(&c.ID, &c.PlayerID, &c.Persona, &c.Kind); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -240,13 +302,17 @@ type Message struct {
 	Body        string    `json:"body"`
 	At          time.Time `json:"at"`
 	Read        bool      `json:"read"`
+	// Kind is the message's kind (server side); Style "glitch" marks the seventh voice's.
+	Kind  string `json:"-"`
+	Style string `json:"style,omitempty"`
 }
 
 // Messages lists the player's messages that have arrived, newest first.
 func Messages(ctx context.Context, q db.Querier, playerID int64, now time.Time, limit int) ([]Message, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT m.id, COALESCE(m.sender, f.persona, ''), COALESCE(f.code, ''), COALESCE(f.color, '#FFC740'),
-		       m.body, m.due_at, m.read_at IS NOT NULL
+		SELECT m.id, COALESCE(m.sender, f.persona, ''), COALESCE(f.code, ''),
+		       CASE WHEN m.kind LIKE 'langis%' THEN '#C8D2DC' ELSE COALESCE(f.color, '#FFC740') END,
+		       m.body, m.due_at, m.read_at IS NOT NULL, m.kind
 		FROM td.player_messages m LEFT JOIN td.factions f ON f.id = m.faction_id
 		WHERE m.player_id = $1 AND m.due_at <= $2
 		ORDER BY m.due_at DESC, m.id DESC LIMIT $3`, playerID, now, limit)
@@ -257,7 +323,7 @@ func Messages(ctx context.Context, q db.Querier, playerID int64, now time.Time, 
 	out := make([]Message, 0, 2)
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.ID, &m.Persona, &m.FactionCode, &m.Color, &m.Body, &m.At, &m.Read); err != nil {
+		if err := rows.Scan(&m.ID, &m.Persona, &m.FactionCode, &m.Color, &m.Body, &m.At, &m.Read, &m.Kind); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

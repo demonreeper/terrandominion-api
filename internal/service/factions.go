@@ -14,8 +14,18 @@ import (
 
 // Factions lists the six factions, marking the one that invited this player at the faction level.
 // A player already in a faction is not shown an invitation.
-func (s *Service) Factions(ctx context.Context, playerID int64) ([]store.Faction, error) {
-	factions, err := store.ListFactions(ctx, s.db, game.LaunchRegion)
+// The list shows each faction's standing in the region the player stands in (R1); with no fix, their own
+// branch's region, then the launch region.
+func (s *Service) Factions(ctx context.Context, playerID int64, fix RegionFix) ([]store.Faction, error) {
+	region := game.LaunchRegion
+	if fix.known() {
+		if here, err := s.regionAt(ctx, fix); err == nil {
+			region = here.Code
+		}
+	} else if m, err := store.MembershipOf(ctx, s.db, playerID); err == nil && m != nil && m.Region != "" {
+		region = m.Region
+	}
+	factions, err := store.ListFactions(ctx, s.db, region)
 	if err != nil {
 		return nil, err
 	}
@@ -27,6 +37,13 @@ func (s *Service) Factions(ctx context.Context, playerID int64) ([]store.Faction
 	}
 	if err != nil || membership != nil {
 		return factions, err
+	}
+	bound, err := store.BoundFaction(ctx, s.db, playerID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range factions {
+		factions[i].Bound = bound != "" && factions[i].Code == bound
 	}
 	invited, err := store.InvitedFaction(ctx, s.db, playerID)
 	if err != nil {
@@ -41,24 +58,32 @@ func (s *Service) Factions(ctx context.Context, playerID int64) ([]store.Faction
 // LeadFaction claims a dormant faction. Both the faction row and the player row are locked, and
 // the claim itself is a conditional update, so of two players racing for the same faction exactly
 // one wins and the other gets E1303.
-func (s *Service) LeadFaction(ctx context.Context, playerID int64, code string) (*store.Membership, error) {
-	return s.enterFaction(ctx, playerID, code, true)
+func (s *Service) LeadFaction(ctx context.Context, playerID int64, code string, fix RegionFix) (*store.Membership, error) {
+	return s.enterFaction(ctx, playerID, code, true, fix)
 }
 
-// JoinFaction joins an active faction as a member.
-func (s *Service) JoinFaction(ctx context.Context, playerID int64, code string) (*store.Membership, error) {
-	return s.enterFaction(ctx, playerID, code, false)
+// JoinFaction joins an active faction as a member, in the region the player stands in.
+func (s *Service) JoinFaction(ctx context.Context, playerID int64, code string, fix RegionFix) (*store.Membership, error) {
+	return s.enterFaction(ctx, playerID, code, false, fix)
 }
 
-func (s *Service) enterFaction(ctx context.Context, playerID int64, code string, lead bool) (*store.Membership, error) {
+func (s *Service) enterFaction(ctx context.Context, playerID int64, code string, lead bool, fix RegionFix) (*store.Membership, error) {
 	// The primary admin plays as a freelancer: never a commander, never a member.
 	if !game.MayEnterFaction(playerID) {
 		return nil, apperr.PrimaryAdminFreelancer
 	}
 	settings := s.Settings(ctx)
+	// The region is the country the player stands in (R1). Only a live country can be claimed.
+	here, err := s.regionAt(ctx, fix)
+	if err != nil {
+		return nil, err
+	}
+	if lead && !here.Live {
+		return nil, apperr.RegionNotLive.WithData(map[string]any{"region": here.Name})
+	}
 	var membership *store.Membership
 
-	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
 		player, err := store.GetPlayerForUpdate(ctx, tx, playerID)
 		if err != nil {
 			return err
@@ -74,10 +99,25 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		if err != nil {
 			return err
 		}
+		// A pledge made on this phone or sign-in before stands: only that faction is open.
+		if current == nil {
+			bound, err := store.BoundFaction(ctx, tx, playerID)
+			if err != nil {
+				return err
+			}
+			if !game.MayPledgeTo(bound, faction.Code) {
+				appeal, err := s.boundAppeal(ctx, tx, playerID, bound)
+				if err != nil {
+					return err
+				}
+				return apperr.PledgeStands.WithData(map[string]any{
+					"faction": bound, "appealCode": appeal, "appealUrl": game.AppealMailto(appeal),
+				})
+			}
+		}
 
-		// The player's region is their country; the Maldives is the only one at launch.
-		region := game.LaunchRegion
-		branch, err := store.BranchForUpdate(ctx, tx, faction.ID, region, faction.Name+" "+game.RegionName(region))
+		region := here.Code
+		branch, err := store.BranchForUpdate(ctx, tx, faction.ID, region, faction.Name+" "+here.Name)
 		if err != nil {
 			return err
 		}
@@ -113,12 +153,25 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		if err := store.AddMember(ctx, tx, playerID, faction.ID, branch.ID, rank); err != nil {
 			return err
 		}
+		// The pledge sticks to every phone and sign-in this player uses.
+		if err := s.markPledge(ctx, tx, playerID, faction.Code); err != nil {
+			return err
+		}
+		// The seventh voice never speaks to a member: whatever of it has not reached them is gone.
+		if err := store.SilenceLangis(ctx, tx, playerID, s.now()); err != nil {
+			return err
+		}
 		membership, err = store.MembershipOf(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
 		describeMembership(membership)
+		// The chosen power speaks once, its short line (freelancer-path-plan.md C3).
+		membership.PowerName, membership.PowerLine, err = store.FactionVoice(ctx, tx, faction.ID)
 		return err
 	})
 	if err == nil && lead {
-		slog.Info("regional command claimed", "faction", code, "region", game.LaunchRegion, "commander", playerID)
+		slog.Info("regional command claimed", "faction", code, "region", here.Code, "commander", playerID)
 	}
 	return membership, err
 }

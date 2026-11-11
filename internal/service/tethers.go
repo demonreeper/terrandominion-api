@@ -22,7 +22,7 @@ func (s *Service) NearbyTethers(ctx context.Context, playerID int64, lat, lon, r
 		return nil, apperr.BadRequest.With("bad coordinate")
 	}
 	settings := s.Settings(ctx)
-	stats, _, err := equipped(ctx, s.db, playerID, settings)
+	stats, _, err := s.equipped(ctx, s.db, playerID, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 		}
 
 		// A faction perk may make the build cheaper: the rules below see this player's costs.
-		perks, _, err := perksOf(ctx, tx, playerID, settings)
+		perks, _, err := s.perksOf(ctx, tx, playerID, settings)
 		if err != nil {
 			return err
 		}
@@ -473,6 +473,7 @@ func (s *Service) RunTetherLoop(ctx context.Context) {
 		case <-ticker.C:
 			s.tetherTick(ctx)
 			s.endSuspensions(ctx)
+			s.expireFriendRequests(ctx)
 		case <-combat.C:
 			s.resolveCombat(ctx, s.Settings(ctx))
 		}
@@ -531,6 +532,7 @@ func (s *Service) tetherTick(ctx context.Context) {
 	s.respawnDepletedNodes(ctx, s.Settings(ctx))
 	s.seedTick(ctx, s.Settings(ctx), tetherTickInterval)
 	s.decayTethers(ctx, s.Settings(ctx))
+	s.expireJobs(ctx)
 	if err := store.DeleteOldNotices(ctx, s.db, s.now().AddDate(0, 0, -noticeKeepDays)); err != nil && ctx.Err() == nil {
 		slog.Error("E1900 notice cleanup failed", "err", err)
 	}
@@ -575,7 +577,7 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 			return err
 		}
 		// The owner's faction may give more crystal from what the Tether Node gathers.
-		perks, _, err := perksOf(ctx, tx, tether.OwnerID, settings)
+		perks, _, err := s.perksOf(ctx, tx, tether.OwnerID, settings)
 		if err != nil {
 			return err
 		}
@@ -724,7 +726,7 @@ func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, f
 			return err
 		}
 		// A faction perk may make the upgrade cheaper.
-		perks, _, err := perksOf(ctx, tx, playerID, settings)
+		perks, _, err := s.perksOf(ctx, tx, playerID, settings)
 		if err != nil {
 			return err
 		}

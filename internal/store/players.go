@@ -133,6 +133,19 @@ func BlockedCallsignWords(ctx context.Context, q db.Querier) ([]string, error) {
 	return out, rows.Err()
 }
 
+// ProtectionLostUntil is when a freelancer's neutral standing returns (nil: they never lost it).
+func ProtectionLostUntil(ctx context.Context, q db.Querier, id int64) (*time.Time, error) {
+	var until sql.NullTime
+	err := q.QueryRowContext(ctx, `SELECT protection_lost_until FROM td.players WHERE id = $1`, id).Scan(&until)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil || !until.Valid {
+		return nil, err
+	}
+	return &until.Time, nil
+}
+
 // LoseProtection marks a freelancer as unprotected until the given time.
 func LoseProtection(ctx context.Context, q db.Querier, id int64, until time.Time) error {
 	_, err := q.ExecContext(ctx, `UPDATE td.players SET protection_lost_until = $2 WHERE id = $1`, id, until)

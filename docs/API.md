@@ -126,6 +126,9 @@ Staff look a player up; admins see the private side and change things. Every cha
 | GET | `/mod/players?q=` | – | Mods and admins. At least 2 characters: a piece of a callsign or share code; for admins also the player's id or a piece of an email. `players [{player {code, name}, level, status, faction, isAdmin, isMod, lastSeen}]`, last seen first, at most 30. Banned accounts are found too |
 | GET | `/mod/players/{code}` | – | Mods and admins. `player`, `level`, `xp`, `status`, `suspendedUntil`, `isAdmin`, `isMod`, `faction`, `rankTitle`, `tethersActive`, `registered`, `lastSeen`, `reportsAgainst`, `reportsBy`, `sanctions`, `canAct` (may warn, suspend or ban them), `suspendDays`. Admins also get `private`: `id`, `realName`, `signIns [{provider, email}]`, `platform`, `appVersion`, `carried`, `stored`, `sharedPhone` (other accounts signed in on the same phone), `infringementKinds [{kind, count, last}]`, `infringements` (the last 20: `kind, detail, path, at`), `actions` (the last 20 admin actions on them: `action, by, at, detail`). A moderator never gets `private` |
 | POST | `/admin/players/{code}/adjust` | `xp?, carried? {resource: amount}, stored? {resource: amount}, reason` | Adds, or with a minus takes away. Reason of 3 to 500 characters. The level follows the new XP. The carry limit is not applied. 1121 when nothing changes, an amount is over 1,000,000, the resource is unknown or it would go below zero. Returns the player info |
+| GET | `/admin/marks/{appealCode}` | – | A device-record mark by its appeal code: `kind` (`device` or `signin`), `factionCode`, `factionName`, `banned`, `appealCode`, `createdAt`. For an appeal from someone who can't sign in at all |
+| POST | `/admin/marks/{appealCode}/clear` | `reason` | Removes the whole mark after an appeal (proof checked by the admin, then deleted; it is never stored here). Logged as `mark.clear` |
+| POST | `/admin/players/{code}/release-pledge` | `reason` | RELEASE PLEDGE: returns a member to freelancer, for a mistaken pledge (players can't undo one). A Regional Commander's seat is left empty. Logged as `player.release_pledge`. 1121 when they have not pledged |
 | POST | `/admin/players/{code}/reset-callsign` | `reason` | Removes the callsign (for an offensive one). The player is `OPERATIVE-<code>` until they pick again, which they may do at once, and gets a written message from Moderation. 1121 when they have none |
 | PUT | `/admin/players/{code}/mod` | `isMod` | Makes or removes a moderator; it applies on their next call |
 | GET | `/admin/stats` | – | Counts only, no names, nothing with a place: `playersTotal`, `newWeek`, `active24h`, `active7d`, `active30d` (by last seen), `harvestsMonth` (this calendar month, Maldives time), `tethersActive`, `fightsWeek` (weapon hits, drone strikes and contests in 7 days), `factions [{name, color, members}]`, `retained` of `retainedOf` (players who joined 7 to 14 days ago, and those seen a week or more after joining) with `retentionPct`, `days` (14 days, oldest first: `{day, active}`, a player being active on a day they earned XP), `asOf` |
@@ -134,6 +137,143 @@ Suspend, ban and lift from a player's info use the moderation endpoints above. F
 (E1201 GPS too weak, E1205 travel speed) are stored in `td.infringements` when the server refuses the
 request: at most one of each kind per player in `InfringementGapMinutes` (10), with the numbers behind
 it and the path, never a position.
+
+### The seventh voice
+Langis (freelancer-path-plan.md phase 4, LORE.md). Nothing in any answer names it before its first call is due:
+its account (id 8, `signal_unbound`) and lines stay on the server until then.
+
+- **Calls** (`GET /v1/calls`, same rules as the powers' calls): `langis_l18` halfway through `LangisCallLevel` (18) and
+  `langis_l19` `LangisCallDelayHours` (24) after its message. They carry `persona: "Unknown caller"`, no faction,
+  `voice: "langis"`, `audio` (`level18-call`, `level19-call`), `style: "static"` (no silhouette, no eyes) and
+  `reveal: "LANGIS"` (the caller id resolves to it in the call's last seconds). An unfetched call sends the push
+  "Missed call from Unknown caller".
+- **Messages**: `langis_l19_msg` `LangisMessageDelayHours` (2) after the power's level 19 day-3 message, from sender
+  `LANGIS`, colour `#C8D2DC`, `style: "glitch"`; after the faction level, rare messages at most once in
+  `LangisRareEveryDays` (7), in turn. All of its messages carry `style: "glitch"`.
+- **`/me`** carries `contact` (its first call was heard or turned down), `jobsUnlocked` (the same, for a freelancer)
+  and, at the faction level, `note: {text: "Stay free.", sign: "// L."}` for FACTIONS. A member never has them.
+- It never contacts a member: a pledge drops whatever of it has not reached the player, and reaching the faction
+  level drops its level 19 message and call if they had not come due.
+
+### JOBS board
+F6 (phase 6): faction players at Warden and above post paid jobs; only freelancers who have had the seventh voice's
+level 18 call (`/me` `jobsUnlocked`) take them. Members can't take jobs.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/jobs` | – | A freelancer with the board: `board` (open jobs with free slots, soonest deadline first, their own takes first, with `myStatus` and `guardSeconds`), `canTake: true`. A Warden or above: `posted` (their faction's jobs lately), `canPost: true`. Also `kinds`, `slotsMax`, `hoursMin`, `hoursMax`, `rewardMin`, `rewardMax`, `guardMinutes` |
+| POST | `/jobs` | `kind, tetherId?, nodeId?, lat?, lon?, reward {resource: amount}, slots, hours` | `hit` (`tetherId`: not your own nor your faction's), `scout` (`lat, lon`: an area of `JobScoutRadiusM` around it) or `guard` (`nodeId`). `reward` is per slot, all resources together from `JobRewardMin` to `JobRewardMax`; the reward for every slot leaves your storage now (escrow, 1774 when short). Limits: `JobSlotsMax`, `JobHoursMin`..`JobHoursMax`, `JobsOpenPerFaction`, `JobsPostedPerDay` (1771) |
+| POST | `/jobs/{id}/take` | – | A freelancer takes a slot. Refused (1773) against their own Tether Node, for a poster who signs in on the same phone, and for a hit job when they already hit that owner `XpAttackPerTargetDay` times today; 1771 past `JobsTakenMax`; 1772 no slot or ended |
+
+A job is a **job** (`id, kind, factionCode, factionName, factionColor, target, tetherId, nodeId, lat, lon, radiusM, reward,
+slots, taken, done, status, deadline, createdAt`); the poster is shown by faction only. **The server checks completion:**
+a weapon hit or a landed drone on the target Tether Node finishes a hit job; a scan (`GET /nodes/nearby` with
+`accuracy`) inside the area finishes a scout job; scans near the node add up time for a guard job (`JobGuardRadiusM`, each
+gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`. A finished job pays the taker into storage at once
+(notice `job_paid`; the poster gets `job_done`). Past the deadline unfinished takes fail and the reward for every unpaid
+slot goes back to the poster (`job_ended`). Errors 1770 to 1774.
+
+### Regions from GPS (social-signal-plan.md Part B, R1)
+
+A region is a whole country, found from the player's fix: inside a Natural Earth admin-0 shape, else the nearest
+country within `CountryAtMaxKm` (reefs, lagoons, the sea). `POST /factions/{code}/lead` and `/join` take
+`{lat, lon, accuracyM}` (and pass the anti-spoofing gate) and use that country's branch; no fix counts as the launch
+region (old builds). Only a live country can be claimed: **1796** `RegionNotLive` (data `region`); nowhere near a
+country: **1795**. `GET /factions?lat=&lon=` shows each faction's standing in that region (no fix: your own branch's
+region). `GET /regions/here?lat=&lon=` is `{code, name, live, test?}`.
+
+Admins: `GET /admin/regions` (`test`, `live`), `PUT /admin/regions/live/{code} {live}` (LiveRegions), and on dev only
+`PUT /admin/regions/test/{code} {name, points: [[lat, lon], ...]}` / `DELETE` for test regions `XA`..`XZ` (a point
+inside one counts as that region; never on production). The shapes are loaded once per database with
+`go run ./cmd/loadcountries` (from `.env`' `TD_DATABASE_URL`).
+
+### Viewing another region (social-signal-plan.md Part B, R2)
+
+A member can view any **unlocked** region of their own faction (one with a Regional Commander) from anywhere, free,
+as often as they like: **talk only**. The home region (`faction_members.branch_id`) never changes: rank, seat, vote,
+jobs, orders and missions stay there.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/factions/regions` | | `{regions: [{region, name, commander, members, home, viewing}], home, viewing}`; unlocked regions only. 1798 for a freelancer |
+| POST | `/factions/view-region` | `region` (a code, or `home`) | 1797 `RegionLocked` for a region without a commander (or not the faction's) |
+| POST | `/admin/players/{code}/move-region` | `region, reason` | MOVE REGION: a new home for a player who really moved; they become a member there and a seat they held is left empty. Logged |
+
+`GET /factions/branch` shows the viewed region: `region`, `regionName`, `visiting`, `home`, `visitors` (members of other
+regions viewing it, each `visitor: true` with `from`), and `canAppoint` only at home. A region that goes dormant sends
+its visitors home. Admin player info has `region` and `viewingRegion`; `/me` gives an admin their own `spoofExempt`.
+
+### Anti GPS spoofing (social-signal-plan.md Part C)
+
+Every route that acts on a place passes one check first (`httpapi/located.go`): nodes and tethers nearby, a
+Tether Node's info, harvest, build, upgrade, collect, upload, attack, defuse, drone, intercept, shield, contests,
+drops, posting and taking a job. Each may carry `mock` (the phone marked the fix fake) and `fixAt` (the fix's own
+time, RFC 3339) beside `lat`, `lon` and `accuracyM` (`accuracy` on `/nodes/nearby`); GET routes take them as query
+parameters. Old builds that send neither still work.
+
+- During a **signal lock** every one of them returns **1790** `SignalLocked` (403, data `until`, `incident`: `first` or
+  `repeat`). Sign-in and everything else still work. `/me` returns `signalLockedUntil` and `signalLockLine`.
+- A fix older than `FixMaxAgeSeconds` or from the future: **1791** `FixStale`, noted (`stale_fix`), no lock.
+- A hard signal (the fake flag with `SpoofCheckMockFlag`, or a jump over `SpoofTeleportKmh` and `SpoofTeleportMinKm`
+  after both fixes' accuracy) refuses the request, starts a lock (`SpoofLockMinutes1/2/3`, stepping up within
+  `SpoofRepeatDays`; a new incident during a lock adds no time) and files a report from Signal watch
+  (reason `spoof`, context `{auto, incidents, signals}`; never a position). `SpoofLockEnabled` 0: report only,
+  the request gets 1205. Spoof-exempt players are noted only, never locked.
+- Movement patterns (G2, report only): the last `SpoofPatternFixes` accepted fixes are checked for the same position
+  and accuracy with no jitter at all, the same accuracy on moving fixes, or a dead-straight line at a constant speed.
+  A finding adds a `pattern` signal to the Signal watch report (no lock, not counted toward the step-up), at most once
+  in `SpoofPatternGapHours`; `SpoofPatternEnabled` 0 turns it off.
+- Mods: dismissing a `spoof` report lifts the lock and takes its incidents out of the step-up count. `/me` gives staff
+  `openReports` (players with open reports). Admins: `PUT /admin/players/{code}/spoof-exempt {exempt, reason}`
+  (logged); player info shows `spoofExempt`, and the private block's infringements carry `hard`, `dismissed` and
+  `evidence` (the two fixes, admins only).
+
+### Friends
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/friends` | | `incoming`, `friends`, `outgoing` (`FriendRow {player, level, faction, friendName, status}`; `friendName` only for accepted friends) and your `settings {friendName, findableByEmail, acceptFriends}` |
+| GET | `/friends/search?q=` | | Text with `@` is an email: only the whole address matches (case aside), only players with `findableByEmail`, at most `EmailSearchesPerDay` a day (1783). Otherwise a whole share code, or the first 3+ letters of a callsign (starts-with, up to 20). At most `FriendSearchPerMinute` searches a minute (1783). Returns `[{player, level, faction, status, accepts}]`; never an email or real name |
+| POST | `/friends/{code}` | | Sends a request (notice `friend_request`, pushed). If they had asked you, accepts theirs. Refused (1780, the message says why): yourself, already friends or pending, they don't take requests, `FriendsMax` on either side, `FriendRequestsPerDay`, `FriendRequestsPendingMax` waiting, or they declined you inside `FriendRedeclineDays`. Unanswered requests expire after `FriendRequestExpireDays` |
+| POST | `/friends/{code}/accept` | | Accepts their request (notice `friend_accepted` to them). 1781 if there is none |
+| POST | `/friends/{code}/decline` | | Declines it; nobody is told, and they can't ask again for `FriendRedeclineDays` |
+| PUT | `/me/privacy` | `emailSearchable` | LET PLAYERS FIND ME BY EMAIL (on by default) |
+| DELETE | `/friends/{code}` | | Ends a friendship or takes back a request; nobody is told |
+| PUT | `/me/friends` | `friendName, findableByEmail, acceptFriends` | The name friends see: typed, optional, letters (any script), spaces, `'.-`, up to 32, blocked words refused (1782). The Google/Apple name is never sent |
+
+`GET /players/{code}` adds `friend` ("", `friend`, `incoming`, `outgoing`), `acceptsFriends`, and `friendName` for a friend.
+Branch members (`/factions/branch`) carry `friendState`; `/me` has `emailSearchable` and `friendRequestsWaiting`. Friend
+pushes carry `kind` and `actor` (the other player's share code). Banned players drop out of friend lists (a lifted ban
+brings them back); suspended players can still be found and added.
+
+### Unbound titles
+F2 (phase 5): past the faction level a freelancer who has heard from the seventh voice is given titles, each a badge
+on their profile (`badges [{badge, factionCode: "", factionName: "", region: ""}]`) and a message from `LANGIS`:
+`drifter` at `TitleDrifterLevel` (22) "Drifter. You've earned it.", `wayfarer` at `TitleWayfarerLevel` (26)
+"Wayfarer. They can't place you now.", `unbound` at `TitleUnboundLevel` (30) "Unbound. Like me." Given at the level-up
+that reaches them, or when the day's missions are handed out for a level reached earlier. A member earns no more; titles
+already earned stay.
+
+### Freelancer standing and missions
+- **Neutral standing** (F5): a faction player can't hit a freelancer's Tether Node (1611 with the reason), at any level,
+  unless that freelancer attacked a faction Tether Node in the last `ProtectionLossDays` (3). Freelancer against
+  freelancer keeps the level band. A freelancer's Tether Node still takes uploads from every faction.
+- **Missions** (F3): a freelancer gets `MissionsPerDay` (6), one from each power, at every level; a member gets
+  `MemberMissionsPerDay` (1) from their own power, and a Warden or above a command order besides.
+
+### Device record
+A pledge and a ban stick to the phone and to the Google/Apple sign-in (freelancer-path-plan.md phase 2): the server
+keeps salted one-way hashes in `td.device_marks`, never tied to a player row, so deleting an account undoes neither.
+
+- **Sign-up and sign-in** check the phone's hash (`deviceId`: Android's id, iPhone a Keychain id) and the sign-in's.
+  A ban on either refuses entry with 1122, new account or old. A member's pledge is marked on every phone and sign-in
+  they use; an account that hasn't pledged, on a marked phone or sign-in, is bound to that faction.
+- **Bound accounts:** `/me` carries `pledgeBound` (the faction code), `appealCode` and `appealUrl`; `GET /factions`
+  marks that faction `bound`. Pledging anywhere else answers 1306. If that branch has no commander in their country,
+  they may claim its seat.
+- **A ban** marks every phone and sign-in the player used; **lifting** it clears those marks. **RELEASE PLEDGE**
+  clears the faction from the player's marks.
+- `appealUrl` is a `mailto:` to support with the appeal code filled in. A player's info for admins lists `marks`.
 
 ### Reserved accounts
 Player ids 1 to 10 are never given to a new account (migration 0043, `game/reserved.go`):
@@ -174,7 +314,9 @@ a member (read-only), and must never list the admin as present, as a reader or a
 | Slipstream Vanguard (Tohu) | Faster drones; more carry capacity | `PerkTohuDroneSpeedPct` 30, `PerkTohuCarryPct` 25 |
 | Bastion Order (Merki) | Their Tether Nodes take less damage; intercepts stop more | `PerkMerkiDamagePct` 15, `PerkMerkiInterceptPct` 10 |
 
-`/me` carries `activePerks [{key, line, tag}]` (empty for a freelancer); its `carryCapacity`, `scanRangeM`,
+`/me` carries `activePerks [{key, line, tag}]`: a member's faction perks, or for a freelancer today's **daily favour**
+(freelancer-path-plan.md F4: each power whose freelancer mission they finished today gives `FavourPerkPct`, 40%, of its
+perk until the mission day ends; tags like `+10% SIGNUM`), and `favourOpen` for a freelancer; its `carryCapacity`, `scanRangeM`,
 `tetherCost` and `tetherUpgradeCost` already include them. `key` is one of `crystal`, `upgrade_cost`, `scan`,
 `rare`, `build_cost`, `mission_credit`, `drone_speed`, `carry`, `damage`, `intercept`. A harvest and a mission
 claim answer with `perkTag` when a perk raised the amount. A profile's `faction.perks` lists the same lines,
@@ -336,10 +478,10 @@ Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBas
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leader {code, name}` (the Regional Commander here, null when nobody holds it), `perks [{key, line, tag}]` (what members get, with the numbers: `line` for the FACTIONS screen, `tag` for beside a number it changed, e.g. `+25% SIGNUM`), `mine` (the asking player's own faction: the perks are working on them now), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
-| POST | `/factions/{code}/lead` | Claim regional command of the faction in your region (one Regional Commander per faction per country; first to claim wins). Rank 90. Returns the membership |
+| POST | `/factions/{code}/lead` | **Pledge** to a faction with no Regional Commander in your region, claiming its seat (one per faction per country; first to claim wins). Rank 90. Returns the membership with `powerName` and `powerLine` (the chosen power and its motto, shown once). A pledge is final: there is no leave (freelancer-path-plan.md) |
 | GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{code, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
 | POST | `/factions/branch/wardens` | `code` (the member's share code; 1003 if unknown): the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |
-| POST | `/factions/{code}/join` | Join the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership |
+| POST | `/factions/{code}/join` | **Pledge** to the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership with `powerName` and `powerLine`. Final, like `lead`. Players never see the word "join": the app says PLEDGE |
 
 ### The powers' calls and messages
 
@@ -427,7 +569,24 @@ never reads as inside the range).
 | 1119 | Sanction is not running | |
 | 1120 | Report is not dismissed | |
 | 1121 | Admin change to a player not allowed (the message says why) | |
+| 1122 | This device is banned (the device record: the phone or the sign-in carries a ban). Sign-up and sign-in | `appealCode, appealUrl` |
 | 1305 | The primary admin (player 1) stays a freelancer: can't lead or join a faction | |
+| 1770 | That job can't be posted (the message says which rule) | |
+| 1771 | Over a JOBS board limit | |
+| 1772 | That job has no slot left, or it ended | |
+| 1773 | You can't take that job (the message says why) | |
+| 1774 | Not enough in storage to pay every slot | `short` |
+| 1780 | Friend request refused (message says why) | |
+| 1781 | No friend request from that player | |
+| 1782 | The name for friends can't be used | |
+| 1783 | Too many email searches today | |
+| 1790 | Signal lock: location actions refused | `until`, `incident` |
+| 1791 | The fix is too old or from the future | |
+| 1795 | No region near where the player stands | |
+| 1796 | The region where the player stands isn't live yet | `region` |
+| 1797 | That region has no Regional Commander yet (can't be viewed) | |
+| 1798 | Only faction members have regions | |
+| 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

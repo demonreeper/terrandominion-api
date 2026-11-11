@@ -8,7 +8,8 @@ import "strings"
 //	       freelancer: the owner never leads or joins a faction.
 //	2-7    the six powers, one system account each, in faction order: 2 Signum, 3 Shingō, 4 Ishāra,
 //	       5 Sēma, 6 Tohu, 7 Merki. Nobody signs in as them.
-//	8-10   held for later.
+//	8      the seventh voice, Langis (signal_unbound, migration 0049). Never shown before its call.
+//	9-10   held for later.
 //	11+    everyone else, moderators and other admins included.
 const (
 	PrimaryAdminID = 1

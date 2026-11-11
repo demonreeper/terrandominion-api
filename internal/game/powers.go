@@ -158,43 +158,44 @@ func PowerVoice(power int) string {
 
 // powerLines is what each power says. No power says its own name: the call screen shows who is
 // calling. Each words the day 3 message its own way, because one sentence from all six would link
-// them.
+// them. The day 3 message also says the choice is final (freelancer-path-plan.md C4), each power in
+// its own words.
 var powerLines = map[int]map[string]string{
 	PowerSignum: {
 		CallLevel10:       "You gather like someone who knows the light runs out. Keep counting. I am.",
 		CallLevel19:       "Freelancer. I have counted every shard you carried. Not one was wasted. The light remembers those who gather it. When you reach the threshold, stand with the Lumen Collective. I will wait.",
 		CallLevel19Repeat: "Again. I am patient. The light is not.",
-		MessageLevel19:    "You were given a chance. Few are. Choose wisely.",
+		MessageLevel19:    "You were given a chance. Few are. Choose wisely. Once you choose, you cannot unchoose. The light remembers.",
 	},
 	PowerShingo: {
 		CallLevel10:       "Half the walkers out there build nothing. You build. Don't stop now.",
 		CallLevel19:       "Listen. You build. You repair. You don't walk away from what you started. Most walkers leave nothing behind. You leave structures. Forge Meridian needs hands like yours. Reach level twenty. Then build something that lasts.",
 		CallLevel19Repeat: "The offer stands. Like everything we build.",
-		MessageLevel19:    "Chances are built once. This was yours. Choose wisely.",
+		MessageLevel19:    "Chances are built once. This was yours. Choose wisely. A foundation is poured once. So is a choice.",
 	},
 	PowerSema: {
 		CallLevel10:       "You found something today that no one else saw. So did I. I found you.",
 		CallLevel19:       "You keep finding what others walk straight past. That is how I found you. The Veil never asks twice. For you, perhaps. Reach twenty, and I will show you what is hidden.",
 		CallLevel19Repeat: "You let it ring. I noticed. I notice everything.",
-		MessageLevel19:    "I do not call a third time. You were seen. Choose wisely.",
+		MessageLevel19:    "I do not call a third time. You were seen. Choose wisely. A choice, once made, cannot be unseen.",
 	},
 	PowerIshara: {
 		CallLevel10:       "Your ledger is getting interesting. Keep it that way, and we may do business.",
 		CallLevel19:       "I have reviewed your harvests, your uploads, your margins. Impressive. I would like to make you an offer. At level twenty it becomes binding. Consider the price of saying no.",
 		CallLevel19Repeat: "My offer has not changed. The market has.",
-		MessageLevel19:    "Final offer. You were given a chance most never get. Choose wisely.",
+		MessageLevel19:    "Final offer. You were given a chance most never get. Choose wisely. This contract has no exit clause.",
 	},
 	PowerTohu: {
 		CallLevel10:       "You're fast. But not fast enough yet. Keep moving.",
 		CallLevel19:       "No time. You reached nodes others never even saw. That is what we ride on. Slipstream Vanguard moves at dawn, every dawn. Hit twenty. Then keep up.",
 		CallLevel19Repeat: "Still standing still? Move.",
-		MessageLevel19:    "Last signal. The chance is moving. Choose fast, choose wisely.",
+		MessageLevel19:    "Last signal. The chance is moving. Choose fast, choose wisely. There is no turning back. None.",
 	},
 	PowerMerki: {
 		CallLevel10:       "You held when you could have run. Remember that feeling. You will need it.",
 		CallLevel19:       "I watched you hold your ground when running was easier. Few do. The Bastion Order does not forget a wall that stands. Reach twenty. Hold the line with us.",
 		CallLevel19Repeat: "The line still holds. Your place in it is open.",
-		MessageLevel19:    "The gate was opened for you. It will not stay open. Choose wisely.",
+		MessageLevel19:    "The gate was opened for you. It will not stay open. Choose wisely. A wall once raised is never given back. Neither is a choice.",
 	},
 }
 

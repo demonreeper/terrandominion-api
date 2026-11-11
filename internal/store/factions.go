@@ -29,6 +29,8 @@ type Faction struct {
 	// where they are working on them now. Both filled by the service.
 	Perks []PerkLine `json:"perks"`
 	Mine  bool       `json:"mine"`
+	// Bound marks the faction a pledge made on this phone or sign-in binds the player to.
+	Bound bool `json:"bound,omitempty"`
 
 	LeaderID sql.NullInt64 `json:"-"`
 }
@@ -150,7 +152,8 @@ type Badge struct {
 // Badges lists a player's badges, oldest first.
 func Badges(ctx context.Context, q db.Querier, playerID int64) ([]Badge, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT b.badge, f.code, f.name, b.region FROM td.player_badges b JOIN td.factions f ON f.id = b.faction_id
+		SELECT b.badge, COALESCE(f.code, ''), COALESCE(f.name, ''), b.region
+		FROM td.player_badges b LEFT JOIN td.factions f ON f.id = b.faction_id
 		WHERE b.player_id = $1 ORDER BY b.earned_at`, playerID)
 	if err != nil {
 		return nil, err
@@ -165,6 +168,19 @@ func Badges(ctx context.Context, q db.Querier, playerID int64) ([]Badge, error) 
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// GrantTitle gives a player a badge that belongs to no faction (an Unbound title). It reports
+// whether the badge is new.
+func GrantTitle(ctx context.Context, q db.Querier, playerID int64, badge string) (bool, error) {
+	res, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_badges (player_id, badge, faction_id, region) VALUES ($1, $2, NULL, '')
+		ON CONFLICT DO NOTHING`, playerID, badge)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }
 
 // WakeFaction marks a faction active when its first region is claimed.
@@ -190,6 +206,31 @@ type Membership struct {
 	// Region is the branch's country (MV); RankTitle names the rank. Filled by the service.
 	Region    string `json:"region,omitempty"`
 	RankTitle string `json:"rankTitle,omitempty"`
+	// PowerName and PowerLine are only on a pledge's answer: the chosen power and its short line
+	// (its motto), shown once after HOLD TO PLEDGE.
+	PowerName string `json:"powerName,omitempty"`
+	PowerLine string `json:"powerLine,omitempty"`
+}
+
+// FactionVoice is a faction's power and its motto.
+func FactionVoice(ctx context.Context, q db.Querier, factionID int) (persona, motto string, err error) {
+	err = q.QueryRowContext(ctx, `SELECT persona, motto FROM td.factions WHERE id = $1`, factionID).Scan(&persona, &motto)
+	return persona, motto, err
+}
+
+// ReleaseMember takes a player out of their faction (an admin's RELEASE PLEDGE). A Regional
+// Commander's seat in that country is left empty. Reports the faction released from (0 when none).
+func ReleaseMember(ctx context.Context, q db.Querier, playerID int64) (int, error) {
+	var faction int
+	err := q.QueryRowContext(ctx, `DELETE FROM td.faction_members WHERE player_id = $1 RETURNING faction_id`, playerID).Scan(&faction)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	_, err = q.ExecContext(ctx, `UPDATE td.faction_branches SET leader_player_id = NULL WHERE leader_player_id = $1`, playerID)
+	return faction, err
 }
 
 // MembershipOf returns nil for a freelancer.
