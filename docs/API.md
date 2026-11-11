@@ -73,6 +73,16 @@ gear, items, Tether Node places or last-seen time. Your own profile adds XP and 
 (`tether_nodes.destroyed_by`), `dronesIntercepted` drones stopped at their own Tether Nodes, `activeSince` the
 first day of the month the account was made.
 
+### Profile web page (share links)
+`GET /p/{code}` (public, no sign-in, not under `/v1`): the web page behind a profile share link, HTML from
+`web/profile.html` embedded in `tdapi`. It shows the same public fields as `GET /v1/players/{code}`, with Open
+Graph and Twitter tags (`og:title`, `og:description`, `og:url`) so chat apps draw a preview card, an
+"Open in Terran Dominion" link (the share link itself: it opens the game once App Links are set up, P3) and a
+store button for each of `TD_PLAY_URL` and `TD_APPSTORE_URL` that is set. An unknown, deleted or banned player,
+or text that is not a code, gets the same page saying "This operative is no longer active." with 404.
+`Cache-Control: public, max-age=300`; rate limited per IP like every request. `/me` and a profile carry the
+link as `shareUrl` (`TD_PUBLIC_URL` + `/p/` + code; the dev address until the release domain is bought).
+
 ### Faction perks
 Members of a faction get its perks; they stop the moment the player leaves. The server applies them
 (`game.FactionPerks`), and every number is a setting (`Perk…Pct`, group `factions`; 0 switches a perk off):

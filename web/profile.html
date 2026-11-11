@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+<meta name="description" content="{{.Description}}">
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="Terran Dominion">
+<meta property="og:title" content="{{.Title}}">
+<meta property="og:description" content="{{.Description}}">
+<meta property="og:url" content="{{.URL}}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{.Title}}">
+<meta name="twitter:description" content="{{.Description}}">
+<meta name="theme-color" content="#030811">
+<meta name="robots" content="noindex">
+<style>
+  :root { --bg: #030811; --row: #05121f; --line: rgba(89, 217, 255, .25); --accent: #59d9ff; --amber: #ffc740; --dim: #ccdeed; --muted: #99adc4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: #fff; font-family: "Exo 2", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(120% 60% at 50% 0%, rgba(20, 70, 110, .45), transparent 60%), var(--bg); }
+  main { max-width: 560px; margin: 0 auto; padding: 28px 18px 40px; }
+  .kicker { color: var(--accent); font-size: 13px; letter-spacing: .08em; }
+  h1 { margin: 2px 0 22px; font-size: 34px; line-height: 1; letter-spacing: .02em; }
+  .card { display: flex; align-items: center; gap: 16px; padding: 18px; background: var(--row); border: 1px solid var(--line); }
+  .hex { flex: none; width: 72px; height: 72px; display: grid; place-items: center; background: #0a3357; color: var(--accent);
+         font-weight: 600; font-size: 22px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .who { min-width: 0; flex: 1; }
+  .name { font-weight: 600; font-size: 20px; overflow-wrap: anywhere; }
+  .standing { margin-top: 4px; font-size: 13px; letter-spacing: .04em; color: var(--amber); }
+  .level { flex: none; color: var(--accent); font-size: 24px; font-weight: 500; white-space: nowrap; }
+  h2 { margin: 24px 0 8px; color: var(--accent); font-size: 13px; font-weight: 500; letter-spacing: .08em; }
+  .chip { margin-bottom: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; letter-spacing: .03em; border: 1px solid; }
+  .chip.badge { color: var(--amber); border-color: rgba(255, 199, 64, .6); background: rgba(255, 199, 64, .1); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 16px; margin-bottom: 8px;
+         background: var(--row); border: 1px solid rgba(89, 217, 255, .18); }
+  .row span { color: var(--dim); font-size: 13px; letter-spacing: .03em; }
+  .row b { font-size: 20px; font-weight: 500; }
+  .actions { margin-top: 26px; display: grid; gap: 10px; }
+  .button { display: block; padding: 15px; text-align: center; text-decoration: none; font-weight: 700; letter-spacing: .04em; color: #fff;
+            background: #0d528c; border: 1px solid transparent; }
+  .button.second { background: #06182a; border-color: var(--line); color: var(--dim); }
+  .note { margin-top: 18px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
+  .gone { margin-top: 60px; text-align: center; color: var(--dim); font-size: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">// TERRAN DOMINION</div>
+  <h1>OPERATIVE RECORD</h1>
+{{if .Gone}}
+  <p class="gone">This operative is no longer active.</p>
+{{else}}
+  <div class="card">
+    <div class="hex">{{.Initials}}</div>
+    <div class="who">
+      <div class="name">OPERATIVE: {{.Name}}</div>
+      <div class="standing"{{if .FactionColor}} style="color: {{.FactionColor}}"{{end}}>{{.Standing}}</div>
+    </div>
+    <div class="level">LVL {{.Level}}</div>
+  </div>
+{{if .Perks}}
+  <h2>// FACTION PERKS</h2>
+  {{range .Perks}}<div class="chip"{{if $.FactionColor}} style="color: {{$.FactionColor}}; border-color: {{$.FactionColor}}"{{end}}>{{.}}</div>
+  {{end}}
+{{end}}
+{{if .Badges}}
+  <h2>// BADGES</h2>
+  {{range .Badges}}<div class="chip badge">{{.}}</div>
+  {{end}}
+{{end}}
+  <h2>// SERVICE RECORD</h2>
+  {{range .Record}}<div class="row"><span>{{.Label}}</span><b>{{.Value}}</b></div>
+  {{end}}
+{{end}}
+  <div class="actions">
+    {{if not .Gone}}<a class="button" href="{{.URL}}">OPEN IN TERRAN DOMINION</a>{{end}}
+    {{if .PlayURL}}<a class="button second" href="{{.PlayURL}}">GET IT ON GOOGLE PLAY</a>{{end}}
+    {{if .AppStoreURL}}<a class="button second" href="{{.AppStoreURL}}">DOWNLOAD ON THE APP STORE</a>{{end}}
+  </div>
+  <p class="note">Terran Dominion is a game you play by walking the real world.{{if not (or .PlayURL .AppStoreURL)}} It is in pre-alpha testing: not in the stores yet.{{end}}</p>
+</main>
+</body>
+</html>

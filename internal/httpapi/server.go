@@ -115,6 +115,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/admin/seed", s.admin(s.adminSeedArea))
 	mux.HandleFunc("POST /v1/admin/seed/cell", s.admin(s.adminReseedCell))
 
+	// The web page behind a profile share link: public, no sign-in.
+	mux.HandleFunc("GET /p/{code}", s.profilePage)
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, r, apperr.NotFound) })
 
 	return s.base(mux)

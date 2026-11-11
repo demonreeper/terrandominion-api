@@ -33,6 +33,10 @@ type Config struct {
 	// PublicURL is the web address players reach this server at, without a trailing slash. Profile
 	// share links are built on it (PublicURL + "/p/<code>").
 	PublicURL string
+	// PlayURL and AppStoreURL are the store pages the profile web page links to. Empty until the
+	// game is in that store: the page then leaves the button out.
+	PlayURL     string
+	AppStoreURL string
 }
 
 func (c Config) IsLive() bool { return c.Env == "live" }
@@ -49,6 +53,8 @@ func Load() (Config, error) {
 		FCMProjectID:       os.Getenv("TD_FCM_PROJECT_ID"),
 		FCMCredentialsFile: os.Getenv("TD_FCM_CREDENTIALS_FILE"),
 		PublicURL:          strings.TrimRight(getenv("TD_PUBLIC_URL", "https://td-dev.demonreeper.xyz"), "/"),
+		PlayURL:            os.Getenv("TD_PLAY_URL"),
+		AppStoreURL:        os.Getenv("TD_APPSTORE_URL"),
 	}
 
 	trust, err := strconv.ParseBool(getenv("TD_TRUST_PROXY", "true"))
