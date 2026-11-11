@@ -17,7 +17,7 @@ func render(t *testing.T, page ProfilePage) string {
 
 func TestProfilePageShowsThePublicProfile(t *testing.T) {
 	html := render(t, ProfilePage{
-		Title: "ECHO-7 // Terran Dominion", Description: "Level 12. Lumen Collective, Warden. 214 nodes harvested.",
+		Title: "ECHO-7 // Tether Rise", Description: "Level 12. Lumen Collective, Warden. 214 nodes harvested.",
 		URL: "https://td-dev.demonreeper.xyz/p/K7QX3M9P", Name: "ECHO-7", Initials: "E7", Level: 12,
 		Standing: "LUMEN COLLECTIVE // WARDEN", FactionColor: "#4fd8ff",
 		Perks:  []string{"+25% CRYSTAL FROM HARVESTS AND TETHER NODES"},
@@ -25,11 +25,11 @@ func TestProfilePageShowsThePublicProfile(t *testing.T) {
 		Record: []RecordLine{{"NODES HARVESTED", "214"}, {"TETHER NODES BUILT", "9"}},
 	})
 	for _, want := range []string{
-		`<meta property="og:title" content="ECHO-7 // Terran Dominion">`,
+		`<meta property="og:title" content="ECHO-7 // Tether Rise">`,
 		`<meta property="og:url" content="https://td-dev.demonreeper.xyz/p/K7QX3M9P">`,
 		`<meta property="og:description" content="Level 12. Lumen Collective, Warden. 214 nodes harvested.">`,
 		"OPERATIVE: ECHO-7", "LVL 12", "LUMEN COLLECTIVE // WARDEN", "NODES HARVESTED", ">214<",
-		"FOUNDER // LUMEN COLLECTIVE", "25% CRYSTAL FROM HARVESTS AND TETHER NODES", "OPEN IN TERRAN DOMINION",
+		"FOUNDER // LUMEN COLLECTIVE", "25% CRYSTAL FROM HARVESTS AND TETHER NODES", "OPEN IN TETHER RISE",
 		"not in the stores yet",
 	} {
 		if !strings.Contains(html, want) {
@@ -74,11 +74,11 @@ func TestProfilePageEscapesEverything(t *testing.T) {
 }
 
 func TestProfilePageGone(t *testing.T) {
-	html := render(t, ProfilePage{Gone: true, Title: "Terran Dominion", Name: "SHOULD-NOT-SHOW"})
+	html := render(t, ProfilePage{Gone: true, Title: "Tether Rise", Name: "SHOULD-NOT-SHOW"})
 	if !strings.Contains(html, "This operative is no longer active.") {
 		t.Error("the gone page should say so")
 	}
-	for _, without := range []string{"SHOULD-NOT-SHOW", "SERVICE RECORD", "OPEN IN TERRAN DOMINION"} {
+	for _, without := range []string{"SHOULD-NOT-SHOW", "SERVICE RECORD", "OPEN IN TETHER RISE"} {
 		if strings.Contains(html, without) {
 			t.Errorf("the gone page should not contain %q", without)
 		}

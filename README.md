@@ -1,6 +1,6 @@
-# Terran Dominion API
+# Tether Rise API
 
-Go game server for Terran Dominion: PostgreSQL + PostGIS, JWT sessions, run behind nginx as a
+Go game server for Tether Rise: PostgreSQL + PostGIS, JWT sessions, run behind nginx as a
 systemd service, with separate dev and live instances on separate databases.
 
 The mobile client is [terrandominion-mobile](https://github.com/demonreeper/terrandominion-mobile);
