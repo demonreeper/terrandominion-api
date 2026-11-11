@@ -16,7 +16,10 @@ import (
 // The powers' calls and written messages (docs/lore-correction-plan.md). One power speaks to a
 // player: the one that matches what they mostly do. Nothing here tells players the six are one.
 
-const callPushBatch = 20
+const (
+	callPushBatch = 20
+	callLogLimit  = 30
+)
 
 // scorePlaystyle counts an action toward the powers it belongs to. Call it inside the action's
 // transaction, with the player locked.
@@ -108,10 +111,12 @@ func startCalls(ctx context.Context, q db.Querier, playerID int64, beforeXP, aft
 // CallsView is GET /v1/calls: the calls waiting for the player and their written messages.
 type CallsView struct {
 	Calls []store.Call `json:"calls"`
-	// MissedCalls are the calls the player rejected, to play once from the message area.
-	MissedCalls []store.Call    `json:"missedCalls"`
-	Messages    []store.Message `json:"messages"`
-	Unread      int             `json:"unread"`
+	// MissedCalls are the calls the player rejected and has not played (for builds before CallLog).
+	MissedCalls []store.Call `json:"missedCalls"`
+	// CallLog is every call the player answered or rejected, latest first, for ALERTS.
+	CallLog  []store.Call    `json:"callLog"`
+	Messages []store.Message `json:"messages"`
+	Unread   int             `json:"unread"`
 }
 
 // Calls lists the calls that have come due and the messages that have arrived. Fetching a call is
@@ -136,16 +141,20 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 				return err
 			}
 		}
-		missed, err := store.MissedCalls(ctx, tx, playerID)
+		log, err := store.CallLog(ctx, tx, playerID, callLogLimit)
 		if err != nil {
 			return err
 		}
-		for i := range missed {
-			missed[i].Voice = game.PowerVoice(missed[i].FactionID)
-			missed[i].Audio = game.CallAudioKey(missed[i].Kind)
-			missed[i].Missed = true
+		out.MissedCalls = []store.Call{}
+		for i := range log {
+			log[i].Voice = game.PowerVoice(log[i].FactionID)
+			log[i].Audio = game.CallAudioKey(log[i].Kind)
+			log[i].Missed = log[i].Rejected
+			if log[i].Rejected && !log[i].Played {
+				out.MissedCalls = append(out.MissedCalls, log[i])
+			}
 		}
-		out.MissedCalls = missed
+		out.CallLog = log
 		out.Messages, err = store.Messages(ctx, tx, playerID, now, 50)
 		if err != nil {
 			return err
@@ -160,7 +169,8 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 	return out, err
 }
 
-// PlayCall marks a call played: it was heard (or ended), and never comes back.
+// PlayCall marks a call heard: it never rings again. Played from ALERTS, a rejected call is spent
+// after one play and an answered call after one replay.
 func (s *Service) PlayCall(ctx context.Context, playerID, callID int64) error {
 	done, err := store.MarkCallPlayed(ctx, s.db, playerID, callID, s.now())
 	if err != nil {

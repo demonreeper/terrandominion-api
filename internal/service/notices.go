@@ -14,6 +14,7 @@ func (s *Service) Notices(ctx context.Context, playerID, after int64) ([]store.N
 	list, err := store.Notices(ctx, s.db, playerID, after, noticeListLimit)
 	for i := range list {
 		list[i].Severity = game.NoticeSeverity(list[i].Kind)
+		_, list[i].Push = game.PushRuleFor(list[i].Kind)
 	}
 	return list, err
 }

@@ -137,7 +137,7 @@ attack `jammedUntil`, spike attack `spikeFiresAt`, drone `arrivesAt`, contest st
   "createdAt": "..." }
 ```
 
-`severity` (`info`, `warning`, `danger`) picks the sound and haptic; unknown future kinds are
+`push` is true for the kinds sent to the phone as notifications (the app lists those in ALERTS). `severity` (`info`, `warning`, `danger`) picks the sound and haptic; unknown future kinds are
 `info`. `tnId`, `actor` (the other player's current display name) and `amount` (whole number) are
 null when they don't apply. `body` is a finished sentence. Every kind:
 
@@ -206,8 +206,8 @@ most. The same power makes the level 19 offer and is the faction marked `invited
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/calls` | `calls`: the calls that have come due and were neither played nor rejected, oldest first (they ring); `missedCalls`: the calls the player rejected and has not played, latest first (`missed: true`, played once from the message area); `messages`: the written messages that have arrived, newest first; `unread`. Fetching a call delivers it, so no push follows |
-| POST | `/calls/{id}/played` | The call was heard (answered, or a missed call played): it never comes back. 1765 if it isn't there to play |
+| GET | `/calls` | `calls`: the calls that have come due and were neither played nor rejected, oldest first (they ring); `callLog`: every call the player answered or rejected, latest first (30 at most), with `rejected`, `played` and `canPlay` (a rejected call plays once, an answered call can be heard once more): ALERTS lists it; `missedCalls`: the rejected calls not yet played (`missed: true`), kept for older builds; `messages`: the written messages that have arrived, newest first; `unread`. Fetching a call delivers it, so no push follows |
+| POST | `/calls/{id}/played` | The call was heard (answered, a rejected call played, or an answered call heard again): it never rings again; a rejected call is spent after one play, an answered call after one replay. 1765 if it has no play left |
 | POST | `/calls/{id}/reject` | REJECT on a ringing call (or it rang out in the app): it stops ringing and moves to `missedCalls`. The power's repeat call and message still come. 1765 if it isn't ringing |
 | POST | `/messages/{id}/read` | Clears a message's unread mark; messages stay. 1766 |
 

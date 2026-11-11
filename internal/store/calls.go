@@ -98,6 +98,11 @@ type Call struct {
 	Audio     string `json:"audio"`
 	Missed    bool   `json:"missed"`
 	FactionID int    `json:"-"`
+	// Only in the call log: Rejected says the player turned it down, Played that it has been heard,
+	// and CanPlay that PLAY still works (a rejected call once, an answered call once more).
+	Rejected bool `json:"rejected"`
+	Played   bool `json:"played"`
+	CanPlay  bool `json:"canPlay"`
 }
 
 // DueCalls lists the player's calls that have come due and have been neither played nor rejected,
@@ -110,13 +115,30 @@ func DueCalls(ctx context.Context, q db.Querier, playerID int64, now time.Time) 
 		ORDER BY c.due_at, c.id`, playerID, now))
 }
 
-// MissedCalls lists the calls the player rejected and has not played yet, latest rejected first.
-func MissedCalls(ctx context.Context, q db.Querier, playerID int64) ([]Call, error) {
-	return scanCalls(q.QueryContext(ctx, `
-		SELECT c.id, c.kind, f.persona, f.code, f.color, c.line, c.due_at, c.faction_id
+// CallLog lists the calls the player answered or rejected, latest first: what ALERTS shows. A
+// rejected call can be played once; an answered one can be heard once more.
+func CallLog(ctx context.Context, q db.Querier, playerID int64, limit int) ([]Call, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT c.id, c.kind, f.persona, f.code, f.color, c.line, c.due_at, c.faction_id,
+		       c.rejected_at IS NOT NULL, c.played_at IS NOT NULL,
+		       c.played_at IS NULL OR (c.rejected_at IS NULL AND c.replayed_at IS NULL)
 		FROM td.player_calls c JOIN td.factions f ON f.id = c.faction_id
-		WHERE c.player_id = $1 AND c.played_at IS NULL AND c.rejected_at IS NOT NULL
-		ORDER BY c.rejected_at DESC, c.id DESC`, playerID))
+		WHERE c.player_id = $1 AND (c.played_at IS NOT NULL OR c.rejected_at IS NOT NULL)
+		ORDER BY GREATEST(c.played_at, c.rejected_at) DESC, c.id DESC LIMIT $2`, playerID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]Call, 0, 4)
+	for rows.Next() {
+		var c Call
+		if err := rows.Scan(&c.ID, &c.Kind, &c.Persona, &c.FactionCode, &c.Color, &c.Line, &c.DueAt, &c.FactionID,
+			&c.Rejected, &c.Played, &c.CanPlay); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 // MarkCallRejected moves a ringing call to the missed calls. It reports false when the call is not
@@ -157,12 +179,16 @@ func MarkCallsDelivered(ctx context.Context, q db.Querier, playerID int64, now t
 	return err
 }
 
-// MarkCallPlayed ends a call for good. It reports false when the call is not the player's, not due
-// or already played.
+// MarkCallPlayed notes a call heard: the first time ends its ringing for good, and on an answered
+// call a second time uses up its one replay. It reports false when the call is not the player's,
+// not due, or has no play left.
 func MarkCallPlayed(ctx context.Context, q db.Querier, playerID, id int64, now time.Time) (bool, error) {
 	res, err := q.ExecContext(ctx, `
-		UPDATE td.player_calls SET played_at = $3, delivered_at = COALESCE(delivered_at, $3)
-		WHERE id = $1 AND player_id = $2 AND played_at IS NULL AND due_at <= $3`, id, playerID, now)
+		UPDATE td.player_calls SET played_at = COALESCE(played_at, $3),
+		       replayed_at = CASE WHEN played_at IS NULL THEN replayed_at ELSE $3 END,
+		       delivered_at = COALESCE(delivered_at, $3)
+		WHERE id = $1 AND player_id = $2 AND due_at <= $3
+		  AND (played_at IS NULL OR (rejected_at IS NULL AND replayed_at IS NULL))`, id, playerID, now)
 	if err != nil {
 		return false, err
 	}

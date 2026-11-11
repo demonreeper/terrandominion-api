@@ -377,6 +377,8 @@ type Notice struct {
 	Amount    *int64    `json:"amount"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"createdAt"`
+	// Push: this kind is sent to the phone as a notification, so ALERTS lists it. Filled by the service.
+	Push bool `json:"push"`
 }
 
 // NewNotice is a notice to write. TetherID and ActorID are 0 and Amount nil when they don't apply.
