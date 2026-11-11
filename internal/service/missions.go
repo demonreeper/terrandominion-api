@@ -69,6 +69,9 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 		return err
 	}
 	n := max(0, settings.MissionsPerDay)
+	// Walk together X3: now and then one of the day's missions is a link mission.
+	link := settings.LinkMissionChancePct > 0 && rand.IntN(100) < settings.LinkMissionChancePct
+	var used []int
 	give := func(audience string, factionID, count int, oneEach bool) error {
 		rows, err := store.MissionCandidates(ctx, q, audience, factionID, player.Level)
 		if err != nil {
@@ -81,6 +84,7 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 			cands = append(cands, game.MissionCandidate{ID: r.ID, FactionID: r.FactionID, Weight: r.Weight})
 		}
 		for _, picked := range game.PickMissions(cands, count, oneEach, rand.IntN) {
+			used = append(used, picked.FactionID)
 			reward := game.MissionRewardFor(settings, player.Level, audience == game.AudienceCommand, rand.Float64())
 			if err := store.GiveMission(ctx, q, playerID, day, audience, byID[picked.ID], store.MissionReward{
 				XP: reward.XP, Credits: reward.Credits, Item: reward.Item, ItemCount: reward.ItemCount,
@@ -100,7 +104,14 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 		if err := grantTitles(ctx, q, playerID, player.Level, settings, time.Now()); err != nil {
 			return err
 		}
-		return give(game.AudienceFreelancer, 0, n, true)
+		if !link || n == 0 {
+			return give(game.AudienceFreelancer, 0, n, true)
+		}
+		if err := give(game.AudienceFreelancer, 0, n-1, true); err != nil {
+			return err
+		}
+		// From one of the six not heard from yet today, so a freelancer still hears from each once.
+		return giveLinkMission(ctx, q, playerID, day, game.AudienceFreelancer, freeFaction(used), player.Level, settings)
 	}
 	// A member hears only from their own power: MemberMissionsPerDay, and a command order for a
 	// Warden or above (freelancer-path-plan.md F3).
@@ -110,7 +121,45 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 			return err
 		}
 	}
-	return give(game.AudienceMember, membership.FactionID, own, false)
+	if !link || own == 0 {
+		return give(game.AudienceMember, membership.FactionID, own, false)
+	}
+	if err := give(game.AudienceMember, membership.FactionID, own-1, false); err != nil {
+		return err
+	}
+	return giveLinkMission(ctx, q, playerID, day, game.AudienceMember, membership.FactionID, player.Level, settings)
+}
+
+// freeFaction is one of the six powers not in used (any, if all are), picked at random.
+func freeFaction(used []int) int {
+	taken := map[int]bool{}
+	for _, f := range used {
+		taken[f] = true
+	}
+	var free []int
+	for f := 1; f <= 6; f++ {
+		if !taken[f] {
+			free = append(free, f)
+		}
+	}
+	if len(free) == 0 {
+		return 1 + rand.IntN(6)
+	}
+	return free[rand.IntN(len(free))]
+}
+
+// giveLinkMission gives one of a power's link missions (walk 1 km linked, harvest a duo node).
+func giveLinkMission(ctx context.Context, q db.Querier, playerID int64, day time.Time, audience string, factionID, level int,
+	settings game.Settings) error {
+	rows, err := store.LinkMissionTypes(ctx, q, audience, factionID)
+	if err != nil || len(rows) == 0 {
+		return err
+	}
+	picked := rows[rand.IntN(len(rows))]
+	reward := game.MissionRewardFor(settings, level, false, rand.Float64())
+	return store.GiveMission(ctx, q, playerID, day, audience, picked, store.MissionReward{
+		XP: reward.XP, Credits: reward.Credits, Item: reward.Item, ItemCount: reward.ItemCount,
+	})
 }
 
 // advanceMissions counts an action toward the player's missions for today, giving them first if

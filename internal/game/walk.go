@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math"
 	"time"
 )
@@ -255,4 +256,103 @@ func WalkAmount(amount int64, perkMult float64, linkPct int) int64 {
 // WalkScanRange is a scan range from the unperked one, with the perk multiplier and the link bonus added.
 func WalkScanRange(baseM, perkMult float64, linkPct int) float64 {
 	return baseM * (perkMult + float64(max(0, linkPct))/100)
+}
+
+// ---- W2b extras (docs/walk-together-plan.md X1, X2, X3, X5) ---------------------------------------------
+
+// Badges walk together gives (X5): a first link, a first group node, and four distances walked together.
+const (
+	BadgeWalkFirstLink      = "walk_first_link"
+	BadgeWalkFirstGroupNode = "walk_first_group_node"
+)
+
+// WalkDistanceBadge is the badge for a distance milestone in kilometres ("walk_km_5").
+func WalkDistanceBadge(km int) string { return fmt.Sprintf("walk_km_%d", km) }
+
+// WalkMilestonesCrossed lists the distance badges reached going from one total to another (metres).
+func WalkMilestonesCrossed(s Settings, fromM, toM float64) []string {
+	var out []string
+	for _, km := range []int{s.WalkMilestoneKm1, s.WalkMilestoneKm2, s.WalkMilestoneKm3, s.WalkMilestoneKm4} {
+		if km <= 0 {
+			continue
+		}
+		m := float64(km) * 1000
+		if fromM < m && toM >= m {
+			out = append(out, WalkDistanceBadge(km))
+		}
+	}
+	return out
+}
+
+// GroupNodeName is a group node's size word, also its locked badge: DUO, TRIO, QUAD.
+func GroupNodeName(size int) string {
+	switch size {
+	case 2:
+		return "DUO"
+	case 3:
+		return "TRIO"
+	case 4:
+		return "QUAD"
+	}
+	return ""
+}
+
+// GroupNodeYield is how many times a normal node's amount a group node gives each member (x3 / x5 / x8).
+func GroupNodeYield(s Settings, size int) float64 {
+	switch size {
+	case 2:
+		return s.GroupNodeYieldX2
+	case 3:
+		return s.GroupNodeYieldX3
+	case 4:
+		return s.GroupNodeYieldX4
+	}
+	return 1
+}
+
+// PickGroupNodeSize chooses a new group node's size by the mix weights (more duo than quad); r is in [0, 1).
+// 0 when every weight is 0.
+func PickGroupNodeSize(s Settings, r float64) int {
+	weights := []int{max(0, s.GroupNodeMixDuo), max(0, s.GroupNodeMixTrio), max(0, s.GroupNodeMixQuad)}
+	total := weights[0] + weights[1] + weights[2]
+	if total == 0 {
+		return 0
+	}
+	pick := r * float64(total)
+	for i, w := range weights {
+		if pick < float64(w) {
+			return i + 2
+		}
+		pick -= float64(w)
+	}
+	return 4
+}
+
+// GroupNodeChance is the chance one world tick places a group node, for this many seeded cells.
+func GroupNodeChance(s Settings, seededCells int, tick time.Duration) float64 {
+	if seededCells <= 0 || s.GroupNodeRatePerCell <= 0 {
+		return 0
+	}
+	return math.Min(1, float64(seededCells)*s.GroupNodeRatePerCell*tick.Hours()/24)
+}
+
+// GroupNodeOpen says whether a group of linked, Bluetooth-confirmed members standing at the node can open it:
+// the group must be at least the node's size, and that many of them within reach.
+func GroupNodeOpen(size, linked, readyAtNode int) bool {
+	return size >= 2 && linked >= size && readyAtNode >= size
+}
+
+// SharedScanTag is the tag on a scan perk shared by the group (X1): "x2 SĒMA (LINKED)" for a doubling, or the
+// perk's own "+N% NAME" otherwise. mult is the perk's multiplier, name its power's tag name.
+func SharedScanTag(mult float64, perkTag string, name string) string {
+	if mult <= 1 {
+		return ""
+	}
+	if math.Abs(mult-math.Round(mult)) < 1e-9 && name != "" {
+		return fmt.Sprintf("x%d %s (LINKED)", int(math.Round(mult)), name)
+	}
+	if perkTag == "" {
+		return ""
+	}
+	return perkTag + " (LINKED)"
 }

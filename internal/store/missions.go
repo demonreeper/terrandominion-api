@@ -83,6 +83,7 @@ func MissionCandidates(ctx context.Context, q db.Querier, audience string, facti
 	rows, err := q.QueryContext(ctx, `
 		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
 		WHERE audience = $1 AND ($2::int = 0 OR faction_id = $2::int) AND $3::int BETWEEN min_level AND max_level
+		  AND NOT link_mission
 		ORDER BY id`, audience, factionID, level)
 	if err != nil {
 		return nil, err
@@ -270,6 +271,27 @@ func FinishedMissionPowers(ctx context.Context, q db.Querier, playerID int64, da
 			return nil, err
 		}
 		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// LinkMissionTypes lists the walk-together link missions (walk-together-plan.md X3) one power gives an audience.
+func LinkMissionTypes(ctx context.Context, q db.Querier, audience string, factionID int) ([]MissionTypeRow, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
+		WHERE audience = $1 AND faction_id = $2 AND link_mission
+		ORDER BY id`, audience, factionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MissionTypeRow
+	for rows.Next() {
+		var t MissionTypeRow
+		if err := rows.Scan(&t.ID, &t.FactionID, &t.Weight, &t.Goal, &t.GoalKey, &t.Count, &t.Line); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
 	}
 	return out, rows.Err()
 }

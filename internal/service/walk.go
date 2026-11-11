@@ -76,6 +76,10 @@ type WalkLinkView struct {
 	BleToken    string   `json:"bleToken"`
 	BleListen   []string `json:"bleListen"`
 	BleRequired bool     `json:"bleRequired"`
+	// X1: your scan range while linked (the group's best scan perk and the link's percent) and the shared perk's
+	// tag ("x2 SĒMA (LINKED)", empty when your own is the best).
+	ScanRangeM float64 `json:"scanRangeM"`
+	ScanTag    string  `json:"scanTag,omitempty"`
 }
 
 // WalkBeatIn is what a heartbeat carries besides the fix: whether Bluetooth is on (and allowed) on this phone,
@@ -147,6 +151,9 @@ type WalkPanel struct {
 	Link   *WalkLinkView     `json:"link"`
 	Ended  string            `json:"ended,omitempty"`
 	Who    *store.PlayerRef  `json:"who,omitempty"`
+	// X1, on heartbeats: what any member's scan found, on every member's map until the link ends.
+	SharedNodes []store.Node `json:"sharedNodes,omitempty"`
+	SharedDrops []store.Drop `json:"sharedDrops,omitempty"`
 }
 
 // walkBonus is the link bonus working on the player right now (zero unless linked, moving, under the cap and
@@ -438,6 +445,11 @@ func (s *Service) AcceptWalk(ctx context.Context, playerID, sessionID int64, ask
 		if err := store.AddWalkMember(ctx, tx, linkID, playerID, device, walkPoint(mine), now); err != nil {
 			return err
 		}
+		for _, id := range []int64{askerID, playerID} {
+			if _, err := store.GrantTitle(ctx, tx, id, game.BadgeWalkFirstLink); err != nil {
+				return err
+			}
+		}
 		return store.DeleteWalkAsk(ctx, tx, askerID, playerID)
 	})
 	if err != nil {
@@ -477,6 +489,10 @@ func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixI
 	day, _ := game.MissionDay(settings, now)
 
 	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		// The player first (missions and badges need them locked), then the link: the same order as accept.
+		if _, err := store.GetPlayerForUpdate(ctx, tx, playerID); err != nil {
+			return err
+		}
 		live, err := store.LockWalkLink(ctx, tx, linkID)
 		if err != nil {
 			return err
@@ -647,7 +663,23 @@ func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixI
 		if err := store.UpdateWalkMember(ctx, tx, linkID, playerID, update); err != nil {
 			return err
 		}
-		return store.AddWalkBonus(ctx, tx, playerID, day, update.AddBonusSec, update.AddWalkedM)
+		walkedBefore, err := store.WalkedTogether(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
+		if err := store.AddWalkBonus(ctx, tx, playerID, day, update.AddBonusSec, update.AddWalkedM); err != nil {
+			return err
+		}
+		// X5 distance badges and X3 link missions count bonus-active metres only.
+		for _, badge := range game.WalkMilestonesCrossed(settings, walkedBefore, walkedBefore+update.AddWalkedM) {
+			if _, err := store.GrantTitle(ctx, tx, playerID, badge); err != nil {
+				return err
+			}
+		}
+		if metres := int(math.Round(update.AddWalkedM)); metres > 0 {
+			return advanceMissions(ctx, tx, playerID, game.GoalWalkLinked, "", metres, settings, now)
+		}
+		return nil
 	})
 	if err != nil {
 		return WalkPanel{}, err
@@ -661,6 +693,12 @@ func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixI
 		return out, err
 	}
 	out.Link = view
+	if out.SharedNodes, err = store.WalkFindNodes(ctx, s.db, linkID, mine.Lat, mine.Lon); err != nil {
+		return out, err
+	}
+	if out.SharedDrops, err = store.WalkFindDrops(ctx, s.db, linkID, mine.Lat, mine.Lon); err != nil {
+		return out, err
+	}
 	return out, nil
 }
 
@@ -772,6 +810,9 @@ func (s *Service) walkLinkView(ctx context.Context, q db.Querier, linkID, player
 		BleListen:        []string{},
 		BleRequired:      settings.WalkLinkRequireBle == 1,
 	}
+	if view.ScanRangeM, view.ScanTag, err = s.linkedScanRange(ctx, q, playerID, settings); err != nil {
+		return nil, err
+	}
 	for _, m := range members {
 		mv := WalkMemberView{Player: m.Player, Me: m.PlayerID == playerID, OutOfRange: m.OutSince != nil}
 		if m.PlayerID == playerID {
@@ -799,3 +840,109 @@ func (s *Service) walkLinkView(ctx context.Context, q db.Querier, linkID, player
 }
 
 func round6(v float64) float64 { return math.Round(v*1e6) / 1e6 }
+
+// ---- W2b extras (walk-together-plan.md X1, X2, X5) -----------------------------------------------
+
+// groupScanPerk is the best scan perk in the player's live link (X1: only the scan perk is shared), with its tag
+// ("x2 SĒMA (LINKED)"). The player's own perks and no tag when they aren't linked or nobody's beats theirs.
+func (s *Service) groupScanPerk(ctx context.Context, q db.Querier, playerID int64, own game.Perks,
+	settings game.Settings) (game.Perks, string, error) {
+	linkID, err := store.LiveWalkLink(ctx, q, playerID)
+	if err != nil || linkID == 0 {
+		return own, "", err
+	}
+	members, err := store.WalkMembers(ctx, q, linkID)
+	if err != nil {
+		return own, "", err
+	}
+	best, tag := own, ""
+	for _, m := range members {
+		if m.PlayerID == playerID {
+			continue
+		}
+		perks, lines, err := s.perksOf(ctx, q, m.PlayerID, settings)
+		if err != nil {
+			return own, "", err
+		}
+		if perks.ScanRangeMult <= best.ScanRangeMult {
+			continue
+		}
+		best.ScanRangeMult = perks.ScanRangeMult
+		best.RareRangeMult = math.Max(best.RareRangeMult, perks.RareRangeMult)
+		perkTag := game.PerkTagIn(lines, game.PerkScan)
+		name := ""
+		if i := strings.Index(perkTag, " "); i > 0 {
+			name = perkTag[i+1:]
+		}
+		tag = game.SharedScanTag(perks.ScanRangeMult, perkTag, name)
+	}
+	return best, tag, nil
+}
+
+// linkedScanRange is the player's scan range while linked, as the server scans: the gear's range with the group's
+// best scan perk and the link's percent added. 0 when the player has no scanner.
+func (s *Service) linkedScanRange(ctx context.Context, q db.Querier, playerID int64, settings game.Settings) (float64, string, error) {
+	stats, perks, err := s.equipped(ctx, q, playerID, settings)
+	if err != nil || stats.ScanRangeM <= 0 || perks.ScanRangeMult <= 0 {
+		return 0, "", err
+	}
+	base := stats.ScanRangeM / perks.ScanRangeMult
+	best, tag, err := s.groupScanPerk(ctx, q, playerID, perks, settings)
+	if err != nil {
+		return 0, "", err
+	}
+	mult := math.Max(perks.ScanRangeMult, best.ScanRangeMult)
+	return math.Min(settings.NearbyMaxRadiusM, game.WalkScanRange(base, mult, s.walkBonus(ctx, q, playerID, settings).Scan)), tag, nil
+}
+
+// checkGroupNode is X2's rule at harvest time: the player's link is at least the node's size, they haven't taken
+// their share, and that many members are at the node (within harvest range) and Bluetooth-confirmed.
+func (s *Service) checkGroupNode(ctx context.Context, tx *sql.Tx, playerID int64, node store.Node, req HarvestRequest,
+	settings game.Settings) error {
+	locked := apperr.GroupNodeLocked.WithData(map[string]any{"size": node.GroupSize})
+	linkID, err := store.LiveWalkLink(ctx, tx, playerID)
+	if err != nil {
+		return err
+	}
+	if linkID == 0 {
+		return locked
+	}
+	members, err := store.WalkMembers(ctx, tx, linkID)
+	if err != nil {
+		return err
+	}
+	if len(members) < node.GroupSize {
+		return locked
+	}
+	if taken, err := store.GroupNodeHarvested(ctx, tx, node.ID, playerID); err != nil {
+		return err
+	} else if taken {
+		return apperr.GroupNodeTaken
+	}
+	now := s.now()
+	grace := time.Duration(settings.WalkLinkGraceSec) * time.Second
+	bleGrace := time.Duration(settings.WalkLinkBleGraceSec) * time.Second
+	ready := 0
+	for _, m := range members {
+		lat, lon, acc := 0.0, 0.0, 0.0
+		switch {
+		case m.PlayerID == playerID:
+			lat, lon, acc = req.Lat, req.Lon, req.AccuracyM
+		case m.Fix != nil && now.Sub(m.LastSeenAt) <= grace:
+			lat, lon, acc = m.Fix.Lat, m.Fix.Lon, m.Fix.AccuracyM
+		default:
+			continue
+		}
+		if game.DistanceM(lat, lon, node.Lat, node.Lon) > settings.HarvestRangeM+math.Min(acc, settings.HarvestRangeM) {
+			continue
+		}
+		if settings.WalkLinkRequireBle == 1 && (m.BleConfirmedAt == nil || now.Sub(*m.BleConfirmedAt) > bleGrace) {
+			continue
+		}
+		ready++
+	}
+	if !game.GroupNodeOpen(node.GroupSize, len(members), ready) {
+		return apperr.GroupNodeGather.WithData(map[string]any{"size": node.GroupSize, "ready": ready})
+	}
+	return nil
+}

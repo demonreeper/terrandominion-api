@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -470,4 +471,83 @@ func WalkedTogether(ctx context.Context, q db.Querier, playerID int64) (float64,
 	var m float64
 	err := q.QueryRowContext(ctx, `SELECT walked_together_m FROM td.players WHERE id = $1`, playerID).Scan(&m)
 	return m, err
+}
+
+// ---- W2b extras -------------------------------------------------------------------------
+
+// RecordWalkFinds notes what a linked member's scan found, for every member's map (X1).
+func RecordWalkFinds(ctx context.Context, q db.Querier, linkID int64, kind string, ids []int64) error {
+	for _, id := range ids {
+		if _, err := q.ExecContext(ctx, `
+			INSERT INTO td.walk_link_finds (link_id, kind, ref_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+			linkID, kind, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WalkFindNodes is the link's shared nodes still on the map, with their distance from a point.
+func WalkFindNodes(ctx context.Context, q db.Querier, linkID int64, lat, lon float64) ([]Node, error) {
+	rows, err := q.QueryContext(ctx, `
+		WITH here AS (SELECT ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography AS g)
+		SELECT n.id, n.name, n.resource, ST_Y(n.location::geometry), ST_X(n.location::geometry), n.reserve,
+		       ST_Distance(n.location, here.g), n.source = 'rare', n.expires_at, COALESCE(n.group_size, 0)
+		FROM td.walk_link_finds f JOIN td.nodes n ON n.id = f.ref_id CROSS JOIN here
+		WHERE f.link_id = $1 AND f.kind = 'node' AND n.status = 'active'
+		ORDER BY n.location <-> here.g LIMIT 100`, linkID, lat, lon)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Node{}
+	for rows.Next() {
+		var n Node
+		if err := rows.Scan(&n.ID, &n.Name, &n.Resource, &n.Lat, &n.Lon, &n.Reserve, &n.DistanceM, &n.Rare, &n.ExpiresAt, &n.GroupSize); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// WalkFindDrops is the link's shared map drops still lying there.
+func WalkFindDrops(ctx context.Context, q db.Querier, linkID int64, lat, lon float64) ([]Drop, error) {
+	rows, err := q.QueryContext(ctx, `
+		WITH here AS (SELECT ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography AS g)
+		SELECT d.id, ST_Y(d.location::geometry), ST_X(d.location::geometry), d.contents, d.expires_at,
+		       ST_Distance(d.location, here.g)
+		FROM td.walk_link_finds f JOIN td.map_drops d ON d.id = f.ref_id CROSS JOIN here
+		WHERE f.link_id = $1 AND f.kind = 'drop' AND d.picked_at IS NULL AND d.expires_at > now()
+		ORDER BY d.location <-> here.g LIMIT 50`, linkID, lat, lon)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Drop{}
+	for rows.Next() {
+		var d Drop
+		var contents []byte
+		if err := rows.Scan(&d.ID, &d.Lat, &d.Lon, &contents, &d.ExpiresAt, &d.DistanceM); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(contents, &d.Contents); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// GroupNodeHarvested says whether the player has taken their once from a group node (X2).
+func GroupNodeHarvested(ctx context.Context, q db.Querier, nodeID, playerID int64) (bool, error) {
+	var ok bool
+	err := q.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM td.group_node_harvests WHERE node_id = $1 AND player_id = $2)`,
+		nodeID, playerID).Scan(&ok)
+	return ok, err
+}
+
+func InsertGroupNodeHarvest(ctx context.Context, q db.Querier, nodeID, playerID int64) error {
+	_, err := q.ExecContext(ctx, `INSERT INTO td.group_node_harvests (node_id, player_id) VALUES ($1, $2)`, nodeID, playerID)
+	return err
 }

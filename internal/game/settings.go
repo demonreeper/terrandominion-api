@@ -65,10 +65,24 @@ type Settings struct {
 	WalkLinkTwinFixes      int
 	WalkLinkTwinM          float64
 	WalkLinkNoBleReportSec int
-	WalkLinkFormM          float64
-	WalkLinkHoldM          float64
-	WalkLinkMaxAccuracyM   float64
-	WalkLinkMoveM          float64
+	// W2b extras: group nodes (X2), link missions (X3), distance milestones (X5).
+	GroupNodeRatePerCell float64
+	GroupNodeMixDuo      int
+	GroupNodeMixTrio     int
+	GroupNodeMixQuad     int
+	GroupNodeYieldX2     float64
+	GroupNodeYieldX3     float64
+	GroupNodeYieldX4     float64
+	GroupNodeHours       float64
+	LinkMissionChancePct int
+	WalkMilestoneKm1     int
+	WalkMilestoneKm2     int
+	WalkMilestoneKm3     int
+	WalkMilestoneKm4     int
+	WalkLinkFormM        float64
+	WalkLinkHoldM        float64
+	WalkLinkMaxAccuracyM float64
+	WalkLinkMoveM        float64
 
 	WelcomeCrystal int
 	WelcomeAlloy   int
@@ -367,6 +381,20 @@ func DefaultSettings() Settings {
 		WalkLinkTwinM:          1,
 		WalkLinkNoBleReportSec: 300,
 
+		GroupNodeRatePerCell: 0.05,
+		GroupNodeMixDuo:      60,
+		GroupNodeMixTrio:     30,
+		GroupNodeMixQuad:     10,
+		GroupNodeYieldX2:     3,
+		GroupNodeYieldX3:     5,
+		GroupNodeYieldX4:     8,
+		GroupNodeHours:       48,
+		LinkMissionChancePct: 25,
+		WalkMilestoneKm1:     5,
+		WalkMilestoneKm2:     25,
+		WalkMilestoneKm3:     100,
+		WalkMilestoneKm4:     500,
+
 		WelcomeCrystal: 800,
 		WelcomeAlloy:   600,
 		WelcomeData:    200,
@@ -646,6 +674,19 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("WalkLinkTwinFixes", &s.WalkLinkTwinFixes)
 	f("WalkLinkTwinM", &s.WalkLinkTwinM)
 	i("WalkLinkNoBleReportSec", &s.WalkLinkNoBleReportSec)
+	f("GroupNodeRatePerCell", &s.GroupNodeRatePerCell)
+	i("GroupNodeMixDuo", &s.GroupNodeMixDuo)
+	i("GroupNodeMixTrio", &s.GroupNodeMixTrio)
+	i("GroupNodeMixQuad", &s.GroupNodeMixQuad)
+	f("GroupNodeYieldX2", &s.GroupNodeYieldX2)
+	f("GroupNodeYieldX3", &s.GroupNodeYieldX3)
+	f("GroupNodeYieldX4", &s.GroupNodeYieldX4)
+	f("GroupNodeHours", &s.GroupNodeHours)
+	i("LinkMissionChancePct", &s.LinkMissionChancePct)
+	i("WalkMilestoneKm1", &s.WalkMilestoneKm1)
+	i("WalkMilestoneKm2", &s.WalkMilestoneKm2)
+	i("WalkMilestoneKm3", &s.WalkMilestoneKm3)
+	i("WalkMilestoneKm4", &s.WalkMilestoneKm4)
 
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)

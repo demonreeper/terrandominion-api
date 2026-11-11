@@ -192,6 +192,10 @@ and `last_fix_at` is the latest fix only, overwritten each heartbeat and wiped o
 One live link per player (partial unique index). `walk_link_trail` keeps a few minutes of fixes for the walking rule;
 `walk_link_asks` (2 minutes), `walk_open` (who has the panel open, with a fix, a minute) and `walk_bonus_days` (bonus
 seconds per player per mission day, for the cap). `players.walked_together_m` is the profile stat.
+W2 (0060) adds each member's Bluetooth state (rotating `ble_token`/`ble_token_prev`, what the phone heard,
+`ble_confirmed_at`) and the L3/L8 counters, and `walk_links.twin_flagged`. W2b (0061): `walk_link_finds` (a link's
+shared scan finds), `nodes.group_size` (duo/trio/quad nodes, source `group`), `group_node_harvests` (each member once)
+and `mission_types.link_mission` (link missions, never drawn as ordinary ones).
 
 ## Rules the database enforces itself
 - carried resources and XP never go negative (CHECK)

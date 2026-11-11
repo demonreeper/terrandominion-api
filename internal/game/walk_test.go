@@ -218,3 +218,45 @@ func TestWalkTwinFixes(t *testing.T) {
 		t.Error("3 m apart is not a twin")
 	}
 }
+
+func TestWalkMilestones(t *testing.T) {
+	s := DefaultSettings()
+	if got := WalkMilestonesCrossed(s, 4900, 5100); len(got) != 1 || got[0] != "walk_km_5" {
+		t.Errorf("5 km: %v", got)
+	}
+	if got := WalkMilestonesCrossed(s, 5100, 5200); len(got) != 0 {
+		t.Errorf("already past: %v", got)
+	}
+	if got := WalkMilestonesCrossed(s, 0, 30000); len(got) != 2 {
+		t.Errorf("5 and 25 km at once: %v", got)
+	}
+}
+
+func TestGroupNodes(t *testing.T) {
+	s := DefaultSettings()
+	if GroupNodeYield(s, 2) != 3 || GroupNodeYield(s, 3) != 5 || GroupNodeYield(s, 4) != 8 {
+		t.Error("yields should be x3 / x5 / x8")
+	}
+	// The mix: 60 duo, 30 trio, 10 quad.
+	if PickGroupNodeSize(s, 0.1) != 2 || PickGroupNodeSize(s, 0.7) != 3 || PickGroupNodeSize(s, 0.95) != 4 {
+		t.Error("mix picks")
+	}
+	if !GroupNodeOpen(2, 2, 2) || GroupNodeOpen(3, 2, 2) || GroupNodeOpen(2, 3, 1) {
+		t.Error("open needs the size linked and at the node")
+	}
+	if GroupNodeName(2) != "DUO" || GroupNodeName(4) != "QUAD" {
+		t.Error("names")
+	}
+}
+
+func TestSharedScanTag(t *testing.T) {
+	if got := SharedScanTag(2, "+100% SĒMA", "SĒMA"); got != "x2 SĒMA (LINKED)" {
+		t.Errorf("x2: %q", got)
+	}
+	if got := SharedScanTag(1.5, "+50% SĒMA", "SĒMA"); got != "+50% SĒMA (LINKED)" {
+		t.Errorf("+50%%: %q", got)
+	}
+	if got := SharedScanTag(1, "", ""); got != "" {
+		t.Errorf("none: %q", got)
+	}
+}

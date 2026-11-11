@@ -169,6 +169,10 @@ var (
 	WalkAskGone    = def(1817, http.StatusNotFound, "That ask has expired.")                            // walk_ask_gone
 	WalkBusy       = def(1818, http.StatusConflict, "Already walking with a group.")                    // walk_busy
 	WalkNotLinked  = def(1819, http.StatusConflict, "You aren't walking with anyone.")                  // walk_not_linked
+	// Group nodes (walk together X2).
+	GroupNodeLocked = def(1820, http.StatusConflict, "This node opens only for a linked group.") // data: size
+	GroupNodeTaken  = def(1821, http.StatusConflict, "You have taken your share of this node.")
+	GroupNodeGather = def(1822, http.StatusConflict, "The whole group must stand at the node with Bluetooth on.") // data: size, ready
 
 	CraftUnknown  = def(1700, http.StatusBadRequest, "That can't be crafted.")
 	GearMissing   = def(1701, http.StatusNotFound, "You don't own that gear.")

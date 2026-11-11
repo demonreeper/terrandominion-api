@@ -493,6 +493,19 @@ running stops the bonus for the rest of the link (`twin_fixes`) and adds a `walk
 Signal watch reports (exempt testers skip it). L8: GPS together with Bluetooth on but nobody heard for
 `WalkLinkNoBleReportSec` (300 s) adds a `walk_no_bluetooth` signal, once per link. Neither locks anyone.
 
+**Extras (W2b).** X1 shared scan: nodes from `/nodes/nearby` and drops from `/drops/nearby` found by any member are
+kept per link; heartbeats return them as `sharedNodes` and `sharedDrops` until the link ends. While linked, the scan
+uses the group's best scan perk (only the scan perk); the link view's `scanRangeM` is the range the server scans with
+and `scanTag` the shared perk's tag (`x2 SĒMA (LINKED)`, empty when your own is best). X2 group nodes: nodes carry
+`groupSize` (2 duo, 3 trio, 4 quad); the world tick places them at `GroupNodeRatePerCell` per seeded cell a day,
+mixed by `GroupNodeMixDuo/Trio/Quad` (60/30/10), lasting `GroupNodeHours` (48). A harvest needs a link at least that
+size (1820, data `size`), that many members within harvest range of the node and Bluetooth-confirmed (1822, data
+`size, ready`), and each member takes it once (1821); the amount is `GroupNodeYieldX2/3/4` (3/5/8) times a normal
+node's, then the link and perk percents. X3 link missions (goals `walk_linked`, count in bonus-active metres, and
+`harvest_group_node`) replace one of the day's missions at `LinkMissionChancePct` (25), from the power that sends the
+player's missions. X5 badges (titles with no faction): `walk_first_link`, `walk_first_group_node`, and
+`walk_km_<n>` at `WalkMilestoneKm1..4` (5, 25, 100, 500) bonus-active kilometres walked together.
+
 Proximity, on forming and every beat: fix taken within `WalkLinkFixAgeSec` (20 s), accuracy ≤ `WalkLinkMaxAccuracyM` (25),
 not fake (spoof-exempt testers skip this); distance less both accuracies (together at most `WalkLinkMaxAccuracyM`) ≤
 `WalkLinkFormM` (30) to form, ≤ `WalkLinkHoldM` (60) to at least one other member to hold; the two fixes within 20 s of each
@@ -672,6 +685,9 @@ never reads as inside the range).
 | 1817 | The ask expired (`walk_ask_gone`) | |
 | 1818 | Already walking with a group (`walk_busy`) | |
 | 1819 | Not walking with anyone (`walk_not_linked`) | |
+| 1820 | A group node needs a linked group that size | `size` |
+| 1821 | You took your share of this group node | |
+| 1822 | The whole group must be at the node with Bluetooth on | `size, ready` |
 | 1700 | Unknown recipe | |
 | 1701 | Gear not owned | |
 | 1702 | Gear already at its top tier | |

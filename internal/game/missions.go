@@ -25,6 +25,9 @@ const (
 	GoalIntercept     = "intercept"      //
 	GoalShield        = "fit_shield"     //
 	GoalAppointWarden = "appoint_warden" //
+	// Walk together link missions (walk-together-plan.md X3): bonus-active metres walked linked, and group nodes.
+	GoalWalkLinked       = "walk_linked"        // count: metres
+	GoalHarvestGroupNode = "harvest_group_node" //
 )
 
 // Mission audiences.
@@ -152,6 +155,10 @@ func MissionTitle(goal, key string, count int) string {
 			return times("Harvest a "+key+" node", "Harvest %d "+key+" nodes")
 		}
 		return times("Harvest a node", "Harvest %d times")
+	case GoalWalkLinked:
+		return fmt.Sprintf("Walk %.1f km linked with a friend", float64(count)/1000)
+	case GoalHarvestGroupNode:
+		return times("Harvest a duo node", "Harvest %d group nodes")
 	case GoalBuildTether:
 		return times("Build a Tether Node", "Build %d Tether Nodes")
 	case GoalUpgradeTether:

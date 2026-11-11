@@ -28,7 +28,21 @@ func (s *Service) NearbyDrops(ctx context.Context, playerID int64, lat, lon floa
 	if stats.ScanRangeM > 0 {
 		radius = math.Min(radius, stats.ScanRangeM)
 	}
-	return store.NearbyDrops(ctx, s.db, lat, lon, radius, 100)
+	drops, err := store.NearbyDrops(ctx, s.db, lat, lon, radius, 100)
+	if err != nil {
+		return nil, err
+	}
+	// Walk together X1: drops a linked member finds show on every member's map until the link ends.
+	if linkID, err := store.LiveWalkLink(ctx, s.db, playerID); err == nil && linkID != 0 && len(drops) > 0 {
+		ids := make([]int64, 0, len(drops))
+		for _, d := range drops {
+			ids = append(ids, d.ID)
+		}
+		if err := store.RecordWalkFinds(ctx, s.db, linkID, "drop", ids); err != nil {
+			return nil, err
+		}
+	}
+	return drops, nil
 }
 
 type PickDropOutcome struct {

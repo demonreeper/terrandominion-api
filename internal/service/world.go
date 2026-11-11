@@ -23,6 +23,15 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 	if err != nil {
 		return nil, err
 	}
+	// Walk together X1: while linked, the scan uses the best scan perk in the group (only the scan perk).
+	if best, _, err := s.groupScanPerk(ctx, s.db, playerID, perks, settings); err != nil {
+		return nil, err
+	} else if best.ScanRangeMult > perks.ScanRangeMult && stats.ScanRangeM > 0 {
+		base := stats.ScanRangeM / perks.ScanRangeMult
+		perks.ScanRangeMult = best.ScanRangeMult
+		perks.RareRangeMult = math.Max(perks.RareRangeMult, best.RareRangeMult)
+		stats.ScanRangeM = base * perks.ScanRangeMult
+	}
 	// Walk together: the link's scan percent is added to the faction perk's, never multiplied
 	// (Sēma's +100% and a 2-link's +25% make +125% on the gear's own range).
 	linkScan := s.walkBonus(ctx, s.db, playerID, settings).Scan
@@ -59,6 +68,16 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 			}
 		}
 		nodes = kept
+	}
+	// X1: what a linked member's scan finds shows on every member's map until the link ends.
+	if linkID, err := store.LiveWalkLink(ctx, s.db, playerID); err == nil && linkID != 0 && len(nodes) > 0 {
+		ids := make([]int64, 0, len(nodes))
+		for _, n := range nodes {
+			ids = append(ids, n.ID)
+		}
+		if err := store.RecordWalkFinds(ctx, s.db, linkID, "node", ids); err != nil {
+			return nil, err
+		}
 	}
 	return nodes, s.addContestInfo(ctx, playerID, nodes, settings)
 }
@@ -109,6 +128,13 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		if node.Status != "active" {
 			return apperr.NodeInactive
 		}
+		// Walk together X2: a group node opens only for a linked group that size, all at the node and
+		// Bluetooth-confirmed; each member takes it once.
+		if node.GroupSize > 0 {
+			if err := s.checkGroupNode(ctx, tx, playerID, node, req, settings); err != nil {
+				return err
+			}
+		}
 
 		stats, perks, err := s.equipped(ctx, tx, playerID, settings)
 		if err != nil {
@@ -151,6 +177,11 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		result, ruleErr := game.EvaluateHarvest(in)
 		if ruleErr != nil {
 			return ruleErr
+		}
+		// A group node gives each member x3 / x5 / x8 of a normal node, as far as they can carry it.
+		if node.GroupSize > 0 {
+			result.Amount = int(min(int64(math.Round(float64(result.Amount)*game.GroupNodeYield(settings, node.GroupSize))),
+				in.CarryCapacity-in.CarriedTotal))
 		}
 		// A faction perk gives more crystal, and a walk-together link more of anything; the two add, never
 		// multiply. As far as the player can still carry it.
@@ -199,6 +230,17 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		}
 		if err := advanceMissions(ctx, tx, playerID, game.GoalHarvest, node.Resource, 1, settings, s.now()); err != nil {
 			return err
+		}
+		if node.GroupSize > 0 {
+			if err := store.InsertGroupNodeHarvest(ctx, tx, node.ID, playerID); err != nil {
+				return err
+			}
+			if err := advanceMissions(ctx, tx, playerID, game.GoalHarvestGroupNode, "", 1, settings, s.now()); err != nil {
+				return err
+			}
+			if _, err := store.GrantTitle(ctx, tx, playerID, game.BadgeWalkFirstGroupNode); err != nil {
+				return err
+			}
 		}
 		// Ground covered since the last harvest counts toward the power that values speed.
 		if lastFix != nil {

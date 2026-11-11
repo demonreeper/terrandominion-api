@@ -26,6 +26,8 @@ const (
 	SeedSource = "seed"
 	// RareSource marks rare roaming nodes, which end at expires_at.
 	RareSource = "rare"
+	// GroupSource marks walk-together group nodes (duo, trio, quad), which end at expires_at.
+	GroupSource = "group"
 
 	// seedStepM is how often a walkable way is sampled for spots; well under SeedMinGapM.
 	seedStepM = 5
@@ -329,6 +331,47 @@ func (s *Service) seedTick(ctx context.Context, settings game.Settings, tick tim
 		}
 	}
 	s.maybeSpawnRare(ctx, settings, tick)
+	s.groupNodeTick(ctx, settings, tick)
+}
+
+// groupNodeTick ends expired or spent group nodes and, at GroupNodeRatePerCell, places a new one on a random
+// seeded spot (walk-together-plan.md X2): more duo than quad, lasting GroupNodeHours.
+func (s *Service) groupNodeTick(ctx context.Context, settings game.Settings, tick time.Duration) {
+	if n, err := store.RetireEndedNodes(ctx, s.db, GroupSource, settings.NodeDepletedReserve); err != nil {
+		if ctx.Err() == nil {
+			slog.Error("E1900 group node cleanup failed", "err", err)
+		}
+		return
+	} else if n > 0 {
+		slog.Info("group nodes ended", "count", n)
+	}
+	count, cell, ok, err := store.SeededLandCells(ctx, s.db)
+	if err != nil || !ok {
+		return
+	}
+	if rand.Float64() >= game.GroupNodeChance(settings, count, tick) {
+		return
+	}
+	size := game.PickGroupNodeSize(settings, rand.Float64())
+	if size == 0 {
+		return
+	}
+	expires := s.now().Add(time.Duration(settings.GroupNodeHours * float64(time.Hour)))
+	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		_, err := s.placeNodes(ctx, tx, settings, cell.Box, 1, func(kind game.SeedKind) store.NewNode {
+			return store.NewNode{
+				Name:     game.GroupNodeName(size) + " " + game.SeedName(kind.Label, rand.IntN(26), rand.IntN(100)),
+				Resource: kind.Resource, Yield: kind.Yield, RegenPerHour: 0,
+				Source: GroupSource, SourceRef: cell.ID, ExpiresAt: &expires, GroupSize: size,
+			}
+		})
+		return err
+	})
+	if err != nil {
+		slog.Error("E1900 group node failed", "cell", cell.ID, "err", err)
+		return
+	}
+	slog.Info("group node placed", "cell", cell.ID, "size", size, "until", expires)
 }
 
 // maybeSpawnRare places a rare roaming node at a random seeded spot, at RarePerKm2Day on average.
