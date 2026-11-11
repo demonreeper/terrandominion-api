@@ -170,7 +170,7 @@ region a member views (null = home, `branch_id`); talk only.
 signal lock, `dismissed` ones no longer count toward the step-up, `evidence` holds the two fixes (admins only).
 A lock is a `player_sanctions` row of kind `spoof_lock` with `until`, by Signal watch (player 9, a system account);
 reports from it have reason `spoof`. `players.spoof_exempt` marks testers. `player_last_fix` is the last fix the server
-accepted, for the teleport check.
+accepted, for the teleport check; `player_fix_trail` the last ones (twice `SpoofPatternFixes`), for the pattern checks.
 
 ### friends
 `friendships` keeps one row per pair (`low_id < high_id`), `requested_by`, `pending` until the other accepts.

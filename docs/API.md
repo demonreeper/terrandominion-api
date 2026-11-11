@@ -219,6 +219,10 @@ parameters. Old builds that send neither still work.
   `SpoofRepeatDays`; a new incident during a lock adds no time) and files a report from Signal watch
   (reason `spoof`, context `{auto, incidents, signals}`; never a position). `SpoofLockEnabled` 0: report only,
   the request gets 1205. Spoof-exempt players are noted only, never locked.
+- Movement patterns (G2, report only): the last `SpoofPatternFixes` accepted fixes are checked for the same position
+  and accuracy with no jitter at all, the same accuracy on moving fixes, or a dead-straight line at a constant speed.
+  A finding adds a `pattern` signal to the Signal watch report (no lock, not counted toward the step-up), at most once
+  in `SpoofPatternGapHours`; `SpoofPatternEnabled` 0 turns it off.
 - Mods: dismissing a `spoof` report lifts the lock and takes its incidents out of the step-up count. `/me` gives staff
   `openReports` (players with open reports). Admins: `PUT /admin/players/{code}/spoof-exempt {exempt, reason}`
   (logged); player info shows `spoofExempt`, and the private block's infringements carry `hard`, `dismissed` and

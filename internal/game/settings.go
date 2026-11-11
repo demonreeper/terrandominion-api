@@ -236,6 +236,10 @@ type Settings struct {
 	SpoofTeleportKmh   float64
 	SpoofTeleportMinKm float64
 	FixMaxAgeSeconds   int
+	// Movement patterns (G2): report only.
+	SpoofPatternEnabled  int
+	SpoofPatternFixes    int
+	SpoofPatternGapHours int
 
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
@@ -468,6 +472,9 @@ func DefaultSettings() Settings {
 		SpoofTeleportKmh:           300,
 		SpoofTeleportMinKm:         5,
 		FixMaxAgeSeconds:           120,
+		SpoofPatternEnabled:        1,
+		SpoofPatternFixes:          30,
+		SpoofPatternGapHours:       24,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -656,6 +663,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("SpoofTeleportKmh", &s.SpoofTeleportKmh)
 	f("SpoofTeleportMinKm", &s.SpoofTeleportMinKm)
 	i("FixMaxAgeSeconds", &s.FixMaxAgeSeconds)
+	i("SpoofPatternEnabled", &s.SpoofPatternEnabled)
+	i("SpoofPatternFixes", &s.SpoofPatternFixes)
+	i("SpoofPatternGapHours", &s.SpoofPatternGapHours)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

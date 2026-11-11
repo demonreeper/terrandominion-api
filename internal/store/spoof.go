@@ -190,3 +190,46 @@ func OpenReportCount(ctx context.Context, q db.Querier) (int, error) {
 	err := q.QueryRowContext(ctx, `SELECT count(DISTINCT target_id) FROM td.player_reports WHERE status = 'open'`).Scan(&n)
 	return n, err
 }
+
+// AppendFixTrail keeps a player's last accepted fixes for the pattern checks (G2), dropping ones past keep.
+func AppendFixTrail(ctx context.Context, q db.Querier, playerID int64, f FixRow, keep int) error {
+	if _, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_fix_trail (player_id, lat, lon, accuracy_m, fixed_at) VALUES ($1, $2, $3, $4, $5)`,
+		playerID, f.Lat, f.Lon, f.AccuracyM, f.At); err != nil {
+		return err
+	}
+	_, err := q.ExecContext(ctx, `
+		DELETE FROM td.player_fix_trail WHERE player_id = $1 AND id <= (
+			SELECT id FROM td.player_fix_trail WHERE player_id = $1 ORDER BY id DESC OFFSET $2 LIMIT 1)`, playerID, keep)
+	return err
+}
+
+// FixTrail is a player's last fixes, oldest first.
+func FixTrail(ctx context.Context, q db.Querier, playerID int64, n int) ([]FixRow, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT lat, lon, accuracy_m, fixed_at FROM (
+			SELECT id, lat, lon, accuracy_m, fixed_at FROM td.player_fix_trail WHERE player_id = $1 ORDER BY id DESC LIMIT $2
+		) t ORDER BY id`, playerID, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []FixRow{}
+	for rows.Next() {
+		var f FixRow
+		if err := rows.Scan(&f.Lat, &f.Lon, &f.AccuracyM, &f.At); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// RecentIncidentOf says whether a player has an incident of a kind since a time.
+func RecentIncidentOf(ctx context.Context, q db.Querier, playerID int64, kind string, since time.Time) (bool, error) {
+	var yes bool
+	err := q.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM td.infringements WHERE player_id = $1 AND kind = $2 AND created_at >= $3)`,
+		playerID, kind, since).Scan(&yes)
+	return yes, err
+}

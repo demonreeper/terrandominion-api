@@ -56,7 +56,11 @@ func (s *Service) GuardFix(ctx context.Context, playerID int64, fix game.FixRepo
 		incident = game.SpoofIncident{Kind: game.InfringementTeleport, Km: jump.Km, Kmh: jump.Kmh, Seconds: jump.Seconds}
 	}
 	if incident.Kind == "" {
-		return store.SaveLastFix(ctx, s.db, playerID, store.FixRow{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM, At: now})
+		accepted := store.FixRow{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM, At: now}
+		if !state.Exempt {
+			s.notePattern(ctx, playerID, accepted, settings, path)
+		}
+		return store.SaveLastFix(ctx, s.db, playerID, accepted)
 	}
 	evidence := map[string]any{"to": current, "jump": incident}
 	if lastFix != nil {
@@ -222,4 +226,61 @@ func (s *Service) SetSpoofExempt(ctx context.Context, adminID int64, code string
 		return err
 	})
 	return info, err
+}
+
+// notePattern adds an accepted fix to the player's trail and, now and then, looks for too-perfect movement (G2,
+// D3). A finding is a Signal watch report only: never a lock, and it doesn't count toward the step-up.
+func (s *Service) notePattern(ctx context.Context, playerID int64, fix store.FixRow, settings game.Settings, path string) {
+	if settings.SpoofPatternEnabled != 1 || settings.SpoofPatternFixes <= 0 {
+		return
+	}
+	if err := store.AppendFixTrail(ctx, s.db, playerID, fix, settings.SpoofPatternFixes*2); err != nil {
+		slogError("fix trail not stored", err)
+		return
+	}
+	rows, err := store.FixTrail(ctx, s.db, playerID, settings.SpoofPatternFixes)
+	if err != nil || len(rows) < settings.SpoofPatternFixes {
+		return
+	}
+	fixes := make([]game.Fix, len(rows))
+	for i, r := range rows {
+		fixes[i] = game.Fix{Lat: r.Lat, Lon: r.Lon, AccuracyM: r.AccuracyM, At: r.At}
+	}
+	finding := game.PatternFinding(fixes, settings.SpoofPatternFixes)
+	if finding == "" {
+		return
+	}
+	now := s.now()
+	if seen, err := store.RecentIncidentOf(ctx, s.db, playerID, game.InfringementPattern,
+		now.Add(-time.Duration(settings.SpoofPatternGapHours)*time.Hour)); err != nil || seen {
+		return
+	}
+	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := store.GetPlayerForUpdate(ctx, tx, playerID); err != nil {
+			return err
+		}
+		detail := "movement pattern: " + finding
+		id, err := store.InsertIncident(ctx, tx, playerID, game.InfringementPattern, detail, path, false,
+			map[string]any{"fixes": len(fixes), "first": fixes[0], "last": fixes[len(fixes)-1]})
+		if err != nil {
+			return err
+		}
+		signal := store.SpoofSignal{ID: id, Kind: game.InfringementPattern, Detail: detail, At: now}
+		reportID, context, err := store.OpenSpoofReport(ctx, tx, game.SignalWatchID, playerID)
+		if err != nil {
+			return err
+		}
+		if reportID == 0 {
+			_, err = store.InsertReport(ctx, tx, game.SignalWatchID, playerID, game.ReportReasonSpoof, game.InfringementPattern, "",
+				store.SpoofReportContext{Auto: true, Incidents: []int64{id}, Signals: []store.SpoofSignal{signal}})
+			return err
+		}
+		context.Auto = true
+		context.Incidents = append(context.Incidents, id)
+		context.Signals = append(context.Signals, signal)
+		return store.UpdateReportContext(ctx, tx, reportID, context.Signals[0].Kind, context)
+	})
+	if err != nil {
+		slogError("pattern report not filed", err)
+	}
 }
