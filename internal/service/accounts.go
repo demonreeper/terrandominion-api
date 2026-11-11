@@ -500,6 +500,10 @@ func awardXPAgainst(ctx context.Context, q db.Querier, playerID int64, action st
 		if err := maybeInvite(ctx, q, playerID, before.Level, progress.Level, settings, now); err != nil {
 			return progress, false, err
 		}
+		// Past it, a freelancer keeps earning Unbound titles from the seventh voice.
+		if err := grantTitles(ctx, q, playerID, progress.Level, settings, now); err != nil {
+			return progress, false, err
+		}
 		return progress, true, nil
 	}
 	progress.Level = before.Level

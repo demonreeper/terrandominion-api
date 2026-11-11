@@ -294,3 +294,30 @@ func maybeLangisRare(ctx context.Context, q db.Querier, playerID int64, level in
 	return store.InsertSystemMessage(ctx, q, playerID, game.LangisSender, game.LangisRareKind(day),
 		game.LangisRareLine(sent), now)
 }
+
+// grantTitles gives a freelancer every Unbound title their level has reached and they don't hold
+// yet, each with the seventh voice's message (F2). Idempotent; call it with the player locked.
+func grantTitles(ctx context.Context, q db.Querier, playerID int64, level int, settings game.Settings, now time.Time) error {
+	membership, err := store.MembershipOf(ctx, q, playerID)
+	if err != nil || membership != nil {
+		return err
+	}
+	contact, err := store.LangisContact(ctx, q, playerID)
+	if err != nil {
+		return err
+	}
+	for _, title := range game.TitlesDue(settings, level, true, contact) {
+		fresh, err := store.GrantTitle(ctx, q, playerID, title.Badge)
+		if err != nil {
+			return err
+		}
+		if !fresh {
+			continue
+		}
+		if err := store.InsertSystemMessage(ctx, q, playerID, game.LangisSender, game.TitleMessageKind(title.Badge),
+			title.Line, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -152,7 +152,8 @@ type Badge struct {
 // Badges lists a player's badges, oldest first.
 func Badges(ctx context.Context, q db.Querier, playerID int64) ([]Badge, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT b.badge, f.code, f.name, b.region FROM td.player_badges b JOIN td.factions f ON f.id = b.faction_id
+		SELECT b.badge, COALESCE(f.code, ''), COALESCE(f.name, ''), b.region
+		FROM td.player_badges b LEFT JOIN td.factions f ON f.id = b.faction_id
 		WHERE b.player_id = $1 ORDER BY b.earned_at`, playerID)
 	if err != nil {
 		return nil, err
@@ -167,6 +168,19 @@ func Badges(ctx context.Context, q db.Querier, playerID int64) ([]Badge, error) 
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// GrantTitle gives a player a badge that belongs to no faction (an Unbound title). It reports
+// whether the badge is new.
+func GrantTitle(ctx context.Context, q db.Querier, playerID int64, badge string) (bool, error) {
+	res, err := q.ExecContext(ctx, `
+		INSERT INTO td.player_badges (player_id, badge, faction_id, region) VALUES ($1, $2, NULL, '')
+		ON CONFLICT DO NOTHING`, playerID, badge)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }
 
 // WakeFaction marks a faction active when its first region is claimed.

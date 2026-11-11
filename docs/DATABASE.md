@@ -56,6 +56,9 @@ counting id. Every player-facing query names a player through `td.player_name(ca
 status)` and `td.player_code(public_code, status)`: a deleted or banned account reads `Deleted player`
 with no code.
 
+**Unbound titles (0050):** `player_badges.faction_id` may be null (a title belongs to no faction; `region` is
+empty); a badge is unique per player, kind, faction and region (`player_badges_once`).
+
 **The seventh voice (0049):** `player_calls.faction_id` may be null with `sender` set ("Unknown caller"), for its
 calls `langis_l18` and `langis_l19`; its written messages are `player_messages` rows with sender `LANGIS` (kinds
 `langis_l19_msg`, `langis_rare_<day>`).

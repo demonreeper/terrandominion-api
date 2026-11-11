@@ -199,6 +199,10 @@ type Settings struct {
 	LangisMessageDelayHours float64 // its message, after the power's level 19 day-3 message
 	LangisCallDelayHours    float64 // its second call, after its message
 	LangisRareEveryDays     int     // after the faction level, at most one rare message in this many days
+	// Unbound titles (F2): the levels a freelancer is given each at.
+	TitleDrifterLevel  int
+	TitleWayfarerLevel int
+	TitleUnboundLevel  int
 
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
@@ -399,6 +403,9 @@ func DefaultSettings() Settings {
 		LangisMessageDelayHours:    2,
 		LangisCallDelayHours:       24,
 		LangisRareEveryDays:        7,
+		TitleDrifterLevel:          22,
+		TitleWayfarerLevel:         26,
+		TitleUnboundLevel:          30,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -555,6 +562,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("LangisMessageDelayHours", &s.LangisMessageDelayHours)
 	f("LangisCallDelayHours", &s.LangisCallDelayHours)
 	i("LangisRareEveryDays", &s.LangisRareEveryDays)
+	i("TitleDrifterLevel", &s.TitleDrifterLevel)
+	i("TitleWayfarerLevel", &s.TitleWayfarerLevel)
+	i("TitleUnboundLevel", &s.TitleUnboundLevel)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

@@ -155,6 +155,14 @@ its account (id 8, `signal_unbound`) and lines stay on the server until then.
 - It never contacts a member: a pledge drops whatever of it has not reached the player, and reaching the faction
   level drops its level 19 message and call if they had not come due.
 
+### Unbound titles
+F2 (phase 5): past the faction level a freelancer who has heard from the seventh voice is given titles, each a badge
+on their profile (`badges [{badge, factionCode: "", factionName: "", region: ""}]`) and a message from `LANGIS`:
+`drifter` at `TitleDrifterLevel` (22) "Drifter. You've earned it.", `wayfarer` at `TitleWayfarerLevel` (26)
+"Wayfarer. They can't place you now.", `unbound` at `TitleUnboundLevel` (30) "Unbound. Like me." Given at the level-up
+that reaches them, or when the day's missions are handed out for a level reached earlier. A member earns no more; titles
+already earned stay.
+
 ### Freelancer standing and missions
 - **Neutral standing** (F5): a faction player can't hit a freelancer's Tether Node (1611 with the reason), at any level,
   unless that freelancer attacked a faction Tether Node in the last `ProtectionLossDays` (3). Freelancer against

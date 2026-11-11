@@ -96,6 +96,10 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 		if err := maybeLangisRare(ctx, q, playerID, player.Level, true, day, settings, time.Now()); err != nil {
 			return err
 		}
+		// A title whose level was reached before titles existed (or before its call) is given now.
+		if err := grantTitles(ctx, q, playerID, player.Level, settings, time.Now()); err != nil {
+			return err
+		}
 		return give(game.AudienceFreelancer, 0, n, true)
 	}
 	// A member hears only from their own power: MemberMissionsPerDay, and a command order for a
