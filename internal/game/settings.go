@@ -79,6 +79,10 @@ type Settings struct {
 	WalkMilestoneKm2     int
 	WalkMilestoneKm3     int
 	WalkMilestoneKm4     int
+	// W3 (part): L4 lockstep, report only.
+	WalkLockstepSteps    int
+	WalkLockstepM        float64
+	WalkLockstepPairSec  float64
 	WalkLinkFormM        float64
 	WalkLinkHoldM        float64
 	WalkLinkMaxAccuracyM float64
@@ -395,6 +399,10 @@ func DefaultSettings() Settings {
 		WalkMilestoneKm3:     100,
 		WalkMilestoneKm4:     500,
 
+		WalkLockstepSteps:   8,
+		WalkLockstepM:       0.5,
+		WalkLockstepPairSec: 5,
+
 		WelcomeCrystal: 800,
 		WelcomeAlloy:   600,
 		WelcomeData:    200,
@@ -687,6 +695,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("WalkMilestoneKm2", &s.WalkMilestoneKm2)
 	i("WalkMilestoneKm3", &s.WalkMilestoneKm3)
 	i("WalkMilestoneKm4", &s.WalkMilestoneKm4)
+	i("WalkLockstepSteps", &s.WalkLockstepSteps)
+	f("WalkLockstepM", &s.WalkLockstepM)
+	f("WalkLockstepPairSec", &s.WalkLockstepPairSec)
 
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)

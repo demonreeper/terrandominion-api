@@ -556,6 +556,13 @@ func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixI
 			}
 		}
 		moved := usable && game.WalkMoved(settings, trail, mine.Lat, mine.Lon, now)
+		// L4 lockstep (W3, with G2's pattern checks): paths that match step for step make a report, once per member
+		// per link. Report only; exempt testers skip it.
+		if usable && !exempt && len(trail) > settings.WalkLockstepSteps {
+			if err := s.checkLockstep(ctx, tx, linkID, playerID, members, trail, now, window, settings); err != nil {
+				return err
+			}
+		}
 		used, err := store.WalkBonusUsed(ctx, tx, playerID, day)
 		if err != nil {
 			return err
@@ -943,6 +950,44 @@ func (s *Service) checkGroupNode(ctx context.Context, tx *sql.Tx, playerID int64
 	}
 	if !game.GroupNodeOpen(node.GroupSize, len(members), ready) {
 		return apperr.GroupNodeGather.WithData(map[string]any{"size": node.GroupSize, "ready": ready})
+	}
+	return nil
+}
+
+// checkLockstep compares the player's trail with each other member's (L4) and reports both once when they match
+// step for step.
+func (s *Service) checkLockstep(ctx context.Context, tx *sql.Tx, linkID, playerID int64, members []store.WalkMember,
+	trail []game.WalkTrailPoint, now time.Time, window time.Duration, settings game.Settings) error {
+	for _, o := range members {
+		if o.PlayerID == playerID {
+			continue
+		}
+		points, err := store.WalkTrail(ctx, tx, o.PlayerID, now.Add(-window))
+		if err != nil {
+			return err
+		}
+		other := make([]game.WalkTrailPoint, 0, len(points))
+		for _, p := range points {
+			other = append(other, game.WalkTrailPoint{Lat: p.Lat, Lon: p.Lon, At: p.FixAt})
+		}
+		if !game.WalkLockstep(trail, other, settings.WalkLockstepSteps, settings.WalkLockstepM, settings.WalkLockstepPairSec) {
+			continue
+		}
+		for _, id := range []int64{playerID, o.PlayerID} {
+			done, err := store.WalkLockstepReported(ctx, tx, linkID, id)
+			if err != nil {
+				return err
+			}
+			if done {
+				continue
+			}
+			if err := s.fileWalkReport(ctx, tx, id, "walk_lockstep", "moves in lockstep with a linked member", now); err != nil {
+				return err
+			}
+			if err := store.MarkWalkLockstepReported(ctx, tx, linkID, id); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

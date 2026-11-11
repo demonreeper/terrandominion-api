@@ -506,6 +506,11 @@ node's, then the link and perk percents. X3 link missions (goals `walk_linked`, 
 player's missions. X5 badges (titles with no faction): `walk_first_link`, `walk_first_group_node`, and
 `walk_km_<n>` at `WalkMilestoneKm1..4` (5, 25, 100, 500) bonus-active kilometres walked together.
 
+**L4 lockstep (W3, with G2's pattern checks).** On each beat the player's last few minutes of fixes are compared with
+each other member's: when `WalkLockstepSteps` (8) moving steps in a row all match within `WalkLockstepM` (0.5 m)
+(fixes paired within `WalkLockstepPairSec`, 5 s), both get a `walk_lockstep` signal on their Signal watch report,
+once per link. Report only; exempt testers skip it. L7 (phone integrity) waits for G3 (Play Integrity / App Attest).
+
 Proximity, on forming and every beat: fix taken within `WalkLinkFixAgeSec` (20 s), accuracy ≤ `WalkLinkMaxAccuracyM` (25),
 not fake (spoof-exempt testers skip this); distance less both accuracies (together at most `WalkLinkMaxAccuracyM`) ≤
 `WalkLinkFormM` (30) to form, ≤ `WalkLinkHoldM` (60) to at least one other member to hold; the two fixes within 20 s of each

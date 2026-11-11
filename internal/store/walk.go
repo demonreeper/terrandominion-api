@@ -551,3 +551,20 @@ func InsertGroupNodeHarvest(ctx context.Context, q db.Querier, nodeID, playerID 
 	_, err := q.ExecContext(ctx, `INSERT INTO td.group_node_harvests (node_id, player_id) VALUES ($1, $2)`, nodeID, playerID)
 	return err
 }
+
+// WalkLockstepReported says whether a member has had the L4 lockstep report in this link, and marks it.
+func WalkLockstepReported(ctx context.Context, q db.Querier, linkID, playerID int64) (bool, error) {
+	var done bool
+	err := q.QueryRowContext(ctx, `SELECT lockstep_reported FROM td.walk_link_members WHERE link_id = $1 AND player_id = $2`,
+		linkID, playerID).Scan(&done)
+	if errors.Is(err, sql.ErrNoRows) {
+		return true, nil
+	}
+	return done, err
+}
+
+func MarkWalkLockstepReported(ctx context.Context, q db.Querier, linkID, playerID int64) error {
+	_, err := q.ExecContext(ctx, `UPDATE td.walk_link_members SET lockstep_reported = true WHERE link_id = $1 AND player_id = $2`,
+		linkID, playerID)
+	return err
+}

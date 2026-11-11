@@ -260,3 +260,28 @@ func TestSharedScanTag(t *testing.T) {
 		t.Errorf("none: %q", got)
 	}
 }
+
+func TestWalkLockstep(t *testing.T) {
+	path := func(offsetM float64, wobble func(i int) float64) []WalkTrailPoint {
+		var out []WalkTrailPoint
+		for i := 0; i < 12; i++ {
+			out = append(out, WalkTrailPoint{Lat: north(float64(i)*15 + offsetM + wobble(i)), Lon: 73.5,
+				At: walkNow.Add(time.Duration(i*15) * time.Second)})
+		}
+		return out
+	}
+	none := func(int) float64 { return 0 }
+	// Two fakes from one script, 4 m apart: every step identical.
+	if !WalkLockstep(path(0, none), path(4, none), 8, 0.5, 5) {
+		t.Error("identical steps with an offset should be lockstep")
+	}
+	// Real phones: the same walk, independent wobble of a few metres.
+	real := func(i int) float64 { return float64((i*7)%5) - 2 }
+	if WalkLockstep(path(0, none), path(4, real), 8, 0.5, 5) {
+		t.Error("independent wobble is not lockstep")
+	}
+	// Too short a stretch says nothing.
+	if WalkLockstep(path(0, none)[:5], path(4, none)[:5], 8, 0.5, 5) {
+		t.Error("too few steps")
+	}
+}
