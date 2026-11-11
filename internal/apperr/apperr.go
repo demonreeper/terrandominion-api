@@ -88,6 +88,10 @@ var (
 	TooLarge     = def(1005, http.StatusRequestEntityTooLarge, "Request too large.")
 	AppOutdated  = def(1006, http.StatusUpgradeRequired, "This version of the game is no longer supported. Install the latest one.") // data: build, minBuild
 
+	SettingLocked     = def(1007, http.StatusConflict, "That setting is locked.")
+	SettingOutOfRange = def(1008, http.StatusBadRequest, "That value is outside the setting's range.") // data: min, max, step
+	AnnouncementBad   = def(1009, http.StatusBadRequest, "An announcement is one line of up to 140 characters, a kind (info, event, warning) and 1 to 720 hours.")
+
 	GoogleTokenInvalid = def(1100, http.StatusUnauthorized, "Google sign-in could not be verified.")
 	SessionExpired     = def(1101, http.StatusUnauthorized, "Session expired. Sign in again.")
 	AccountBanned      = def(1102, http.StatusForbidden, "This account is suspended.")

@@ -261,8 +261,9 @@ above every faction (internal name `signal`; players see a separate commander pe
 ## Admin (admin accounts only)
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET | `/admin/settings` | – | Every setting with its description |
-| PUT | `/admin/settings/{key}` | `value` | Changes one setting; logged in `admin_actions`; live within a minute |
+| GET | `/admin/settings` | – | The settings screen: `groups [{key, title}]` in display order, `settings [{key, label, description, group, value, min, max, step, locked, isPublic, updatedAt}]` (`step` 1 = whole numbers; `locked` ones are shown and never changed), `changes` (the last 30: `{key, label, old, new, by, at}`, `by` is the admin's callsign) and `announcement {text, kind, endsAt}` or null |
+| PUT | `/admin/settings/{key}` | `value` | Changes one setting inside its `min` to `max` (whole numbers when `step` is 1). 1007 when locked, 1008 outside the range (`min, max, step`), 1003 for an unknown key. The old and new values are logged in `admin_actions`; live within a minute. Returns the setting |
+| PUT | `/admin/announcement` | `text, kind, hours` | Posts or replaces the one-line banner on everyone's main menu: up to 140 characters, `kind` `info`, `event` or `warning`, shown for 1 to 720 hours (1009 otherwise). Empty `text` removes it. Players get it as `announcement` in `/me` while it runs. Country-neutral wording is the admin's job. Returns `{announcement}` |
 | POST | `/admin/nodes` | `name, resource, lat, lon, regionCode, yield, regenPerHour` | Places a node by hand |
 | POST | `/admin/nodes/scatter` | `lat, lon, count (1-40), radiusM (30-3000)` | Test nodes at random around a point (source `scatter`, fast regrowth) |
 | POST | `/admin/nodes/clear-scatter` | – | Retires every scattered test node |
@@ -284,6 +285,9 @@ never reads as inside the range).
 | 1004 | Rate limited | |
 | 1005 | Request too large | |
 | 1006 | App build locked out (HTTP 426): below `MinAppBuild` / `MinAppBuildIOS` | `build`, `minBuild` |
+| 1007 | Setting is locked | |
+| 1008 | Setting value outside its range, or a fraction where whole numbers are wanted | `min, max, step` |
+| 1009 | Announcement text, kind or hours not allowed | |
 | 1100 | Google sign-in could not be verified | |
 | 1101 | Session expired: sign in again | |
 | 1102 | Account suspended | |

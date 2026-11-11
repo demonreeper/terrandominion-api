@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 	"github.com/demonreeper/terrandominion/api/internal/db"
@@ -49,27 +52,114 @@ func (s *Service) PublicSettings(ctx context.Context) ([]store.Setting, error) {
 	return store.ListSettings(ctx, s.db, true)
 }
 
-func (s *Service) AdminSettings(ctx context.Context) ([]store.Setting, error) {
-	return store.ListSettings(ctx, s.db, false)
+// AdminSettingsView is the admin settings screen: the groups in order, every setting, the last
+// changes, and the announcement now running (null when there is none).
+type AdminSettingsView struct {
+	Groups       []game.SettingGroup   `json:"groups"`
+	Settings     []store.Setting       `json:"settings"`
+	Changes      []store.SettingChange `json:"changes"`
+	Announcement *store.Announcement   `json:"announcement"`
 }
 
-// AdminUpdateSetting changes one tunable value and records who changed it and from what.
-func (s *Service) AdminUpdateSetting(ctx context.Context, adminID int64, key string, value float64) error {
+const settingChangesShown = 30
+
+func (s *Service) AdminSettings(ctx context.Context) (AdminSettingsView, error) {
+	view := AdminSettingsView{Groups: game.SettingGroups}
+	var err error
+	if view.Settings, err = store.ListSettings(ctx, s.db, false); err != nil {
+		return view, err
+	}
+	for i := range view.Settings {
+		view.Settings[i].Group = game.SettingGroupKey(view.Settings[i].Group)
+	}
+	if view.Changes, err = store.RecentSettingChanges(ctx, s.db, settingChangesShown); err != nil {
+		return view, err
+	}
+	view.Announcement, err = store.CurrentAnnouncement(ctx, s.db)
+	return view, err
+}
+
+// AdminUpdateSetting changes one tunable value, inside its range and never a locked one, and
+// records who changed it, from what and to what. Returns the setting as it now stands.
+func (s *Service) AdminUpdateSetting(ctx context.Context, adminID int64, key string, value float64) (store.Setting, error) {
+	var updated store.Setting
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		ok, err := store.UpdateSetting(ctx, tx, key, value, adminID)
+		setting, err := store.SettingForUpdate(ctx, tx, key)
+		if errors.Is(err, store.ErrNotFound) {
+			return apperr.NotFound.With("setting %q", key)
+		}
 		if err != nil {
 			return err
 		}
-		if !ok {
-			return apperr.NotFound.With("setting %q", key)
+		rule := game.SettingRule{Min: setting.Min, Max: setting.Max, Step: setting.Step, Locked: setting.Locked}
+		switch game.CheckSettingChange(rule, value) {
+		case game.SettingLocked:
+			return apperr.SettingLocked.With("setting %q", key)
+		case game.SettingRange:
+			return apperr.SettingOutOfRange.
+				Say("%s takes %s to %s.", settingName(setting), trimNumber(setting.Min), trimNumber(setting.Max)).
+				WithData(map[string]any{"min": setting.Min, "max": setting.Max, "step": setting.Step})
+		case game.SettingNotWhole:
+			return apperr.SettingOutOfRange.Say("%s takes whole numbers.", settingName(setting)).
+				WithData(map[string]any{"min": setting.Min, "max": setting.Max, "step": setting.Step})
 		}
-		detail, _ := json.Marshal(map[string]any{"value": value})
-		return store.LogAdminAction(ctx, tx, adminID, "setting.update", key, string(detail))
+		if _, err := store.UpdateSetting(ctx, tx, key, value, adminID); err != nil {
+			return err
+		}
+		detail, _ := json.Marshal(map[string]any{"value": value, "old": setting.Value})
+		if err := store.LogAdminAction(ctx, tx, adminID, "setting.update", key, string(detail)); err != nil {
+			return err
+		}
+		updated = setting
+		updated.Value = value
+		return nil
 	})
 	if err == nil {
 		s.invalidateSettings()
 	}
-	return err
+	return updated, err
+}
+
+func settingName(setting store.Setting) string {
+	if setting.Label != "" {
+		return setting.Label
+	}
+	return setting.Key
+}
+
+// trimNumber writes 48 as "48" and 0.35 as "0.35".
+func trimNumber(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// AdminSetAnnouncement posts, replaces or (with empty text) removes the one-line announcement on
+// everyone's main menu. Returns what is now running, or nil.
+func (s *Service) AdminSetAnnouncement(ctx context.Context, adminID int64, text, kind string, hours int) (*store.Announcement, error) {
+	if strings.TrimSpace(text) == "" {
+		err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+			if err := store.ClearAnnouncement(ctx, tx); err != nil {
+				return err
+			}
+			return store.LogAdminAction(ctx, tx, adminID, "announcement.clear", "", "{}")
+		})
+		return nil, err
+	}
+	clean, ok := game.CleanAnnouncement(text, kind, hours)
+	if !ok {
+		return nil, apperr.AnnouncementBad
+	}
+	posted := &store.Announcement{Text: clean, Kind: kind, EndsAt: s.now().Add(time.Duration(hours) * time.Hour)}
+	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := store.SetAnnouncement(ctx, tx, posted.Text, posted.Kind, posted.EndsAt, adminID); err != nil {
+			return err
+		}
+		detail, _ := json.Marshal(map[string]any{"text": posted.Text, "kind": posted.Kind, "hours": hours})
+		return store.LogAdminAction(ctx, tx, adminID, "announcement.set", "", string(detail))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return posted, nil
 }
 
 var resources = map[string]bool{"crystal": true, "alloy": true, "data": true, "credit": true}

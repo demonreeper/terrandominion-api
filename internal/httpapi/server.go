@@ -106,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
 	mux.HandleFunc("PUT /v1/admin/settings/{key}", s.admin(s.adminUpdateSetting))
+	mux.HandleFunc("PUT /v1/admin/announcement", s.admin(s.adminSetAnnouncement))
 	mux.HandleFunc("POST /v1/admin/nodes", s.admin(s.adminCreateNode))
 	mux.HandleFunc("POST /v1/admin/nodes/scatter", s.admin(s.adminScatterNodes))
 	mux.HandleFunc("POST /v1/admin/nodes/clear-scatter", s.admin(s.adminClearScatter))
@@ -996,11 +997,34 @@ func (s *Server) adminUpdateSetting(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	if err := s.svc.AdminUpdateSetting(r.Context(), playerID, key, body.Value); err != nil {
+	setting, err := s.svc.AdminUpdateSetting(r.Context(), playerID, key, body.Value)
+	if err != nil {
 		fail(w, r, err)
 		return
 	}
-	ok(w, "updated")
+	ok(w, setting)
+}
+
+// adminSetAnnouncement posts, replaces or (empty text) removes the main menu's one-line banner.
+func (s *Server) adminSetAnnouncement(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Text  string `json:"text"`
+		Kind  string `json:"kind"`
+		Hours int    `json:"hours"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	announcement, err := s.svc.AdminSetAnnouncement(r.Context(), playerID, body.Text, body.Kind, body.Hours)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, struct {
+		Announcement any `json:"announcement"`
+	}{announcement})
 }
 
 func (s *Server) adminScatterNodes(w http.ResponseWriter, r *http.Request) {

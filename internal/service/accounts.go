@@ -301,6 +301,8 @@ type MeView struct {
 	PushAttacks bool       `json:"pushAttacks"`
 	PushResults bool       `json:"pushResults"`
 	DeleteAfter *time.Time `json:"deleteAfter,omitempty"`
+	// Announcement is the one-line banner for the main menu while one is running (admin settings).
+	Announcement *store.Announcement `json:"announcement,omitempty"`
 }
 
 func (s *Service) Me(ctx context.Context, playerID int64) (*MeView, error) {
@@ -376,6 +378,9 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time
 		me.DeleteAfter = &t
+	}
+	if me.Announcement, err = store.CurrentAnnouncement(ctx, q); err != nil {
+		return nil, err
 	}
 	if player.Callsign.Valid {
 		callsign := player.Callsign.String

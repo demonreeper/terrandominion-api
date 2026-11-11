@@ -25,7 +25,9 @@ players ─┬─ player_identities   sign-in links (google now; apple, nakama l
          └─ faction_members ── factions ─┬─ faction_branches   regional branch, sub-leader
                                           └─ bases              faction bases (spacing trigger)
 devices          anti-farming: welcome grant once per phone (stored as a keyed hash)
-settings         every tunable number; edited with the admin API, cached for a minute
+settings         every tunable number with its group, name, range, step and lock (0038); edited from the
+                 in-game admin settings screen, cached for a minute
+announcement     the one-line banner on everyone's main menu (one row at most)
 resource_types   crystal, alloy, data, credit
 osm_land, osm_walkways, osm_blocked   the node seeder's map layers (tdapi import-osm)
 seed_cells       every seeding cell looked at: its target, path length, when seeded and topped up
