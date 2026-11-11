@@ -221,7 +221,7 @@ func NoticeMissionDone(persona, title string) string {
 	return fmt.Sprintf("%s: %s. Done. Claim your reward in ORDERS.", persona, title)
 }
 
-// NoticeWarden: "Aishath made you a Warden of Faction One."
+// NoticeWarden: "Night-Heron-42 made you a Warden of Lumen Collective."
 func NoticeWarden(commander, faction string) string {
 	return fmt.Sprintf("%s made you a Warden of %s.", someone(commander), faction)
 }

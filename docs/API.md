@@ -141,7 +141,7 @@ Player ids 1 to 10 are never given to a new account (migration 0043, `game/reser
 | Id | Who |
 |---|---|
 | 1 | The owner, the **primary admin**. A player like any other (counted in stats, plays the game) but always a freelancer: `POST /factions/{code}/lead` and `/join` answer 1305 |
-| 2 to 7 | The six powers, one `system` account each (faction id + 1). No sign-in; never found by share code, search, report or sanction; not counted |
+| 2 to 7 | The six powers, one `system` account each (faction id + 1): 2 Signum, 3 Shingō, 4 Ishāra, 5 Sēma, 6 Tohu, 7 Merki. No sign-in; never found by share code, search, report or sanction; not counted |
 | 8 to 10 | Held for later |
 | 11+ | Everyone else. Moderators and other admins are ordinary accounts |
 

@@ -6,7 +6,8 @@ import "strings"
 //
 //	1      the owner: the primary admin. A player like any other, counted as one, but always a
 //	       freelancer: the owner never leads or joins a faction.
-//	2-7    the six powers, one system account each. Nobody signs in as them.
+//	2-7    the six powers, one system account each, in faction order: 2 Signum, 3 Shingō, 4 Ishāra,
+//	       5 Sēma, 6 Tohu, 7 Merki. Nobody signs in as them.
 //	8-10   held for later.
 //	11+    everyone else, moderators and other admins included.
 const (
