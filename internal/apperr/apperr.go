@@ -211,6 +211,8 @@ var (
 	// Regions (social-signal-plan.md Part B).
 	RegionUnknown = def(1795, http.StatusConflict, "Your region could not be found from where you stand.")
 	RegionNotLive = def(1796, http.StatusConflict, "The game hasn't launched in your region yet.") // data: region
+	RegionLocked  = def(1797, http.StatusConflict, "That region has no Regional Commander yet.")
+	NotAMember    = def(1798, http.StatusConflict, "Only faction members have regions.")
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

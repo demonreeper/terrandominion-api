@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
+	"github.com/demonreeper/terrandominion/api/internal/db"
 	"github.com/demonreeper/terrandominion/api/internal/game"
 	"github.com/demonreeper/terrandominion/api/internal/store"
 )
@@ -104,4 +106,142 @@ func (s *Service) AdminSetLiveRegion(ctx context.Context, adminID int64, code st
 		return nil, err
 	}
 	return store.LiveRegions(ctx, s.db)
+}
+
+// RegionsView is GET /v1/factions/regions: a member's faction's unlocked regions (talk only away from home).
+type RegionsView struct {
+	Regions []store.UnlockedRegion `json:"regions"`
+	Home    string                 `json:"home"`
+	Viewing string                 `json:"viewing"`
+}
+
+func (s *Service) FactionRegions(ctx context.Context, playerID int64) (RegionsView, error) {
+	view := RegionsView{Regions: []store.UnlockedRegion{}}
+	m, err := store.MembershipOf(ctx, s.db, playerID)
+	if err != nil {
+		return view, err
+	}
+	if m == nil || m.BranchID == nil {
+		return view, apperr.NotAMember
+	}
+	viewing, err := s.viewedBranch(ctx, playerID, *m.BranchID)
+	if err != nil {
+		return view, err
+	}
+	regions, err := store.UnlockedRegions(ctx, s.db, m.FactionID)
+	if err != nil {
+		return view, err
+	}
+	view.Home = m.Region
+	for i := range regions {
+		regions[i].Home = regions[i].BranchID == *m.BranchID
+		regions[i].Viewing = regions[i].BranchID == viewing
+		if regions[i].Viewing {
+			view.Viewing = regions[i].Region
+		}
+	}
+	view.Regions = regions
+	return view, nil
+}
+
+// viewedBranch is the branch a member's FACTIONS screen shows: the one they chose while it is still unlocked,
+// else home.
+func (s *Service) viewedBranch(ctx context.Context, playerID, home int64) (int64, error) {
+	viewing, err := store.ViewingBranch(ctx, s.db, playerID)
+	if err != nil || viewing == 0 || viewing == home {
+		return home, err
+	}
+	b, err := store.BranchByID(ctx, s.db, viewing)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !b.Unlocked) {
+		// The region went dormant: back home.
+		return home, store.SetViewingBranch(ctx, s.db, playerID, 0)
+	}
+	return viewing, err
+}
+
+// ViewRegion switches the region a member views: one of their faction's unlocked regions, or "home". No GPS
+// check, no cost, no cooldown. It never changes the home region.
+func (s *Service) ViewRegion(ctx context.Context, playerID int64, region string) (RegionsView, error) {
+	m, err := store.MembershipOf(ctx, s.db, playerID)
+	if err != nil {
+		return RegionsView{}, err
+	}
+	if m == nil || m.BranchID == nil {
+		return RegionsView{}, apperr.NotAMember
+	}
+	region = strings.ToUpper(strings.TrimSpace(region))
+	target := int64(0)
+	if region != "" && region != "HOME" && region != m.Region {
+		regions, err := store.UnlockedRegions(ctx, s.db, m.FactionID)
+		if err != nil {
+			return RegionsView{}, err
+		}
+		for _, r := range regions {
+			if r.Region == region {
+				target = r.BranchID
+			}
+		}
+		if target == 0 {
+			return RegionsView{}, apperr.RegionLocked
+		}
+	}
+	if err := store.SetViewingBranch(ctx, s.db, playerID, target); err != nil {
+		return RegionsView{}, err
+	}
+	return s.FactionRegions(ctx, playerID)
+}
+
+// AdminMoveRegion changes a member's home region for a player who really moved (admins, logged). They become a
+// plain member there; a commander's seat they held is left empty.
+func (s *Service) AdminMoveRegion(ctx context.Context, adminID int64, code, region, reason string) (*PlayerInfo, error) {
+	admin, err := store.GetPlayer(ctx, s.db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if !admin.IsAdmin {
+		return nil, apperr.Forbidden
+	}
+	reason = strings.TrimSpace(reason)
+	if n := len([]rune(reason)); n < game.SanctionReasonMin || n > game.SanctionReasonMax {
+		return nil, apperr.SanctionBad
+	}
+	region = strings.ToUpper(strings.TrimSpace(region))
+	targetID, err := staffTargetByCode(ctx, s.db, code)
+	if err != nil {
+		return nil, err
+	}
+	name, err := store.CountryName(ctx, s.db, region)
+	if err != nil {
+		return nil, err
+	}
+	if name == "" {
+		return nil, apperr.BadRequest.Say("No region %s.", region)
+	}
+	var info *PlayerInfo
+	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := store.GetPlayerForUpdate(ctx, tx, targetID); err != nil {
+			return err
+		}
+		m, err := store.MembershipOf(ctx, tx, targetID)
+		if err != nil {
+			return err
+		}
+		if m == nil {
+			return apperr.NotAMember
+		}
+		branch, err := store.BranchForUpdate(ctx, tx, m.FactionID, region, m.FactionName+" "+name)
+		if err != nil {
+			return err
+		}
+		if err := store.MoveMemberHome(ctx, tx, targetID, branch.ID, game.RankMember); err != nil {
+			return err
+		}
+		detail, _ := json.Marshal(map[string]any{"from": m.Region, "to": region, "reason": reason})
+		if err := store.LogAdminAction(ctx, tx, adminID, "player.move_region", fmt.Sprint(targetID), string(detail)); err != nil {
+			return err
+		}
+		info, err = s.playerInfo(ctx, tx, admin, targetID)
+		return err
+	})
+	return info, err
 }

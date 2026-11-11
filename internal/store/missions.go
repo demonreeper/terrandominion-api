@@ -220,6 +220,9 @@ type BranchMember struct {
 	RankTitle string `json:"rankTitle"`
 	// FriendState is how the asker stands with them: "", friend, incoming or outgoing (FR1).
 	FriendState string `json:"friendState"`
+	// Visitor: a member of another region viewing this one (R2); From is their home region.
+	Visitor bool   `json:"visitor,omitempty"`
+	From    string `json:"from,omitempty"`
 }
 
 // BranchMembers lists a branch, highest rank first.

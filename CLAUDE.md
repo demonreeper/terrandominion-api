@@ -40,7 +40,8 @@ Schema: `docs/DATABASE.md`. Endpoints and error codes: `docs/API.md`. Running an
   (Hulhumalé) and XB (Villimalé) that win inside them; production ignores test regions.
 - **Anti-spoofing:** wrap every new route that acts on a place in `s.located(...)` (`httpapi/located.go`), so the
   signal lock, stale-fix and teleport checks cover it. Player 9 is Signal watch (system account, files the automatic
-  reports). On dev the owner (player 1) is spoof-exempt.
+  reports). Nobody is spoof-exempt by default, the owner included; an admin turns their own on or off on the ADMIN page
+  (SPOOF EXEMPT), or anyone's from player info.
 - DBeaver: keep **auto-commit on**. An open transaction there once blocked every sign-in
   (lock timeout, E1900) until it was ended.
 

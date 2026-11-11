@@ -187,6 +187,22 @@ Admins: `GET /admin/regions` (`test`, `live`), `PUT /admin/regions/live/{code} {
 inside one counts as that region; never on production). The shapes are loaded once per database with
 `go run ./cmd/loadcountries` (from `.env`' `TD_DATABASE_URL`).
 
+### Viewing another region (social-signal-plan.md Part B, R2)
+
+A member can view any **unlocked** region of their own faction (one with a Regional Commander) from anywhere, free,
+as often as they like: **talk only**. The home region (`faction_members.branch_id`) never changes: rank, seat, vote,
+jobs, orders and missions stay there.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/factions/regions` | | `{regions: [{region, name, commander, members, home, viewing}], home, viewing}`; unlocked regions only. 1798 for a freelancer |
+| POST | `/factions/view-region` | `region` (a code, or `home`) | 1797 `RegionLocked` for a region without a commander (or not the faction's) |
+| POST | `/admin/players/{code}/move-region` | `region, reason` | MOVE REGION: a new home for a player who really moved; they become a member there and a seat they held is left empty. Logged |
+
+`GET /factions/branch` shows the viewed region: `region`, `regionName`, `visiting`, `home`, `visitors` (members of other
+regions viewing it, each `visitor: true` with `from`), and `canAppoint` only at home. A region that goes dormant sends
+its visitors home. Admin player info has `region` and `viewingRegion`; `/me` gives an admin their own `spoofExempt`.
+
 ### Anti GPS spoofing (social-signal-plan.md Part C)
 
 Every route that acts on a place passes one check first (`httpapi/located.go`): nodes and tethers nearby, a
@@ -564,6 +580,8 @@ never reads as inside the range).
 | 1791 | The fix is too old or from the future | |
 | 1795 | No region near where the player stands | |
 | 1796 | The region where the player stands isn't live yet | `region` |
+| 1797 | That region has no Regional Commander yet (can't be viewed) | |
+| 1798 | Only faction members have regions | |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

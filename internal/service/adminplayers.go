@@ -61,8 +61,11 @@ type PlayerInfo struct {
 	// SuspendDays are the three lengths a suspension may have.
 	SuspendDays []int `json:"suspendDays"`
 	// SpoofExempt: a tester who may use a fake location; never signal-locked.
-	SpoofExempt bool           `json:"spoofExempt"`
-	Private     *PlayerPrivate `json:"private,omitempty"`
+	SpoofExempt bool `json:"spoofExempt"`
+	// Region is a member's home region; ViewingRegion the one they view, when another (R2).
+	Region        string         `json:"region,omitempty"`
+	ViewingRegion string         `json:"viewingRegion,omitempty"`
+	Private       *PlayerPrivate `json:"private,omitempty"`
 }
 
 // PlayerPrivate is the part of a player only admins see.
@@ -123,6 +126,14 @@ func (s *Service) playerInfo(ctx context.Context, q db.Querier, actor store.Play
 	if membership != nil {
 		describeMembership(membership)
 		info.Faction, info.RankTitle = membership.FactionName, membership.RankTitle
+		info.Region = membership.Region
+		if viewing, err := store.ViewingBranch(ctx, q, targetID); err != nil {
+			return nil, err
+		} else if viewing != 0 && (membership.BranchID == nil || viewing != *membership.BranchID) {
+			if b, err := store.BranchByID(ctx, q, viewing); err == nil {
+				info.ViewingRegion = b.Region
+			}
+		}
 	}
 	if info.Sanctions, err = store.SanctionsOf(ctx, q, targetID, s.now()); err != nil {
 		return nil, err

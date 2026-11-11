@@ -162,7 +162,8 @@ a live session receive pushes. `players.push_attacks` and `push_results` are the
 ### regions
 `countries` holds Natural Earth admin-0 shapes (`code` ISO 3166 two letters, `main` false for a territory filed under its
 sovereign's code), loaded by `cmd/loadcountries`, plus admin test regions on dev (`test`, codes `XA`..`XZ`).
-`live_regions` is LiveRegions: the countries that can be claimed (MV first).
+`live_regions` is LiveRegions: the countries that can be claimed (MV first). `faction_members.viewing_branch_id` is the
+region a member views (null = home, `branch_id`); talk only.
 
 ### anti GPS spoofing
 `infringements` also keeps spoofing signals (`mock_location`, `teleport`, `pattern`, `stale_fix`): `hard` ones start a

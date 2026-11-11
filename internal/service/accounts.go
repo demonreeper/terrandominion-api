@@ -354,7 +354,9 @@ type MeView struct {
 	OpenReports int `json:"openReports,omitempty"`
 	// EmailSearchable: other players can find this one by their whole email (FR1). FriendRequestsWaiting:
 	// requests waiting for this player's answer (the FRIENDS row's count).
-	EmailSearchable       bool `json:"emailSearchable"`
+	EmailSearchable bool `json:"emailSearchable"`
+	// SpoofExempt (admins only): the admin's own SPOOF EXEMPT switch on the ADMIN page, off by default.
+	SpoofExempt           bool `json:"spoofExempt,omitempty"`
 	FriendRequestsWaiting int  `json:"friendRequestsWaiting"`
 }
 
@@ -481,6 +483,13 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		if me.OpenReports, err = store.OpenReportCount(ctx, q); err != nil {
 			return nil, err
 		}
+	}
+	if player.IsAdmin {
+		state, err := store.SpoofStateOf(ctx, q, playerID, s.now())
+		if err != nil {
+			return nil, err
+		}
+		me.SpoofExempt = state.Exempt
 	}
 	if player.Callsign.Valid {
 		callsign := player.Callsign.String

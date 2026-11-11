@@ -242,8 +242,14 @@ type BranchView struct {
 	FactionName string               `json:"factionName"`
 	Region      string               `json:"region"`
 	Members     []store.BranchMember `json:"members"`
-	// CanAppoint is true for the branch's Regional Commander.
+	// CanAppoint is true for the branch's Regional Commander (in their home region only).
 	CanAppoint bool `json:"canAppoint"`
+	// Visiting: this is another unlocked region of the faction, viewed (R2): talk only. Home is the player's own
+	// region; Visitors are members from other regions viewing this one.
+	Visiting   bool                 `json:"visiting"`
+	Home       string               `json:"home"`
+	RegionName string               `json:"regionName"`
+	Visitors   []store.BranchMember `json:"visitors"`
 }
 
 func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error) {
@@ -254,9 +260,33 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	if membership == nil || membership.BranchID == nil {
 		return BranchView{}, apperr.NotInBranch
 	}
-	members, err := store.BranchMembers(ctx, s.db, *membership.BranchID)
+	shown, err := s.viewedBranch(ctx, playerID, *membership.BranchID)
 	if err != nil {
 		return BranchView{}, err
+	}
+	visiting := shown != *membership.BranchID
+	region := membership.Region
+	if visiting {
+		b, err := store.BranchByID(ctx, s.db, shown)
+		if err != nil {
+			return BranchView{}, err
+		}
+		region = b.Region
+	}
+	members, err := store.BranchMembers(ctx, s.db, shown)
+	if err != nil {
+		return BranchView{}, err
+	}
+	visitors, err := store.BranchVisitors(ctx, s.db, shown)
+	if err != nil {
+		return BranchView{}, err
+	}
+	regionName, err := store.CountryName(ctx, s.db, region)
+	if err != nil {
+		return BranchView{}, err
+	}
+	if regionName == "" {
+		regionName = game.RegionName(region)
 	}
 	ids := make([]int64, 0, len(members))
 	for i := range members {
@@ -270,9 +300,14 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	for i := range members {
 		members[i].FriendState = states[members[i].PlayerID]
 	}
+	for i := range visitors {
+		visitors[i].RankTitle = game.RankTitle(visitors[i].Rank)
+	}
 	return BranchView{
-		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: membership.Region,
-		Members: members, CanAppoint: membership.Rank >= game.RankRegionalCommander,
+		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: region, RegionName: regionName,
+		Members: members, Visitors: visitors, Visiting: visiting, Home: membership.Region,
+		// No rank works away from home: the Commander appoints only in their own region.
+		CanAppoint: !visiting && membership.Rank >= game.RankRegionalCommander,
 	}, nil
 }
 

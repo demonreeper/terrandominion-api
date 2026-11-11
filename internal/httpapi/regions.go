@@ -68,3 +68,48 @@ func (s *Server) adminSetLiveRegion(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, map[string]any{"live": live})
 }
+
+func (s *Server) factionRegions(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	view, err := s.svc.FactionRegions(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, view)
+}
+
+func (s *Server) viewRegion(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Region string `json:"region"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	view, err := s.svc.ViewRegion(r.Context(), playerID, body.Region)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, view)
+}
+
+func (s *Server) adminMoveRegion(w http.ResponseWriter, r *http.Request) {
+	adminID, _ := playerFrom(r.Context())
+	var body struct {
+		Region string `json:"region"`
+		Reason string `json:"reason"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	info, err := s.svc.AdminMoveRegion(r.Context(), adminID, r.PathValue("code"), body.Region, body.Reason)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, info)
+}
