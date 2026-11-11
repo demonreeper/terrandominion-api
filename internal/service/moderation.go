@@ -310,6 +310,12 @@ func (s *Service) Sanction(ctx context.Context, actorID int64, code string, req 
 			if err := store.DeletePlayerPushTokens(ctx, tx, targetID); err != nil {
 				return err
 			}
+			// A ban also bans the player's phones and sign-ins (freelancer-path-plan.md phase 2).
+			if req.Kind == game.SanctionBan {
+				if err := s.markBan(ctx, tx, targetID, id); err != nil {
+					return err
+				}
+			}
 			if err := store.RevokeAllSessions(ctx, tx, targetID); err != nil {
 				return err
 			}
@@ -390,6 +396,12 @@ func (s *Service) LiftSanction(ctx context.Context, adminID, sanctionID int64, r
 		}
 		if err := store.LiftSanction(ctx, tx, sanctionID, adminID, reason); err != nil {
 			return err
+		}
+		// Lifting a ban frees the phones and sign-ins it marked.
+		if sanction.Kind == game.SanctionBan {
+			if err := store.LiftBanMarks(ctx, tx, sanctionID); err != nil {
+				return err
+			}
 		}
 		status, end, err := store.StrongestActiveSanction(ctx, tx, sanction.PlayerID)
 		if err != nil {

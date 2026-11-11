@@ -28,6 +28,13 @@ func (s *Service) Factions(ctx context.Context, playerID int64) ([]store.Faction
 	if err != nil || membership != nil {
 		return factions, err
 	}
+	bound, err := store.BoundFaction(ctx, s.db, playerID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range factions {
+		factions[i].Bound = bound != "" && factions[i].Code == bound
+	}
 	invited, err := store.InvitedFaction(ctx, s.db, playerID)
 	if err != nil {
 		return nil, err
@@ -74,6 +81,22 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		if err != nil {
 			return err
 		}
+		// A pledge made on this phone or sign-in before stands: only that faction is open.
+		if current == nil {
+			bound, err := store.BoundFaction(ctx, tx, playerID)
+			if err != nil {
+				return err
+			}
+			if !game.MayPledgeTo(bound, faction.Code) {
+				appeal, err := s.boundAppeal(ctx, tx, playerID, bound)
+				if err != nil {
+					return err
+				}
+				return apperr.PledgeStands.WithData(map[string]any{
+					"faction": bound, "appealCode": appeal, "appealUrl": game.AppealMailto(appeal),
+				})
+			}
+		}
 
 		// The player's region is their country; the Maldives is the only one at launch.
 		region := game.LaunchRegion
@@ -111,6 +134,10 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		}
 
 		if err := store.AddMember(ctx, tx, playerID, faction.ID, branch.ID, rank); err != nil {
+			return err
+		}
+		// The pledge sticks to every phone and sign-in this player uses.
+		if err := s.markPledge(ctx, tx, playerID, faction.Code); err != nil {
 			return err
 		}
 		membership, err = store.MembershipOf(ctx, tx, playerID)

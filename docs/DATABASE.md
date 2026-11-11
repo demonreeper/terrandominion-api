@@ -36,6 +36,7 @@ callsign_blocked words a callsign may not contain
 player_reports   a player reported for griefing: what happened, a note, and what the server knows about the two
 player_sanctions warnings, suspensions and bans, with who gave them and who lifted them
 infringements    failed location checks per player (GPS too weak, travel speed), for admins
+device_marks     salted hashes of phones and sign-ins with the faction pledged or a ban; outlives accounts (0047)
 admin_actions    who changed what, and when (a change to a player has the player's id as target)
 ```
 
@@ -54,6 +55,10 @@ is picked, `OPERATIVE-` plus `public_code`: an 8-character random share code in 
 counting id. Every player-facing query names a player through `td.player_name(callsign, public_code,
 status)` and `td.player_code(public_code, status)`: a deleted or banned account reads `Deleted player`
 with no code.
+
+**Device record (0047):** `device_marks` has one row per hash (`kind` device or signin, `hash` an HMAC with the
+device pepper), `faction_code`, `banned` with `ban_sanction_id` (no foreign key: a deleted account's sanctions go, the
+mark stays) and a unique `appeal_code`. `players.bound_faction_code` is the faction a marked new account returns to.
 
 **Reserved ids (0043):** 1 is the owner (primary admin, also a player), 2 to 7 the six powers (`system` accounts,
 faction id + 1), 8 to 10 held for later; the id counter starts at 11. Every foreign key to `players.id` is

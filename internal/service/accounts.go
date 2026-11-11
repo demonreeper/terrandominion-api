@@ -97,7 +97,13 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 	deviceHash := auth.HashDevice(device.DeviceID, s.cfg.DevicePepper)
 	var result AuthResult
 
+	signinHash := s.signinHash(provider, subject)
 	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		// The device record first: a banned phone or sign-in gets no account, new or old.
+		verdict, err := s.checkMarks(ctx, tx, deviceHash, signinHash)
+		if err != nil {
+			return err
+		}
 		playerID, err := store.FindIdentity(ctx, tx, provider, subject)
 		isNew := errors.Is(err, store.ErrNotFound)
 		if err != nil && !isNew {
@@ -164,6 +170,9 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 		}
 
 		if err := store.TouchPlayer(ctx, tx, playerID, device.AppVersion); err != nil {
+			return err
+		}
+		if err := s.applyMarks(ctx, tx, playerID, verdict, deviceHash, signinHash); err != nil {
 			return err
 		}
 
@@ -310,6 +319,12 @@ type MeView struct {
 	Recipes           []game.Recipe         `json:"recipes"`
 	CraftableGear     []store.CraftableGear `json:"craftableGear"`
 	Faction           *store.Membership     `json:"faction"`
+	// PledgeBound: a pledge made on this phone or sign-in before stands. At the faction level the
+	// player may pledge only to this faction ("Your pledge stands."). AppealCode and AppealURL go with
+	// the APPEAL link for a second-hand phone.
+	PledgeBound string `json:"pledgeBound,omitempty"`
+	AppealCode  string `json:"appealCode,omitempty"`
+	AppealURL   string `json:"appealUrl,omitempty"`
 	// Badges are permanent marks, such as Founder of a faction's branch in a country.
 	Badges []store.Badge `json:"badges"`
 	// Linked are the sign-ins that open this account ("apple", "google"; "dev" on the dev server).
@@ -396,6 +411,19 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(own), TetherUpgradeCost: game.TetherUpgradeCost(own), CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Badges: badges, Freelancer: membership == nil,
+	}
+	if membership == nil {
+		bound, err := store.BoundFaction(ctx, q, playerID)
+		if err != nil {
+			return nil, err
+		}
+		if bound != "" {
+			me.PledgeBound = bound
+			if me.AppealCode, err = s.boundAppeal(ctx, q, playerID, bound); err != nil {
+				return nil, err
+			}
+			me.AppealURL = game.AppealMailto(me.AppealCode)
+		}
 	}
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time

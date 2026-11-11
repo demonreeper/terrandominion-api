@@ -126,6 +126,8 @@ Staff look a player up; admins see the private side and change things. Every cha
 | GET | `/mod/players?q=` | – | Mods and admins. At least 2 characters: a piece of a callsign or share code; for admins also the player's id or a piece of an email. `players [{player {code, name}, level, status, faction, isAdmin, isMod, lastSeen}]`, last seen first, at most 30. Banned accounts are found too |
 | GET | `/mod/players/{code}` | – | Mods and admins. `player`, `level`, `xp`, `status`, `suspendedUntil`, `isAdmin`, `isMod`, `faction`, `rankTitle`, `tethersActive`, `registered`, `lastSeen`, `reportsAgainst`, `reportsBy`, `sanctions`, `canAct` (may warn, suspend or ban them), `suspendDays`. Admins also get `private`: `id`, `realName`, `signIns [{provider, email}]`, `platform`, `appVersion`, `carried`, `stored`, `sharedPhone` (other accounts signed in on the same phone), `infringementKinds [{kind, count, last}]`, `infringements` (the last 20: `kind, detail, path, at`), `actions` (the last 20 admin actions on them: `action, by, at, detail`). A moderator never gets `private` |
 | POST | `/admin/players/{code}/adjust` | `xp?, carried? {resource: amount}, stored? {resource: amount}, reason` | Adds, or with a minus takes away. Reason of 3 to 500 characters. The level follows the new XP. The carry limit is not applied. 1121 when nothing changes, an amount is over 1,000,000, the resource is unknown or it would go below zero. Returns the player info |
+| GET | `/admin/marks/{appealCode}` | – | A device-record mark by its appeal code: `kind` (`device` or `signin`), `factionCode`, `factionName`, `banned`, `appealCode`, `createdAt`. For an appeal from someone who can't sign in at all |
+| POST | `/admin/marks/{appealCode}/clear` | `reason` | Removes the whole mark after an appeal (proof checked by the admin, then deleted; it is never stored here). Logged as `mark.clear` |
 | POST | `/admin/players/{code}/release-pledge` | `reason` | RELEASE PLEDGE: returns a member to freelancer, for a mistaken pledge (players can't undo one). A Regional Commander's seat is left empty. Logged as `player.release_pledge`. 1121 when they have not pledged |
 | POST | `/admin/players/{code}/reset-callsign` | `reason` | Removes the callsign (for an offensive one). The player is `OPERATIVE-<code>` until they pick again, which they may do at once, and gets a written message from Moderation. 1121 when they have none |
 | PUT | `/admin/players/{code}/mod` | `isMod` | Makes or removes a moderator; it applies on their next call |
@@ -135,6 +137,20 @@ Suspend, ban and lift from a player's info use the moderation endpoints above. F
 (E1201 GPS too weak, E1205 travel speed) are stored in `td.infringements` when the server refuses the
 request: at most one of each kind per player in `InfringementGapMinutes` (10), with the numbers behind
 it and the path, never a position.
+
+### Device record
+A pledge and a ban stick to the phone and to the Google/Apple sign-in (freelancer-path-plan.md phase 2): the server
+keeps salted one-way hashes in `td.device_marks`, never tied to a player row, so deleting an account undoes neither.
+
+- **Sign-up and sign-in** check the phone's hash (`deviceId`: Android's id, iPhone a Keychain id) and the sign-in's.
+  A ban on either refuses entry with 1122, new account or old. A member's pledge is marked on every phone and sign-in
+  they use; an account that hasn't pledged, on a marked phone or sign-in, is bound to that faction.
+- **Bound accounts:** `/me` carries `pledgeBound` (the faction code), `appealCode` and `appealUrl`; `GET /factions`
+  marks that faction `bound`. Pledging anywhere else answers 1306. If that branch has no commander in their country,
+  they may claim its seat.
+- **A ban** marks every phone and sign-in the player used; **lifting** it clears those marks. **RELEASE PLEDGE**
+  clears the faction from the player's marks.
+- `appealUrl` is a `mailto:` to support with the appeal code filled in. A player's info for admins lists `marks`.
 
 ### Reserved accounts
 Player ids 1 to 10 are never given to a new account (migration 0043, `game/reserved.go`):
@@ -428,7 +444,9 @@ never reads as inside the range).
 | 1119 | Sanction is not running | |
 | 1120 | Report is not dismissed | |
 | 1121 | Admin change to a player not allowed (the message says why) | |
+| 1122 | This device is banned (the device record: the phone or the sign-in carries a ban). Sign-up and sign-in | `appealCode, appealUrl` |
 | 1305 | The primary admin (player 1) stays a freelancer: can't lead or join a faction | |
+| 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

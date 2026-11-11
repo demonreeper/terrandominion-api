@@ -74,8 +74,10 @@ type PlayerPrivate struct {
 	Stored            map[string]int64         `json:"stored"`
 	SharedPhone       []store.PlayerRef        `json:"sharedPhone"`
 	InfringementKinds []store.InfringementKind `json:"infringementKinds"`
-	Infringements     []store.Infringement     `json:"infringements"`
-	Actions           []store.PlayerAction     `json:"actions"`
+	// Marks are the device record's entries on this player's phones and sign-ins.
+	Marks         []store.DeviceMark   `json:"marks"`
+	Infringements []store.Infringement `json:"infringements"`
+	Actions       []store.PlayerAction `json:"actions"`
 }
 
 // PlayerInfo reads one player for staff, by share code (a banned account too).
@@ -150,6 +152,13 @@ func (s *Service) playerInfo(ctx context.Context, q db.Querier, actor store.Play
 		return nil, err
 	}
 	if private.Actions, err = store.PlayerActions(ctx, q, targetID, playerActionsMax); err != nil {
+		return nil, err
+	}
+	devices, signins, err := s.playerHashes(ctx, q, targetID)
+	if err != nil {
+		return nil, err
+	}
+	if private.Marks, err = store.MarksOf(ctx, q, devices, signins); err != nil {
 		return nil, err
 	}
 	info.Private = private
@@ -381,7 +390,7 @@ func (s *Service) AdminReleasePledge(ctx context.Context, adminID int64, code, r
 		if faction == 0 {
 			return apperr.AdjustBad.Say("This player has not pledged to a faction.")
 		}
-		if err := releaseDeviceMarks(ctx, tx, targetID); err != nil {
+		if err := releaseDeviceMarks(ctx, tx, s, targetID); err != nil {
 			return err
 		}
 		detail, _ := json.Marshal(map[string]any{"faction": faction, "reason": reason})
@@ -396,10 +405,4 @@ func (s *Service) AdminReleasePledge(ctx context.Context, adminID int64, code, r
 		return err
 	})
 	return info, err
-}
-
-// releaseDeviceMarks forgets the faction on the device marks of a released player. Device marks
-// come with phase 2 of freelancer-path-plan.md; until then there is nothing to clear.
-func releaseDeviceMarks(ctx context.Context, q db.Querier, playerID int64) error {
-	return nil
 }

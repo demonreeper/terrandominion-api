@@ -131,3 +131,30 @@ func (s *Server) adminReleasePledge(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, info)
 }
+
+// adminMark finds a device mark by its appeal code.
+func (s *Server) adminMark(w http.ResponseWriter, r *http.Request) {
+	mark, err := s.svc.AdminMark(r.Context(), r.PathValue("code"))
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, mark)
+}
+
+// adminClearMark removes a device mark after an appeal.
+func (s *Server) adminClearMark(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.AdminClearMark(r.Context(), playerID, r.PathValue("code"), body.Reason); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "cleared")
+}

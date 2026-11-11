@@ -29,6 +29,8 @@ type Faction struct {
 	// where they are working on them now. Both filled by the service.
 	Perks []PerkLine `json:"perks"`
 	Mine  bool       `json:"mine"`
+	// Bound marks the faction a pledge made on this phone or sign-in binds the player to.
+	Bound bool `json:"bound,omitempty"`
 
 	LeaderID sql.NullInt64 `json:"-"`
 }

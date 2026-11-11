@@ -110,6 +110,7 @@ var (
 	SanctionNotLive    = def(1119, http.StatusConflict, "That sanction is not running, so there is nothing to lift.")
 	ReportNotDismissed = def(1120, http.StatusConflict, "Only a dismissed report can be reopened.")
 	AdjustBad          = def(1121, http.StatusBadRequest, "That change is not allowed.")
+	DeviceBanned       = def(1122, http.StatusForbidden, "This device is banned.") // data: appealCode, appealUrl
 	// The callsign errors carry data.error: "callsign_invalid", "callsign_taken" or "callsign_too_soon".
 	CallsignInvalid = def(1109, http.StatusBadRequest, "Pick one of the callsigns offered.")
 	CallsignTaken   = def(1110, http.StatusConflict, "That callsign is taken or not allowed. Try another.")
@@ -129,6 +130,7 @@ var (
 	FactionMemberAlready = def(1302, http.StatusConflict, "You already belong to a faction.")
 	FactionClaimed       = def(1303, http.StatusConflict, "This faction already has a Regional Commander here.")
 	// 1304 is no longer used: a faction is claimed per region, so an active one can still be claimed elsewhere.
+	PledgeStands           = def(1306, http.StatusConflict, "Your pledge stands. A tether to a power never breaks.") // data: faction, appealCode, appealUrl
 	PrimaryAdminFreelancer = def(1305, http.StatusForbidden, "This account stays a freelancer. It can't pledge to a faction.")
 	FactionNotLocked       = def(1304, http.StatusConflict, "This faction is already active.")
 	// 1305 is log-only: account cleanup skipped a faction head (succession is decided by hand).
