@@ -109,6 +109,7 @@ var (
 	SanctionNotYours   = def(1118, http.StatusForbidden, "You can't act on that account.")
 	SanctionNotLive    = def(1119, http.StatusConflict, "That sanction is not running, so there is nothing to lift.")
 	ReportNotDismissed = def(1120, http.StatusConflict, "Only a dismissed report can be reopened.")
+	AdjustBad          = def(1121, http.StatusBadRequest, "That change is not allowed.")
 	// The callsign errors carry data.error: "callsign_invalid", "callsign_taken" or "callsign_too_soon".
 	CallsignInvalid = def(1109, http.StatusBadRequest, "Use 3 to 16 letters, digits, - or _, starting and ending with a letter or digit.")
 	CallsignTaken   = def(1110, http.StatusConflict, "That callsign is taken or not allowed. Try another.")

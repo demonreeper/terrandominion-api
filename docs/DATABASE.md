@@ -35,7 +35,8 @@ seed_areas       areas an admin pre-seeds (Malé, Hulhumalé, Villimalé)
 callsign_blocked words a callsign may not contain
 player_reports   a player reported for griefing: what happened, a note, and what the server knows about the two
 player_sanctions warnings, suspensions and bans, with who gave them and who lifted them
-admin_actions    who changed what, and when
+infringements    failed location checks per player (GPS too weak, travel speed), for admins
+admin_actions    who changed what, and when (a change to a player has the player's id as target)
 ```
 
 ### players

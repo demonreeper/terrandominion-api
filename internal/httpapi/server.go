@@ -24,6 +24,10 @@ type Server struct {
 }
 
 func New(svc *service.Service, cfg config.Config, devLogin bool) *Server {
+	// A refused request that failed a location check is stored on the player (td.infringements).
+	onFail = func(r *http.Request, playerID int64, e *apperr.Error) {
+		svc.NoteInfringement(r.Context(), playerID, e, r.URL.Path)
+	}
 	return &Server{
 		svc:           svc,
 		cfg:           cfg,
@@ -113,6 +117,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
 	mux.HandleFunc("PUT /v1/admin/settings/{key}", s.admin(s.adminUpdateSetting))
 	mux.HandleFunc("PUT /v1/admin/announcement", s.admin(s.adminSetAnnouncement))
+	mux.HandleFunc("GET /v1/mod/players", s.mod(s.modPlayers))
+	mux.HandleFunc("GET /v1/mod/players/{code}", s.mod(s.modPlayer))
+	mux.HandleFunc("POST /v1/admin/players/{code}/adjust", s.admin(s.adminAdjustPlayer))
+	mux.HandleFunc("POST /v1/admin/players/{code}/reset-callsign", s.admin(s.adminResetCallsign))
+	mux.HandleFunc("PUT /v1/admin/players/{code}/mod", s.admin(s.adminSetMod))
+	mux.HandleFunc("GET /v1/admin/stats", s.admin(s.adminStats))
 	mux.HandleFunc("GET /v1/admin/sanctions", s.admin(s.adminSanctions))
 	mux.HandleFunc("POST /v1/admin/sanctions/{id}/lift", s.admin(s.adminLiftSanction))
 	mux.HandleFunc("POST /v1/admin/reports/{id}/reopen", s.admin(s.adminReopenReport))

@@ -47,8 +47,15 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 	} else {
 		slog.Info("E"+itoa(e.Code)+" "+e.Message, attrs...)
 	}
+	if pid, ok := playerFrom(r.Context()); ok && onFail != nil {
+		onFail(r, pid, e)
+	}
 	writeJSON(w, e.Status, envelope{Error: e})
 }
+
+// onFail is told about every refused request of a signed-in player; the server uses it to store
+// failed location checks (td.infringements). Set once when the server is built.
+var onFail func(r *http.Request, playerID int64, e *apperr.Error)
 
 const maxBody = 64 << 10
 

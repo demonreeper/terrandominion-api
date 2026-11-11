@@ -102,8 +102,25 @@ one. A suspension that has run out returns the account to `active` (on the next 
 other players a banned account reads `Deleted player` with no code; staff still see the callsign. Every action
 is written to `admin_actions`. `/me` carries `isMod`.
 
-### Faction perks
-Members of a faction get its perks; they stop the moment the player leaves. The server applies them
+### Admin players and stats
+Staff look a player up; admins see the private side and change things. Every change is written to
+`admin_actions` with the player's id as its target.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/mod/players?q=` | – | Mods and admins. At least 2 characters: a piece of a callsign or share code; for admins also the player's id or a piece of an email. `players [{player {code, name}, level, status, faction, isAdmin, isMod, lastSeen}]`, last seen first, at most 30. Banned accounts are found too |
+| GET | `/mod/players/{code}` | – | Mods and admins. `player`, `level`, `xp`, `status`, `suspendedUntil`, `isAdmin`, `isMod`, `faction`, `rankTitle`, `tethersActive`, `registered`, `lastSeen`, `reportsAgainst`, `reportsBy`, `sanctions`, `canAct` (may warn, suspend or ban them), `suspendDays`. Admins also get `private`: `id`, `realName`, `signIns [{provider, email}]`, `platform`, `appVersion`, `carried`, `stored`, `sharedPhone` (other accounts signed in on the same phone), `infringementKinds [{kind, count, last}]`, `infringements` (the last 20: `kind, detail, path, at`), `actions` (the last 20 admin actions on them: `action, by, at, detail`). A moderator never gets `private` |
+| POST | `/admin/players/{code}/adjust` | `xp?, carried? {resource: amount}, stored? {resource: amount}, reason` | Adds, or with a minus takes away. Reason of 3 to 500 characters. The level follows the new XP. The carry limit is not applied. 1121 when nothing changes, an amount is over 1,000,000, the resource is unknown or it would go below zero. Returns the player info |
+| POST | `/admin/players/{code}/reset-callsign` | `reason` | Removes the callsign (for an offensive one). The player is `OPERATIVE-<code>` until they pick again, which they may do at once, and gets a written message from Moderation. 1121 when they have none |
+| PUT | `/admin/players/{code}/mod` | `isMod` | Makes or removes a moderator; it applies on their next call |
+| GET | `/admin/stats` | – | Counts only, no names, nothing with a place: `playersTotal`, `newWeek`, `active24h`, `active7d`, `active30d` (by last seen), `harvestsMonth` (this calendar month, Maldives time), `tethersActive`, `fightsWeek` (weapon hits, drone strikes and contests in 7 days), `factions [{name, color, members}]`, `retained` of `retainedOf` (players who joined 7 to 14 days ago, and those seen a week or more after joining) with `retentionPct`, `days` (14 days, oldest first: `{day, active}`, a player being active on a day they earned XP), `asOf` |
+
+Suspend, ban and lift from a player's info use the moderation endpoints above. Failed location checks
+(E1201 GPS too weak, E1205 travel speed) are stored in `td.infringements` when the server refuses the
+request: at most one of each kind per player in `InfringementGapMinutes` (10), with the numbers behind
+it and the path, never a position.
+
+### Faction perksMembers of a faction get its perks; they stop the moment the player leaves. The server applies them
 (`game.FactionPerks`), and every number is a setting (`Perk…Pct`, group `factions`; 0 switches a perk off):
 
 | Faction (power) | Perk | Settings |
@@ -357,6 +374,7 @@ never reads as inside the range).
 | 1118 | Not allowed to act on that account | |
 | 1119 | Sanction is not running | |
 | 1120 | Report is not dismissed | |
+| 1121 | Admin change to a player not allowed (the message says why) | |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

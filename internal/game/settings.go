@@ -194,6 +194,8 @@ type Settings struct {
 	ReportsPerDay     int // reports one player may make in 24 hours
 	ReportContextDays int // how far back a report's attached interactions go
 	SuspendRepeatDays int // a second suspension inside this many days suggests the next step up
+	// A failed location check of one kind is stored at most once per player in this many minutes.
+	InfringementGapMinutes int
 
 	// CallsignChangeDays is how long a player waits between callsign changes (the first pick is free).
 	CallsignChangeDays int
@@ -379,6 +381,8 @@ func DefaultSettings() Settings {
 		ReportsPerDay:     5,
 		ReportContextDays: 7,
 		SuspendRepeatDays: 30,
+
+		InfringementGapMinutes: 10,
 
 		CallsignChangeDays: 30,
 
@@ -572,6 +576,7 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("ReportsPerDay", &s.ReportsPerDay)
 	i("ReportContextDays", &s.ReportContextDays)
 	i("SuspendRepeatDays", &s.SuspendRepeatDays)
+	i("InfringementGapMinutes", &s.InfringementGapMinutes)
 
 	i("CallsignChangeDays", &s.CallsignChangeDays)
 
