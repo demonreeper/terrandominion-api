@@ -37,6 +37,12 @@ type Config struct {
 	// game is in that store: the page then leaves the button out.
 	PlayURL     string
 	AppStoreURL string
+	// What lets the app open profile links (docs/profile-plan.md, P3). AndroidCertSHA256 are the
+	// SHA-256 fingerprints of every key an installed build may be signed with (debug, upload, Play
+	// App Signing); AppleAppIDs are "<team id>.<bundle id>". Public values, not secrets.
+	AndroidPackage    string
+	AndroidCertSHA256 []string
+	AppleAppIDs       []string
 }
 
 func (c Config) IsLive() bool { return c.Env == "live" }
@@ -55,6 +61,9 @@ func Load() (Config, error) {
 		PublicURL:          strings.TrimRight(getenv("TD_PUBLIC_URL", "https://td-dev.demonreeper.xyz"), "/"),
 		PlayURL:            os.Getenv("TD_PLAY_URL"),
 		AppStoreURL:        os.Getenv("TD_APPSTORE_URL"),
+		AndroidPackage:     getenv("TD_ANDROID_PACKAGE", "com.hisstudios.terrandominion"),
+		AndroidCertSHA256:  splitList(os.Getenv("TD_ANDROID_CERT_SHA256")),
+		AppleAppIDs:        splitList(getenv("TD_APPLE_APP_IDS", "J2P3QBTV3J.com.hisstudios.terrandominion")),
 	}
 
 	trust, err := strconv.ParseBool(getenv("TD_TRUST_PROXY", "true"))

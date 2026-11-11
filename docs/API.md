@@ -83,6 +83,20 @@ or text that is not a code, gets the same page saying "This operative is no long
 `Cache-Control: public, max-age=300`; rate limited per IP like every request. `/me` and a profile carry the
 link as `shareUrl` (`TD_PUBLIC_URL` + `/p/` + code; the dev address until the release domain is bought).
 
+### Opening a share link in the game
+Android and iOS each fetch a file from the link's domain to check that the app may open its links. Both are
+bare JSON (no `data` envelope), public, `Cache-Control: public, max-age=300`, and must never be redirected.
+
+| Path | What |
+|---|---|
+| `GET /.well-known/assetlinks.json` | Android App Links: `TD_ANDROID_PACKAGE` (default `com.hisstudios.terrandominion`) with `TD_ANDROID_CERT_SHA256`, the SHA-256 fingerprint of every key an installed build is signed with (comma-separated: this PC's debug key, the upload key, later the Play App Signing key). An empty list `[]` when none is set |
+| `GET /.well-known/apple-app-site-association` | iOS Universal Links: `TD_APPLE_APP_IDS` (`<team id>.<bundle id>`, default `J2P3QBTV3J.com.hisstudios.terrandominion`) for the path `/p/*` only |
+
+The app declares the same host (`AndroidManifest.xml` intent filter with `autoVerify`; the Associated Domains
+entitlement `applinks:<host>` from `IosPostBuild`), so a new share domain needs a new app build as well as these
+two variables. Check Android's verdict with
+`adb shell pm get-app-links com.hisstudios.terrandominion` (`verified` for the host).
+
 ### Reports and moderation
 A player reports another for griefing; moderators (`is_mod`) and admins act on it. A ban or a suspension
 only stops sign-in: nothing the player owns is removed, and their Tether Nodes decay as normal.

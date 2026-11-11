@@ -136,6 +136,9 @@ func (s *Server) Handler() http.Handler {
 
 	// The web page behind a profile share link: public, no sign-in.
 	mux.HandleFunc("GET /p/{code}", s.profilePage)
+	// The files Android and iOS fetch to check that the app may open /p/ links.
+	mux.HandleFunc("GET /.well-known/assetlinks.json", s.assetLinksFile)
+	mux.HandleFunc("GET /.well-known/apple-app-site-association", s.appleAssociationFile)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, r, apperr.NotFound) })
 
