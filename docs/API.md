@@ -152,6 +152,10 @@ and every session from before was revoked, so each phone signs in once more.
 
 **Looking inside a faction (admins).** An admin can read a faction without joining it: they are not a member, are
 not listed, and nobody is told. Each look is written to `admin_actions` (`faction.inspect`).
+Decided 2026-11-11: a ghost visit sees everything a member sees and can move between the faction's regions, and
+no player can ever see the admin there. Today that is the branches, commander and members below. Faction chat
+and commanders' orders do not exist yet; when they are built, their endpoints must also answer an admin who is not
+a member (read-only), and must never list the admin as present, as a reader or as a member.
 
 | Method | Path | Notes |
 |---|---|---|
