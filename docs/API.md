@@ -184,7 +184,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 | GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
 | POST | `/tethers/{id}/upgrade` | `lat, lon, accuracyM` | Owner only, in range. To tier 2, linking more free nodes. Refused if none is free. Returns `tether, carried, stored, xp, progress, levelUp` |
 | POST | `/tethers/{id}/dismantle` | – | Owner only. Refunds part of what was spent, plus everything it held, to stored, and frees its nodes. Returns `refund, held, stored` |
-| POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to stored. Returns `moved, stored` |
+| POST | `/tethers/{id}/collect` | `lat, lon, accuracyM` | Owner only, in range. Moves the held half (`stock` in nearby, owner only) to stored, and brings the TN back to full gathering speed (see Slowdown below). Returns `moved, stored` |
 | POST | `/tethers/{id}/attack` | `weapon, lat, lon, accuracyM` | `em_pulse`, `signal_jammer` or `overload_spike`. Checks GPS, `WeaponRangeM` and the attack rules; uses the item and its energy cells. A shield cuts the damage (and jam time) by `ShieldShare` (weapons count as Mk I), and no single hit takes a shielded node below 1 health. Returns `health`, `damage` (EM Pulse), `destroyed`, `jammedUntil` (jammer only), `spikeFiresAt` (spike only), and `xp, progress, levelUp` (see Fighting XP below) |
 | POST | `/tethers/{id}/drone` | `lat, lon, accuracyM` | Needs a working Drone Bay; range is the bay's `stats.range_m` (Mk I 150 m, Mk II 500 m, Mk III 1 km, Mk IV 5 km) plus the fix's accuracy (at most doubling it), else 1712 with `distanceM, rangeM`. Attack rules apply. Uses the bay's `stats.cells` energy cells (Mk IV 3) and `DroneLaunchWear` (5) durability; at most `stats.drones` in flight. Flies at `DroneSpeedMps`, at least `DroneMinFlightSec`. Returns `id, tnId, mk, launchedAt, arrivesAt, distanceM, from {lat, lon}, to {lat, lon}, damage` (what lands without an intercept, after the shield) |
 | POST | `/tethers/{id}/intercept` | `lat, lon, accuracyM` | Owner only, within `WeaponRangeM`, `CellsIntercept` energy cells. Intercepts the soonest-landing drone not yet intercepted; it stops `InterceptShareMk1..4` of its damage by the drone's Mk (Mk I 100%: the drone is void at once). 1732 when no drone is inbound, 1733 when all are already intercepted. Returns `droneId, share, shotDown, xp, progress, levelUp` |
@@ -201,6 +201,16 @@ drone shot down pays nothing. Intercepting a drone pays the defender `XpIntercep
 `MissionDayOffsetMinutes`, Maldives time), and the same number of intercepts per defender and
 attacker; after that they still work but `xp` is 0 and `progress` is left out.
 
+### Tether Node slowdown
+A Tether Node gathers at full speed for `TnFullSpeedHours` (2) after it is built or after its owner last
+collected at it (`POST /tethers/{id}/collect`), then `TnSlowPctPerHour` (10) percent slower for each further hour,
+never below `TnSlowFloorPct` (20) percent of full speed. Slower means each link waits longer before its next
+harvest: `HarvestCooldownSec` divided by the speed (5 minutes at full speed, 25 minutes at 20%). A collect also
+cuts every link's wait back to the usual cooldown. All three are public settings on the admin settings screen
+(group `tether`); `TnSlowPctPerHour` 0 switches the slowdown off. The owner's own Tether Nodes carry `speedPct`
+(100 = full speed) in `/tethers/nearby`, `/tethers/{id}`, the build and upgrade answers and `/tethers/mine`;
+nobody else is told.
+
 ### My Tether Nodes
 `GET /tethers/mine` returns an array of:
 
@@ -210,7 +220,7 @@ attacker; after that they still work but `xp` is 0 and `progress` is left out.
   "stock": {"crystal": 14},
   "links": [{"nodeId": 301, "resource": "crystal", "name": "Crystal Seam K-27"}],
   "jammedUntil": null, "spikeFiresAt": null, "droneArrivesAt": null, "attackedAt": "...",
-  "underAttack": true, "shieldTier": 2,
+  "underAttack": true, "shieldTier": 2, "speedPct": 60,
   "drones": [{"id": 7, "mk": 2, "launchedAt": "...", "arrivesAt": "...", "from": {"lat": 4.18, "lon": 73.51}, "intercepted": false}] }
 ```
 

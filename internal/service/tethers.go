@@ -39,7 +39,22 @@ func (s *Service) NearbyTethers(ctx context.Context, playerID int64, lat, lon, r
 	if radiusM <= 0 || radiusM > limit {
 		radiusM = limit
 	}
-	return store.NearbyTethers(ctx, s.db, playerID, lat, lon, radiusM, 100)
+	list, err := store.NearbyTethers(ctx, s.db, playerID, lat, lon, radiusM, 100)
+	if err != nil {
+		return nil, err
+	}
+	settings, now := s.Settings(ctx), s.now()
+	for i := range list {
+		tetherSpeedFor(&list[i], settings, now)
+	}
+	return list, nil
+}
+
+// tetherSpeedFor tells the owner how fast their Tether Node gathers now. Nobody else is told.
+func tetherSpeedFor(t *store.Tether, settings game.Settings, now time.Time) {
+	if t.Mine && t.Status == "active" {
+		t.SpeedPct = game.TetherSpeedPct(settings, now.Sub(t.SpeedFrom))
+	}
 }
 
 type BuildTetherRequest struct {
@@ -171,6 +186,7 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 		if err != nil {
 			return err
 		}
+		tetherSpeedFor(&tether, settings, s.now())
 		out = BuildTetherOutcome{
 			Tether: tether, Carried: carried, Stored: uploaded,
 			XP: settings.XpTnBuild, Progress: progress, LevelUp: levelUp,
@@ -304,6 +320,10 @@ func (s *Service) CollectTether(ctx context.Context, playerID, tetherID int64, f
 		}
 		if len(moved) == 0 {
 			return apperr.TetherNothing
+		}
+		// The owner came back and collected: the Tether Node gathers at full speed again.
+		if err := store.MarkTetherCollected(ctx, tx, tetherID, s.now(), settings.HarvestCooldownSec); err != nil {
+			return err
 		}
 		for resource, amount := range moved {
 			if err := store.AddUploaded(ctx, tx, playerID, resource, amount); err != nil {
@@ -559,6 +579,8 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 		if err != nil {
 			return err
 		}
+		// The longer the owner has stayed away, the longer each link waits before its next harvest.
+		cooldown := game.TetherCooldownSec(settings, game.TetherSpeed(settings, s.now().Sub(tether.SpeedFrom)))
 		for _, link := range links {
 			var gathered int64
 			node, err := store.NodeForUpdate(ctx, tx, link.NodeID)
@@ -602,7 +624,7 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 					}
 				}
 			}
-			if err := store.RecordLinkHarvest(ctx, tx, due.ID, link.Slot, gathered, settings.HarvestCooldownSec); err != nil {
+			if err := store.RecordLinkHarvest(ctx, tx, due.ID, link.Slot, gathered, cooldown); err != nil {
 				return err
 			}
 		}
@@ -761,6 +783,7 @@ func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, f
 		if err != nil {
 			return err
 		}
+		tetherSpeedFor(&view, settings, s.now())
 		out = UpgradeTetherOutcome{
 			Tether: view, Carried: carried, Stored: uploaded,
 			XP: settings.XpUpgrade, Progress: progress, LevelUp: levelUp,
@@ -790,6 +813,7 @@ func (s *Service) GetTether(ctx context.Context, playerID, tetherID int64, fix T
 	if err != nil {
 		return TetherDetail{}, err
 	}
+	tetherSpeedFor(&tether, s.Settings(ctx), s.now())
 	out := TetherDetail{Tether: tether, Links: []store.TetherLinkInfo{}}
 	out.InRange = game.WithinTetherInfo(s.Settings(ctx), game.Fix{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM},
 		tether.Lat, tether.Lon)
@@ -816,6 +840,9 @@ func (s *Service) MyTethers(ctx context.Context, playerID int64) ([]store.MyTeth
 	for i := range list {
 		t := &list[i]
 		t.MaxHealth = settings.TnMaxHealth
+		if t.Status == "active" {
+			t.SpeedPct = game.TetherSpeedPct(settings, s.now().Sub(t.SpeedFrom))
+		}
 		u := game.TetherUrgency{
 			Ended: t.Status != "active", UnderAttack: t.UnderAttack,
 			Threatened: t.SpikeFiresAt != nil || t.DroneArrivesAt != nil,

@@ -35,19 +35,23 @@ type Settings struct {
 	BaseSpacingSameFactionM  float64
 	BaseSpacingOtherFactionM float64
 
-	TnMaxPerPlayer      int
-	TnLinkRadiusM       float64
-	TnMinSpacingM       float64
-	TnLinksTier1        int
-	TnLinksTier2        int
-	TnUpgradeAlloy      int
-	TnUpgradeData       int
-	TnUpgradeCredit     int
-	TnInfoRangeM        float64
-	TnLifetimeHours     float64
-	TnMaxHealth         float64
-	TnDismantleRefund   float64
-	TnOwnerShare        float64
+	TnMaxPerPlayer    int
+	TnLinkRadiusM     float64
+	TnMinSpacingM     float64
+	TnLinksTier1      int
+	TnLinksTier2      int
+	TnUpgradeAlloy    int
+	TnUpgradeData     int
+	TnUpgradeCredit   int
+	TnInfoRangeM      float64
+	TnLifetimeHours   float64
+	TnMaxHealth       float64
+	TnDismantleRefund float64
+	TnOwnerShare      float64
+	// The slowdown of a Tether Node whose owner stays away (game.TetherSpeed).
+	TnFullSpeedHours    float64 // hours at full speed after it is built or last collected at
+	TnSlowPctPerHour    float64 // then this much slower for each further hour (percent of full speed)
+	TnSlowFloorPct      float64 // never slower than this (percent of full speed)
 	TnUploadFee         float64
 	TnBuildCrystal      int
 	TnBuildAlloy        int
@@ -249,6 +253,9 @@ func DefaultSettings() Settings {
 		TnMaxHealth:          100,
 		TnDismantleRefund:    0.5,
 		TnOwnerShare:         0.5,
+		TnFullSpeedHours:     2,
+		TnSlowPctPerHour:     10,
+		TnSlowFloorPct:       20,
 		TnUploadFee:          0.05,
 		TnBuildCrystal:       80,
 		TnBuildAlloy:         60,
@@ -447,6 +454,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("TnMaxHealth", &s.TnMaxHealth)
 	f("TnDismantleRefund", &s.TnDismantleRefund)
 	f("TnOwnerShare", &s.TnOwnerShare)
+	f("TnFullSpeedHours", &s.TnFullSpeedHours)
+	f("TnSlowPctPerHour", &s.TnSlowPctPerHour)
+	f("TnSlowFloorPct", &s.TnSlowFloorPct)
 	f("TnUploadFee", &s.TnUploadFee)
 	i("TnBuildCrystal", &s.TnBuildCrystal)
 	i("TnBuildAlloy", &s.TnBuildAlloy)

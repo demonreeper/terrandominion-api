@@ -97,7 +97,8 @@ cells and weapons) as a count per item; their costs are settings (`Craft*`).
 launch fix (`from_lat`, `from_lon`; the defender sees the direction), `arrives_at` and `status`
 (`flying`, `hit`, `void`). An intercept sets `intercepted` and `intercept_share`; a share of 1 voids it
 at once. Landing and intercept both lock the row with a `status = 'flying'` check, so a strike resolves once;
-`landed_damage` is what reached the node after intercept and shield. `tether_nodes.destroyed_by` (0037) is who
+`landed_damage` is what reached the node after intercept and shield. `tether_nodes.collected_at` (0042) is when the owner last collected at it (null until the first collect): the
+Tether Node gathers slower the longer ago that was (`game.TetherSpeed`). `tether_nodes.destroyed_by` (0037) is who
 destroyed a Tether Node (attack, spike or drone), counted on that player's profile. `tether_nodes.shield_tier` (0-4) is the
 fitted TN Shield; it lasts as long as the node. Drone Bay tiers are `gear_types` rows `drone_bay_mk1..4`
 linked by `upgrades_to`, with `range_m`, `damage`, `drones` and `cells` in `stats`.

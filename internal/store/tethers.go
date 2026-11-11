@@ -46,6 +46,10 @@ type Tether struct {
 	ShieldTier int `json:"shieldTier"`
 	// Drones flying at it, soonest first, with where each was launched from. Only the owner is told.
 	Drones []InboundDroneView `json:"drones,omitempty"`
+	// SpeedFrom is when the slowdown clock started: the owner's last collect, or the build.
+	// SpeedPct is how fast it gathers now (100 = full speed); the service fills it, for the owner only.
+	SpeedFrom time.Time `json:"-"`
+	SpeedPct  int       `json:"speedPct,omitempty"`
 }
 
 // InboundDroneView is a drone flying at a Tether Node, as its owner sees it: where it came from,
@@ -82,7 +86,7 @@ const tetherColumns = `
 	t.jammed_until, t.attacked_at,
 	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
 	(SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
-	t.shield_tier, ` + inboundDronesSQL
+	t.shield_tier, ` + inboundDronesSQL + `, COALESCE(t.collected_at, t.built_at)`
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether
@@ -91,7 +95,7 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 	var jammed, attacked, spike, drone sql.NullTime
 	if err := row.Scan(&t.ID, &t.OwnerID, &t.Owner.Code, &t.Owner.Name, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
 		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &drone, &t.ShieldTier, &drones,
-		&t.DistanceM); err != nil {
+		&t.SpeedFrom, &t.DistanceM); err != nil {
 		return t, err
 	}
 	t.JammedUntil, t.AttackedAt, t.SpikeFiresAt = timePtr(jammed), timePtr(attacked), timePtr(spike)
@@ -271,6 +275,8 @@ type TetherState struct {
 	Spent      map[string]int64
 	Health     float64
 	ShieldTier int
+	// SpeedFrom is when the slowdown clock started: the owner's last collect, or the build.
+	SpeedFrom time.Time
 }
 
 func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, error) {
@@ -279,9 +285,9 @@ func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, 
 	var faction sql.NullInt32
 	err := q.QueryRowContext(ctx, `
 		SELECT owner_id, faction_id, ST_Y(location::geometry), ST_X(location::geometry), tier, status, spent,
-		       health, shield_tier
+		       health, shield_tier, COALESCE(collected_at, built_at)
 		FROM td.tether_nodes WHERE id = $1 FOR UPDATE`, id).
-		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &spent, &t.Health, &t.ShieldTier)
+		Scan(&t.OwnerID, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &spent, &t.Health, &t.ShieldTier, &t.SpeedFrom)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -293,6 +299,18 @@ func TetherForUpdate(ctx context.Context, q db.Querier, id int64) (TetherState, 
 		t.FactionID = &id
 	}
 	return t, json.Unmarshal(spent, &t.Spent)
+}
+
+// MarkTetherCollected notes that the owner collected at the Tether Node now: it gathers at full
+// speed again, and every link's wait is cut back to the usual cooldown.
+func MarkTetherCollected(ctx context.Context, q db.Querier, id int64, at time.Time, cooldownSec int) error {
+	if _, err := q.ExecContext(ctx, `UPDATE td.tether_nodes SET collected_at = $2 WHERE id = $1`, id, at); err != nil {
+		return err
+	}
+	_, err := q.ExecContext(ctx, `
+		UPDATE td.tether_links SET next_harvest_at = LEAST(next_harvest_at, now() + make_interval(secs => $2))
+		WHERE tn_id = $1`, id, cooldownSec)
+	return err
 }
 
 // UpgradeTether raises the tier and records the new total spent.
@@ -578,6 +596,10 @@ type MyTether struct {
 	ShieldTier     int              `json:"shieldTier"`
 	// Drones flying at it, with where each was launched from ([] when none).
 	Drones []InboundDroneView `json:"drones"`
+	// SpeedFrom is when the slowdown clock started; SpeedPct (filled by the service) is how fast it
+	// gathers now, 100 = full speed.
+	SpeedFrom time.Time `json:"-"`
+	SpeedPct  int       `json:"speedPct"`
 }
 
 // MyTethers lists every Tether Node a player owns that is active or ended within endedWithin,
@@ -598,7 +620,7 @@ func MyTethers(ctx context.Context, q db.Querier, ownerID int64, endedWithin, at
 		       (SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
 		       t.attacked_at,
 		       COALESCE(t.status = 'active' AND t.attacked_at > now() - make_interval(secs => $3), false),
-		       t.shield_tier, `+inboundDronesSQL+`
+		       t.shield_tier, `+inboundDronesSQL+`, COALESCE(t.collected_at, t.built_at)
 		FROM td.tether_nodes t
 		WHERE t.owner_id = $1
 		  AND (t.status = 'active' OR t.ended_at >= now() - make_interval(secs => $2))`,
@@ -614,7 +636,7 @@ func MyTethers(ctx context.Context, q db.Querier, ownerID int64, endedWithin, at
 		var ended, jammed, spike, drone, attacked sql.NullTime
 		var stock, links, drones []byte
 		if err := rows.Scan(&t.ID, &t.Name, &t.Tier, &t.Lat, &t.Lon, &t.Health, &t.ExpiresAt, &status, &ended,
-			&stock, &links, &jammed, &spike, &drone, &attacked, &t.UnderAttack, &t.ShieldTier, &drones); err != nil {
+			&stock, &links, &jammed, &spike, &drone, &attacked, &t.UnderAttack, &t.ShieldTier, &drones, &t.SpeedFrom); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(drones, &t.Drones); err != nil {
