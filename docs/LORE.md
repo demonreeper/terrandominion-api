@@ -101,7 +101,7 @@ pays.
 | System | In the story |
 | --- | --- |
 | Scanner | The device that lets you see the Undersignal at all. Better scanners see deeper (rare nodes, traps) |
-| Tether Node | A stake driven into the lattice that pulls nearby nodes to it. The Undersignal rejects it, so it decays and falls within 48 h, spilling what it held |
+| Tether Node | A stake driven into the lattice that pulls nearby nodes to it. The Undersignal rejects it, so it decays and falls within 48 h, spilling what it held. Whatever nobody picks up, the Undersignal reclaims after another 48 h |
 | Map drop | What a fallen TN spills. Anyone can grab it, so every collapse draws scavengers |
 | Energy cell | Crystal and data packed into a charge. Every weapon and contest burns one |
 | EM Pulse, Jammer, Overload Spike | Tools for breaking someone else's tether, not their body. Fights are over signal, never physical harm |
