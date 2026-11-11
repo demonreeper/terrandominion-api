@@ -70,5 +70,14 @@ func readFix(r *http.Request) (game.FixReport, error) {
 			_ = json.Unmarshal(raw, &f)
 		}
 	}
+	// From G1 the app sends the fake flag and the fix's time as headers on every request.
+	if !f.Mock {
+		f.Mock = r.Header.Get("X-Fix-Mock") == "1"
+	}
+	if f.FixAt == nil {
+		if at, err := time.Parse(time.RFC3339Nano, r.Header.Get("X-Fix-At")); err == nil {
+			f.FixAt = &at
+		}
+	}
 	return game.FixReport{Lat: f.Lat, Lon: f.Lon, AccuracyM: f.AccuracyM, Mock: f.Mock, FixAt: f.FixAt}, nil
 }
