@@ -230,6 +230,9 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 			if err := s.endTether(ctx, tx, drone.TetherID, tether, "destroyed", settings); err != nil {
 				return err
 			}
+			if err := store.SetTetherDestroyer(ctx, tx, drone.TetherID, drone.LaunchedBy); err != nil {
+				return err
+			}
 			toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(launcher, "drone", place)
 		}
 		if err := notify(ctx, tx, toOwner); err != nil {

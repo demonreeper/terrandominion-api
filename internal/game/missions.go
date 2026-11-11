@@ -136,7 +136,7 @@ func MostFollowed(counts map[int]int) (int, bool) {
 	return best, bestCount > 0
 }
 
-// MissionTitle says what a mission asks, for players: "Harvest 3 crystal".
+// MissionTitle says what a mission asks, for players: "Harvest 3 crystal nodes".
 func MissionTitle(goal, key string, count int) string {
 	times := func(one, many string) string {
 		if count == 1 {
@@ -146,9 +146,10 @@ func MissionTitle(goal, key string, count int) string {
 	}
 	switch goal {
 	case GoalHarvest:
-		// Missions count harvests, not amounts: "Harvest crystal 20 times".
+		// Missions count harvests, not amounts, and name the node type, so "credit" reads as a
+		// kind of node and not as money (docs/profile-plan.md, the credit side fix).
 		if key != "" {
-			return times("Harvest a "+key+" node", "Harvest "+key+" %d times")
+			return times("Harvest a "+key+" node", "Harvest %d "+key+" nodes")
 		}
 		return times("Harvest a node", "Harvest %d times")
 	case GoalBuildTether:

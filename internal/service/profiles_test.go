@@ -40,3 +40,41 @@ func TestShareURL(t *testing.T) {
 		t.Errorf("ShareURL = %q", got)
 	}
 }
+
+// A public profile carries only what anyone may see. This is the whole list of its fields: adding
+// one means deciding it is public.
+func TestProfileViewHasOnlyPublicFields(t *testing.T) {
+	raw, err := json.Marshal(ProfileView{Code: "K7QX3M9P", Name: "ECHO-7", Level: 12,
+		Faction: &ProfileFaction{Code: "lumen", Name: "Lumen Collective", Color: "#4fd8ff", Rank: 50, RankTitle: "Warden"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	allowed := map[string]bool{"code": true, "name": true, "level": true, "faction": true, "badges": true,
+		"record": true, "isMe": true, "shareUrl": true}
+	for key := range fields {
+		if !allowed[key] {
+			t.Errorf("profile has a field that is not on the public list: %q", key)
+		}
+	}
+	var record map[string]json.RawMessage
+	if err := json.Unmarshal(fields["record"], &record); err != nil {
+		t.Fatal(err)
+	}
+	publicRecord := map[string]bool{"activeSince": true, "nodesHarvested": true, "tethersBuilt": true,
+		"tethersActive": true, "tethersDestroyed": true, "dronesIntercepted": true, "missionsCompleted": true}
+	for key := range record {
+		if !publicRecord[key] {
+			t.Errorf("service record has a field that is not on the public list: %q", key)
+		}
+	}
+	for _, private := range []string{"displayName", "email", "xp", "carried", "stored", "gear", "items", "linked",
+		"lastSeen", "lat", "lon", "id"} {
+		if strings.Contains(string(raw), `"`+private+`"`) {
+			t.Errorf("profile leaks %q: %s", private, raw)
+		}
+	}
+}

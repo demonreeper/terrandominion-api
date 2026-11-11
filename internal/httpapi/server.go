@@ -53,6 +53,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/me/callsign", s.authed(s.setCallsign))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 	mux.HandleFunc("PUT /v1/me/push", s.authed(s.setPushPrefs))
+	mux.HandleFunc("GET /v1/players/{code}", s.authed(s.playerProfile))
 	mux.HandleFunc("POST /v1/me/link/google", s.authed(s.linkGoogle))
 	mux.HandleFunc("POST /v1/me/link/apple", s.authed(s.linkApple))
 	mux.HandleFunc("DELETE /v1/me/link/{provider}", s.authed(s.unlink))
@@ -468,6 +469,17 @@ func (s *Server) claimMission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, res)
+}
+
+// playerProfile is the public profile behind a share code.
+func (s *Server) playerProfile(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	profile, err := s.svc.Profile(r.Context(), playerID, r.PathValue("code"))
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, profile)
 }
 
 // setCallsign picks or changes the name other players see, and answers with the new /me.

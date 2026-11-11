@@ -18,7 +18,7 @@ players ─┬─ player_identities   sign-in links (google now; apple, nakama l
          ├─ tether_nodes ── tether_links ── nodes   Tether Nodes and the resource node each slot holds
          │    ├─ tether_stock       the held half, waiting for the owner
          │    └─ tether_transfers   every collect and upload with the reported GPS fix
-         ├─ map_drops           what an ended Tether Node held, until picked up or expired
+         ├─ map_drops           what an ended Tether Node held, until picked up or reclaimed after 48 h (the owner is told)
          ├─ player_gear ── gear_types        owned gear; the catalogue of gear
          ├─ harvests ── nodes                every harvest with the reported GPS fix
          ├─ xp_events                        XP ledger: every action that earned XP (target_player_id: the other player in a fight, for the daily cap)
@@ -91,7 +91,8 @@ cells and weapons) as a count per item; their costs are settings (`Craft*`).
 launch fix (`from_lat`, `from_lon`; the defender sees the direction), `arrives_at` and `status`
 (`flying`, `hit`, `void`). An intercept sets `intercepted` and `intercept_share`; a share of 1 voids it
 at once. Landing and intercept both lock the row with a `status = 'flying'` check, so a strike resolves once;
-`landed_damage` is what reached the node after intercept and shield. `tether_nodes.shield_tier` (0-4) is the
+`landed_damage` is what reached the node after intercept and shield. `tether_nodes.destroyed_by` (0037) is who
+destroyed a Tether Node (attack, spike or drone), counted on that player's profile. `tether_nodes.shield_tier` (0-4) is the
 fitted TN Shield; it lasts as long as the node. Drone Bay tiers are `gear_types` rows `drone_bay_mk1..4`
 linked by `upgrades_to`, with `range_m`, `damage`, `drones` and `cells` in `stats`.
 

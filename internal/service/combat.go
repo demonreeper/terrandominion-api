@@ -199,6 +199,9 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 				if err := s.endTether(ctx, tx, tetherID, tether, "destroyed", settings); err != nil {
 					return err
 				}
+				if err := store.SetTetherDestroyer(ctx, tx, tetherID, attackerID); err != nil {
+					return err
+				}
 				toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(target.AttackerName, weapon.Name, place)
 			} else {
 				toOwner.Kind, toOwner.Body = "attacked", game.NoticeHit(target.AttackerName, weapon.Name, place, *toOwner.Amount, healthLeft(health))
@@ -395,6 +398,9 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 			Amount: amountOf(damage), Kind: "spike_fired", Body: game.NoticeHit(planter, "spike", place, damage, healthLeft(health))}
 		if destroyed {
 			if err := s.endTether(ctx, tx, spike.TetherID, tether, "destroyed", settings); err != nil {
+				return err
+			}
+			if err := store.SetTetherDestroyer(ctx, tx, spike.TetherID, spike.PlantedBy); err != nil {
 				return err
 			}
 			toOwner.Kind, toOwner.Body = "destroyed", game.NoticeDestroyed(planter, "spike", place)

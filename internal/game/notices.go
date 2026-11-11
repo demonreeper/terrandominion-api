@@ -36,10 +36,18 @@ var noticeSeverity = map[string]string{
 	"drone_launched": SeverityInfo,
 	"shield_fitted":  SeverityInfo,
 
+	"drop_reclaimed": SeverityInfo,
+
 	"mission_done": SeverityInfo,
 	"invitation":   SeverityInfo,
 	"call":         SeverityInfo,
 	"warden":       SeverityInfo,
+}
+
+// NoticeDropReclaimed tells an owner that what their ended Tether Node left on the map was never
+// picked up. Lore: the Undersignal takes back what is left unclaimed (docs/LORE.md).
+func NoticeDropReclaimed() string {
+	return "The Undersignal reclaimed what your Tether Node left behind."
 }
 
 // NoticeSeverity is how urgent a notice kind is; unknown kinds are info.

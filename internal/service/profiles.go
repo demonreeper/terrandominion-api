@@ -37,6 +37,73 @@ func playerIDByCode(ctx context.Context, q db.Querier, code string) (int64, erro
 	return id, err
 }
 
+// ProfileView is a player's public profile: what anyone may see, on the profile screen and (P2) the
+// web page. Nothing private is in it: no real name, email, sign-ins, resources, gear, items,
+// Tether Node places or last-seen time. Your own profile adds those from /v1/me on the phone.
+type ProfileView struct {
+	Code  string `json:"code"`
+	Name  string `json:"name"`
+	Level int    `json:"level"`
+	// Faction is the standing line: null for a freelancer.
+	Faction *ProfileFaction     `json:"faction"`
+	Badges  []store.Badge       `json:"badges"`
+	Record  store.ServiceRecord `json:"record"`
+	// IsMe: the asker is looking at their own profile.
+	IsMe     bool   `json:"isMe"`
+	ShareURL string `json:"shareUrl"`
+}
+
+// ProfileFaction is a member's faction as their profile shows it, in the faction's colour.
+type ProfileFaction struct {
+	Code      string `json:"code"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	Rank      int    `json:"rank"`
+	RankTitle string `json:"rankTitle"`
+}
+
+// Profile is the public profile behind a share code, for a signed-in player (viewerID) or the web
+// page (viewerID 0). An unknown, deleted or banned player is NotFound.
+func (s *Service) Profile(ctx context.Context, viewerID int64, code string) (*ProfileView, error) {
+	playerID, err := playerIDByCode(ctx, s.db, code)
+	if err != nil {
+		return nil, err
+	}
+	player, err := store.GetPlayer(ctx, s.db, playerID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, apperr.NotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	view := &ProfileView{
+		Code: player.Code, Name: player.Name, Level: player.Level,
+		IsMe: viewerID != 0 && viewerID == playerID, ShareURL: s.ShareURL(player.Code),
+	}
+	membership, err := store.MembershipOf(ctx, s.db, playerID)
+	if err != nil {
+		return nil, err
+	}
+	if membership != nil {
+		describeMembership(membership)
+		color, err := store.FactionColor(ctx, s.db, membership.FactionID)
+		if err != nil {
+			return nil, err
+		}
+		view.Faction = &ProfileFaction{
+			Code: membership.FactionCode, Name: membership.FactionName, Color: color,
+			Rank: membership.Rank, RankTitle: membership.RankTitle,
+		}
+	}
+	if view.Badges, err = store.Badges(ctx, s.db, playerID); err != nil {
+		return nil, err
+	}
+	if view.Record, err = store.PlayerRecord(ctx, s.db, playerID); err != nil {
+		return nil, err
+	}
+	return view, nil
+}
+
 // SetCallsign gives the player the callsign they typed: checked for shape, reserved and blocked
 // words, that nobody else has it (in any letter case), and that CallsignChangeDays have passed
 // since the last change. The first pick is free of the wait. Returns the player's new /me.

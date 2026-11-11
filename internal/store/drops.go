@@ -95,11 +95,31 @@ func MarkDropPicked(ctx context.Context, q db.Querier, id, playerID int64) error
 	return err
 }
 
-// DeleteExpiredDrops removes drops nobody picked up in time.
-func DeleteExpiredDrops(ctx context.Context, q db.Querier) (int64, error) {
-	res, err := q.ExecContext(ctx, `DELETE FROM td.map_drops WHERE picked_at IS NULL AND expires_at <= now()`)
+// ReclaimedDrop is a drop nobody picked up in time: the Tether Node it fell from and that node's owner.
+type ReclaimedDrop struct {
+	TetherID, OwnerID int64
+}
+
+// ReclaimExpiredDrops removes drops nobody picked up in time (the Undersignal reclaims them) and
+// says whose Tether Node each fell from, so the owner can be told. A drop whose Tether Node row is
+// gone is removed without an owner.
+func ReclaimExpiredDrops(ctx context.Context, q db.Querier) ([]ReclaimedDrop, error) {
+	rows, err := q.QueryContext(ctx, `
+		WITH gone AS (
+		    DELETE FROM td.map_drops WHERE picked_at IS NULL AND expires_at <= now() RETURNING tn_id
+		)
+		SELECT t.id, t.owner_id FROM gone JOIN td.tether_nodes t ON t.id = gone.tn_id`)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return res.RowsAffected()
+	defer rows.Close()
+	out := []ReclaimedDrop{}
+	for rows.Next() {
+		var d ReclaimedDrop
+		if err := rows.Scan(&d.TetherID, &d.OwnerID); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
 }

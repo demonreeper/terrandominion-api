@@ -151,7 +151,22 @@ func (s *Service) decayTethers(ctx context.Context, settings game.Settings) {
 			slog.Error("E1900 tether decay failed", "tether", id, "err", err)
 		}
 	}
-	if _, err := store.DeleteExpiredDrops(ctx, s.db); err != nil && ctx.Err() == nil {
+	// What nobody picked up, the Undersignal takes back; each owner is told once per drop.
+	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		reclaimed, err := store.ReclaimExpiredDrops(ctx, tx)
+		if err != nil {
+			return err
+		}
+		for _, drop := range reclaimed {
+			if err := notify(ctx, tx, store.NewNotice{
+				PlayerID: drop.OwnerID, Kind: "drop_reclaimed", Body: game.NoticeDropReclaimed(),
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil && ctx.Err() == nil {
 		slog.Error("E1900 drop expiry failed", "err", err)
 	}
 }

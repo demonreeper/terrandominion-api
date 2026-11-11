@@ -54,6 +54,25 @@ it. The counting player id and the account's real name are never sent to another
 `owner` on a Tether Node, `leader` on a faction, `actor` on a notice (null for system notices) and each
 branch member (`code`, `name` inline). Plan: `docs/profile-plan.md`.
 
+### Profile
+`GET /players/{code}` (signed in): the public profile behind a share code. 1003 for an unknown, deleted or
+banned player, or text that is not a code.
+
+```
+{ "code": "K7QX3M9P", "name": "ECHO-7", "level": 12,
+  "faction": { "code": "lumen", "name": "Lumen Collective", "color": "#4fd8ff", "rank": 50, "rankTitle": "Warden" },
+  "badges": [ { "badge": "founder", "factionCode": "lumen", "factionName": "Lumen Collective", "region": "MV" } ],
+  "record": { "activeSince": "2026-11-01T00:00:00Z", "nodesHarvested": 214, "tethersBuilt": 9, "tethersActive": 2,
+              "tethersDestroyed": 3, "dronesIntercepted": 1, "missionsCompleted": 17 },
+  "isMe": false, "shareUrl": "https://td-dev.demonreeper.xyz/p/K7QX3M9P" }
+```
+
+`faction` is null for a freelancer. That is the whole public list: no real name, email, sign-ins, resources,
+gear, items, Tether Node places or last-seen time. Your own profile adds XP and resources from `/me` on the phone.
+`record` is counted from the action tables; `tethersDestroyed` is Tether Nodes this player destroyed
+(`tether_nodes.destroyed_by`), `dronesIntercepted` drones stopped at their own Tether Nodes, `activeSince` the
+first day of the month the account was made.
+
 ## Push notifications
 | Method | Path | Body | Notes |
 |---|---|---|---|
@@ -179,7 +198,7 @@ Contest notices have `tnId` null.
 ## Map drops
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/drops/nearby` | `lat, lon` | What ended Tether Nodes left on the map, within the scanner's range |
+| GET | `/drops/nearby` | `lat, lon` | What ended Tether Nodes left on the map, within the scanner's range, each with `expiresAt`: a drop lasts `DropLifetimeHours` (48, the same as a Tether Node's life), then the Undersignal reclaims it and the Tether Node's owner gets a `drop_reclaimed` notice (info, in the game only) |
 | POST | `/drops/{id}/pick` | `lat, lon, accuracyM` | In range. Moves what fits into carried; the rest stays on the map |
 
 ## Orders and daily missions

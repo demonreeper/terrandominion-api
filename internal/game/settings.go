@@ -234,7 +234,7 @@ func DefaultSettings() Settings {
 		NodeDepletedReserve:  0.10,
 		NodeRespawnMinM:      100,
 		NodeRespawnMaxM:      300,
-		DropLifetimeHours:    24,
+		DropLifetimeHours:    48,
 		PvpLevelBand:         5,
 		ProtectionLossDays:   3,
 		XpTnBuild:            20,

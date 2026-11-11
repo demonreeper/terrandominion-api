@@ -98,7 +98,8 @@ func TestMostFollowed(t *testing.T) {
 
 func TestMissionTitles(t *testing.T) {
 	cases := map[string]string{
-		MissionTitle(GoalHarvest, "crystal", 3):          "Harvest crystal 3 times",
+		MissionTitle(GoalHarvest, "crystal", 3):          "Harvest 3 crystal nodes",
+		MissionTitle(GoalHarvest, "credit", 1):           "Harvest a credit node",
 		MissionTitle(GoalHarvest, "data", 1):             "Harvest a data node",
 		MissionTitle(GoalHarvest, "", 1):                 "Harvest a node",
 		MissionTitle(GoalCraft, ItemCell, 2):             "Craft 2 Energy Cells",
