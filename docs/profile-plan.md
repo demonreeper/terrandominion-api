@@ -216,8 +216,8 @@ changes who sends your missions, tags your Tether Nodes with the faction, and gi
 Factions screen shows the name, motto and commander, and nothing about perks.
 
 **Plan: build the perks that fit systems we already have** (numbers are settings, so they can be
-tuned without an app update; numbers **confirmed 2026-11-11**, tuned later from admin settings if needed). Perks apply only while you're a member and
-stop the moment you leave.
+tuned without an app update; numbers **confirmed 2026-11-11**, tuned later from admin settings if needed). Perks apply to members only. A pledge is final
+(no leave; `freelancer-path-plan.md`), so they last as long as the membership; an admin RELEASE PLEDGE removes them.
 
 | Power (faction) | Concept perk | v1 perk (built now) | Later, when the system exists |
 |---|---|---|---|
@@ -231,14 +231,14 @@ stop the moment you leave.
 **API:** one `game.FactionPerks(settings, factionCode)` used by harvest, collect, scan range, carry,
 build/upgrade cost, drone flight time, damage and intercept. `/v1/factions` returns each faction's
 `perks` as short lines; `/v1/me` returns `activePerks`. Settings keys `Perk<Name>` (e.g.
-`PerkSignumCrystalPct = 25`). Tests: each perk applies to members only and stops after leaving.
+`PerkSignumCrystalPct = 25`). Tests: each perk applies to members only and stops after an admin releases the pledge.
 
 **Faction screen (clearer):**
 - Every faction card gets a **PERKS** block under the motto, with the numbers:
   `+25% CRYSTAL FROM HARVESTS AND TETHER NODES`.
-- A freelancer sees under it: `Members get these perks. Joining is open at level 20.`
+- A freelancer sees under it: `Members get these perks. Pledging is open at level 20, and it is final.`
 - Your own faction's card shows the block in the faction colour with `ACTIVE ON YOU`.
-- The join confirmation repeats the perks, and that leaving removes them.
+- The pledge confirmation repeats the perks and says the pledge is final (see `freelancer-path-plan.md`, C3).
 - Wherever a perk changes a number the player sees (harvest result, scan ring, carry cap, build and
   upgrade cost), a small tag shows it, e.g. `+25% SIGNUM`, so the effect is visible in play.
 
@@ -305,19 +305,33 @@ see no real name, email, device or location.
 | Dismiss | No action; reports closed |
 | Warn | The player gets an in-game message from "Moderation" with the reason |
 | Suspend | 1, 3 or 7 days (settings `SuspendDays1/2/3`). Sign-in and refresh refused with "Suspended until <date>"; sessions revoked at once. Their Tether Nodes keep decaying as normal |
-| Ban | Permanent. Sessions revoked; shows as "Deleted player" to others. **Decided 2026-11-11: nothing is removed.** Their Tether Nodes and everything else stand; they just can't sign in, and their Tether Nodes decay away on their own within 48 hours |
+| Ban | Permanent. Sessions revoked; shows as "Deleted player" to others. **Decided 2026-11-11: nothing is removed.** Their Tether Nodes and everything else stand; they just can't sign in, and their Tether Nodes decay away on their own within 48 hours. **Decided 2026-11-11: a ban also bans the device** (not built yet; phase F2 in `freelancer-path-plan.md`). The player's device and sign-in are marked (see Device record), so a new account on that phone, or the same Google/Apple sign-in on another phone, is refused with "This device is banned." |
 
 Mods can't act on admins, other mods or themselves. A second suspension inside 30 days suggests the
 next step up (shown, not forced).
 
 **Admin reversal.** A SANCTIONS list (active and past) with `LIFT` on each suspension or ban:
-reason required, the player can sign in again at once, and the history keeps both entries. Admins
+reason required, the player can sign in again at once, and the history keeps both entries. Lifting a ban also clears its device ban, so the device and sign-in can be used again. Admins
 can also reopen a dismissed report and remove a mod's role.
 
 **Data:** `td.player_reports` (reporter, target, reason, detail, note, context jsonb, status open /
 dismissed / actioned, handled_by, handled_at, sanction_id) and `td.player_sanctions` (player, kind
 warn / suspend / ban, reason, until, by, created_at, lifted_at, lifted_by, lift_reason).
 `account_status` gains `suspended`; a job returns expired suspensions to `active`.
+
+**Device record** (decided 2026-11-11, shared with the faction pledge rule): `td.device_marks`
+(device_hash, signin_hash, faction_code, ban_sanction_id, created_at). Only salted hashes: Android
+`ANDROID_ID`, iOS an id kept in the Keychain (survives reinstall), and the Google/Apple sign-in
+subject. It is kept after account deletion. Sign-up and sign-in check both hashes: a mark with a
+ban refuses entry; a mark with a faction puts the new account back in that faction at level 20.
+Lifting the ban clears `ban_sanction_id`. Admins can clear a whole mark, but only after an appeal.
+
+**Second-hand devices** (decided 2026-11-11): a player who bought a used phone that is banned or
+pledged has to appeal with proof, such as a proof of purchase. The "This device is banned" screen and
+the level 20 "Your pledge stands" screen both get an APPEAL link that opens an email to support with
+the device's short appeal code filled in (no hashes shown). An admin checks the proof, then clears
+the mark from the player's info in A2 (reason required, logged). Proof files are deleted once the
+appeal is decided, and the privacy policy says so. Disclosed in the privacy policy and delete-account page as anti-abuse data.
 
 **API:** `POST /v1/players/{code}/report`; mod: `GET /v1/mod/reports`, `POST
 /v1/mod/reports/{id}/dismiss`, `POST /v1/mod/players/{code}/sanction {kind, days, reason,
@@ -351,7 +365,7 @@ suspend, ban or lift (same as M1). MonoCity's "play as" is left out for now.
 ### Tests
 
 API: settings range and lock checks, report limits and self-report, mod can't sanction mods or
-admins, suspended sign-in refused until the date then allowed, lift restores access, mods never get
+admins, suspended sign-in refused until the date then allowed, lift restores access, a ban refuses a new account on the same device and the same sign-in on another device, lifting the ban clears the device ban, mods never get
 private fields. Mobile: tab visibility per role, the report flow and HUD captures of each tab.
 
 ## Side fix 3: map drops last 48 hours (asked 2026-11-11)
