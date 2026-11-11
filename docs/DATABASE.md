@@ -30,6 +30,7 @@ resource_types   crystal, alloy, data, credit
 osm_land, osm_walkways, osm_blocked   the node seeder's map layers (tdapi import-osm)
 seed_cells       every seeding cell looked at: its target, path length, when seeded and topped up
 seed_areas       areas an admin pre-seeds (Malé, Hulhumalé, Villimalé)
+callsign_blocked words a callsign may not contain
 admin_actions    who changed what, and when
 ```
 
@@ -39,6 +40,15 @@ The internal `id` is the key everywhere. Sign-in providers are linked through
 views. `level` is stored for fast leaderboards but always follows `xp` upward (it never drops, so
 an admin may grant a level by hand). `delete_after` is the self-deletion grace period: signing in
 before it cancels the deletion. `nakama_user_id` is reserved for a future move onto Nakama.
+
+Names (0036, `docs/profile-plan.md`): `display_name` is the Google or Apple account's real name and
+is for support and admin use only. Other players see `callsign` (3 to 16 of `A-Z a-z 0-9 - _`, unique
+on `lower(callsign)`, null until picked; `callsign_changed_at` drives the 30-day wait) or, until one
+is picked, `OPERATIVE-` plus `public_code`: an 8-character random share code in Crockford base32
+(default `td.new_public_code()`, unique), which is what share links and the API use instead of the
+counting id. Every player-facing query names a player through `td.player_name(callsign, public_code,
+status)` and `td.player_code(public_code, status)`: a deleted or banned account reads `Deleted player`
+with no code.
 
 Account types (`type`): `player`, `founder`, `bot`, `system`. Status: `active`, `banned`,
 `pending_delete`, `deleted`. A deleted account keeps its row (so logs and faction history stay

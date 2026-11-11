@@ -36,13 +36,23 @@ token expires, or on E1001.
 ## Player
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/me` | Level and XP progress, carried resources (`carried`), stored inventory (`stored`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer), and `linked`: the sign-ins that open this account (`apple`, `google`; `dev` on dev) |
+| GET | `/me` | `code` (the 8-character share code), `name` (what other players see: the callsign, or `OPERATIVE-<code>` until one is picked), `callsign` (null until picked), `callsignChangeAt` (when it may next be changed; absent when it can be changed now) and `shareUrl` (`<TD_PUBLIC_URL>/p/<code>`). The Google or Apple account's real name is never sent. Level and XP progress, carried resources (`carried`), stored inventory (`stored`, no carry limit), Tether Nodes (`tethersOwned`, `tetherMax`, `tetherCost`), carry capacity, scan range, gear, faction (null = freelancer), and `linked`: the sign-ins that open this account (`apple`, `google`; `dev` on dev) |
 | POST | `/me/link/google` | Body `idToken, nonce` (as `/auth/google`; nonce required). Adds that Google sign-in to the signed-in account, so it opens this account from then on. Already on this account: no change. Opens another account: E1106 (accounts are never merged). A different Google already linked: E1108. Returns `{linked}` |
 | POST | `/me/link/apple` | Body `identityToken, authorizationCode, nonce` (as `/auth/apple`). Same rules as `/me/link/google` |
 | DELETE | `/me/link/{provider}` | `google` or `apple`: removes that sign-in. Refused with E1107 when it is the account's only one, E1003 when it isn't linked. Returns `{linked}` |
+| PUT | `/me/callsign` | Body `callsign`: 3 to 16 letters, digits, `-` or `_`, starting and ending with a letter or digit; unique in any letter case; not a staff word, a power or faction name, or a blocked word (`td.callsign_blocked`). The first pick is free; after that one change every `CallsignChangeDays` (30). Fixing only the capitals is always allowed. Errors carry `data.error`: 1109 `callsign_invalid`, 1110 `callsign_taken` (also said for a blocked or reserved name), 1111 `callsign_too_soon` (`changeAt, days`). Returns the new `/me` |
 | POST | `/me/delete` | Starts the deletion grace period (7 days by default) and signs every device out. Signing in cancels it |
 | GET | `/settings` | Unauthenticated. Public tunable values (levels, ranges, cooldowns) for the client to display, and which kind of server this is: `{"data": [{"key", "value", "description", "isPublic", "updatedAt"}], "environment": "dev"}`. `environment` sits beside `data` (so `data` stays the list) and is `"dev"` on a `TD_ENV=dev` server, otherwise `"prod"` |
 | PUT | `/me/push` | Body `attacks, results` (booleans): the player's notification switches, also in `/me` as `pushAttacks`, `pushResults` |
+
+## Players (PlayerRef)
+
+Another player is always named by a **PlayerRef**: `{ "code": "K7QX3M9P", "name": "ECHO-7" }`. `code` is
+the share code that opens their profile; `name` is their callsign, or `OPERATIVE-<code>` until they pick
+one. A deleted or banned player is `{ "code": "", "name": "Deleted player" }`: show the name, don't link
+it. The counting player id and the account's real name are never sent to another player. PlayerRefs:
+`owner` on a Tether Node, `leader` on a faction, `actor` on a notice (null for system notices) and each
+branch member (`code`, `name` inline). Plan: `docs/profile-plan.md`.
 
 ## Push notifications
 | Method | Path | Body | Notes |
@@ -69,7 +79,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## Tether Nodes
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
+| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, each with `owner {code, name}` (a PlayerRef, see Players), within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
 | GET | `/tethers/mine` | – | Every TN the player owns, wherever it is (no range check), plus ones that ended in the last `TnEndedShowMinutes` (60). Most urgent first; see My Tether Nodes below |
 | POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then stored), and links free nodes in range. Returns `tether, carried, stored, xp, progress, levelUp` |
 | GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
@@ -132,8 +142,9 @@ attack `jammedUntil`, spike attack `spikeFiresAt`, drone `arrivesAt`, contest st
 `GET /notices` returns an array of:
 
 ```
-{ "id": 88, "kind": "attacked", "severity": "danger", "tnId": 12, "actor": "Aishath", "amount": 25,
-  "body": "Aishath's EM Pulse hit your Tether Node near Crystal Seam K-27 for 25 damage.",
+{ "id": 88, "kind": "attacked", "severity": "danger", "tnId": 12,
+  "actor": { "code": "K7QX3M9P", "name": "ECHO-7" }, "amount": 25,
+  "body": "ECHO-7's EM Pulse hit your Tether Node near Crystal Seam K-27 for 25 damage.",
   "createdAt": "..." }
 ```
 
@@ -188,10 +199,10 @@ Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBas
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leaderName` (the Regional Commander here, empty when nobody holds it), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
+| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leader {code, name}` (the Regional Commander here, null when nobody holds it), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
 | POST | `/factions/{code}/lead` | Claim regional command of the faction in your region (one Regional Commander per faction per country; first to claim wins). Rank 90. Returns the membership |
-| GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{playerId, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
-| POST | `/factions/branch/wardens` | `playerId`: the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |
+| GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{code, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
+| POST | `/factions/branch/wardens` | `code` (the member's share code; 1003 if unknown): the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |
 | POST | `/factions/{code}/join` | Join the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership |
 
 ### The powers' calls and messages
@@ -263,6 +274,9 @@ never reads as inside the range).
 | 1106 | That Google or Apple sign-in already opens another game account (no merging) | |
 | 1107 | Can't remove the account's only sign-in | |
 | 1108 | A different account of that provider is already linked: unlink it first | |
+| 1109 | Callsign has the wrong shape | `error: "callsign_invalid"` |
+| 1110 | Callsign is taken, reserved or blocked | `error: "callsign_taken"` |
+| 1111 | Callsign was changed too recently | `error: "callsign_too_soon", changeAt, days` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

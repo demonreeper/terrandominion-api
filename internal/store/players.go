@@ -13,9 +13,18 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+// Player is a td.players row. DisplayName is the Google or Apple account's real name, kept for
+// support and admin use only: it never goes to another player. Name is what players see.
 type Player struct {
 	ID          int64
 	DisplayName string
+	// Code is the 8-character share code. Callsign is null until the player picks one.
+	Code              string
+	Callsign          sql.NullString
+	CallsignChangedAt sql.NullTime
+	// Name is the player-facing name: the callsign, "OPERATIVE-<code>" until one is picked, or
+	// "Deleted player" for a deleted or banned account.
+	Name        string
 	Type        string
 	Status      string
 	IsAdmin     bool
@@ -29,12 +38,38 @@ type Player struct {
 }
 
 const playerColumns = `id, display_name, type, status, is_admin, is_mod, level, xp, country_code,
-	photo_file, delete_after, created_at`
+	photo_file, delete_after, created_at, public_code, callsign, callsign_changed_at,
+	td.player_name(callsign, public_code, status)`
+
+// PlayerRef is how one player is named to another: the share code that opens their profile and
+// the name to show. Code is empty for a deleted or banned account, whose name is not a link.
+type PlayerRef struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// Ref is the player as other players see them.
+func (p Player) Ref() PlayerRef {
+	if p.Status == "deleted" || p.Status == "banned" {
+		return PlayerRef{Name: p.Name}
+	}
+	return PlayerRef{Code: p.Code, Name: p.Name}
+}
+
+// playerRefP is playerRefSQL("p") as a constant, for column lists that are constants themselves.
+const playerRefP = `td.player_code(p.public_code, p.status), td.player_name(p.callsign, p.public_code, p.status)`
+
+// playerRefSQL is the two columns of a PlayerRef (code, name) for the td.players row aliased by
+// alias, in that order. Every player-facing query names players through it.
+func playerRefSQL(alias string) string {
+	return `td.player_code(` + alias + `.public_code, ` + alias + `.status), ` +
+		`td.player_name(` + alias + `.callsign, ` + alias + `.public_code, ` + alias + `.status)`
+}
 
 func scanPlayer(row interface{ Scan(...any) error }) (Player, error) {
 	var p Player
 	err := row.Scan(&p.ID, &p.DisplayName, &p.Type, &p.Status, &p.IsAdmin, &p.IsMod, &p.Level, &p.XP,
-		&p.CountryCode, &p.PhotoFile, &p.DeleteAfter, &p.CreatedAt)
+		&p.CountryCode, &p.PhotoFile, &p.DeleteAfter, &p.CreatedAt, &p.Code, &p.Callsign, &p.CallsignChangedAt, &p.Name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return p, ErrNotFound
 	}
@@ -49,6 +84,53 @@ func GetPlayer(ctx context.Context, q db.Querier, id int64) (Player, error) {
 // by the same player (two taps, two phones) apply one after the other.
 func GetPlayerForUpdate(ctx context.Context, q db.Querier, id int64) (Player, error) {
 	return scanPlayer(q.QueryRowContext(ctx, `SELECT `+playerColumns+` FROM td.players WHERE id = $1 FOR UPDATE`, id))
+}
+
+// PlayerIDByCode finds a player by share code (upper case). Deleted and banned accounts are not
+// found: to everyone else they no longer exist.
+func PlayerIDByCode(ctx context.Context, q db.Querier, code string) (int64, error) {
+	var id int64
+	err := q.QueryRowContext(ctx,
+		`SELECT id FROM td.players WHERE public_code = $1 AND status NOT IN ('deleted', 'banned')`, code).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return id, err
+}
+
+// CallsignTaken says whether another player already has this callsign, in any letter case.
+func CallsignTaken(ctx context.Context, q db.Querier, callsign string, exceptPlayerID int64) (bool, error) {
+	var taken bool
+	err := q.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM td.players WHERE lower(callsign) = lower($1) AND id <> $2)`,
+		callsign, exceptPlayerID).Scan(&taken)
+	return taken, err
+}
+
+// SetCallsign stores a player's callsign and when it changed.
+func SetCallsign(ctx context.Context, q db.Querier, playerID int64, callsign string, at time.Time) error {
+	_, err := q.ExecContext(ctx,
+		`UPDATE td.players SET callsign = $2, callsign_changed_at = $3, updated_at = now() WHERE id = $1`,
+		playerID, callsign, at)
+	return err
+}
+
+// BlockedCallsignWords lists the words a callsign may not contain.
+func BlockedCallsignWords(ctx context.Context, q db.Querier) ([]string, error) {
+	rows, err := q.QueryContext(ctx, `SELECT word FROM td.callsign_blocked`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0, 32)
+	for rows.Next() {
+		var word string
+		if err := rows.Scan(&word); err != nil {
+			return nil, err
+		}
+		out = append(out, word)
+	}
+	return out, rows.Err()
 }
 
 // LoseProtection marks a freelancer as unprotected until the given time.

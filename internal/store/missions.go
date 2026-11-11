@@ -210,9 +210,10 @@ func Invite(ctx context.Context, q db.Querier, playerID int64, factionID int) (b
 	return n == 1, err
 }
 
-// BranchMember is one player in a faction's branch.
+// BranchMember is one player in a faction's branch, named by share code and callsign.
 type BranchMember struct {
-	PlayerID  int64  `json:"playerId"`
+	PlayerID  int64  `json:"-"`
+	Code      string `json:"code"`
 	Name      string `json:"name"`
 	Level     int    `json:"level"`
 	Rank      int    `json:"rank"`
@@ -222,7 +223,7 @@ type BranchMember struct {
 // BranchMembers lists a branch, highest rank first.
 func BranchMembers(ctx context.Context, q db.Querier, branchID int64) ([]BranchMember, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT p.id, p.display_name, p.level, m.rank
+		SELECT p.id, `+playerRefSQL("p")+`, p.level, m.rank
 		FROM td.faction_members m JOIN td.players p ON p.id = m.player_id
 		WHERE m.branch_id = $1 ORDER BY m.rank DESC, p.level DESC, p.id`, branchID)
 	if err != nil {
@@ -232,7 +233,7 @@ func BranchMembers(ctx context.Context, q db.Querier, branchID int64) ([]BranchM
 	out := make([]BranchMember, 0, 8)
 	for rows.Next() {
 		var m BranchMember
-		if err := rows.Scan(&m.PlayerID, &m.Name, &m.Level, &m.Rank); err != nil {
+		if err := rows.Scan(&m.PlayerID, &m.Code, &m.Name, &m.Level, &m.Rank); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

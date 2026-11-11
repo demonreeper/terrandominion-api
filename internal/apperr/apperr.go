@@ -96,7 +96,11 @@ var (
 	AppleTokenInvalid  = def(1105, http.StatusUnauthorized, "Apple sign-in could not be verified.")
 	IdentityTaken      = def(1106, http.StatusConflict, "That sign-in already has its own game account.")
 	LastSignIn         = def(1107, http.StatusConflict, "This is your only way to sign in. Link another one before removing it.")
-	ProviderLinked     = def(1108, http.StatusConflict, "A different account of that kind is already linked. Unlink it first.")
+	// The callsign errors carry data.error: "callsign_invalid", "callsign_taken" or "callsign_too_soon".
+	CallsignInvalid = def(1109, http.StatusBadRequest, "Use 3 to 16 letters, digits, - or _, starting and ending with a letter or digit.")
+	CallsignTaken   = def(1110, http.StatusConflict, "That callsign is taken or not allowed. Try another.")
+	CallsignTooSoon = def(1111, http.StatusConflict, "You changed your callsign recently.") // data: changeAt, days
+	ProviderLinked  = def(1108, http.StatusConflict, "A different account of that kind is already linked. Unlink it first.")
 
 	HarvestTooFar      = def(1200, http.StatusConflict, "Move closer to the node.")                    // data: distanceM, rangeM
 	HarvestGPSWeak     = def(1201, http.StatusConflict, "GPS signal too weak. Wait for a better fix.") // data: accuracyM, maxAccuracyM

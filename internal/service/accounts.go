@@ -268,8 +268,15 @@ func (s *Service) RequestDeletion(ctx context.Context, playerID int64) (time.Tim
 
 // MeView is the signed-in player's own view of their account.
 type MeView struct {
-	ID                int64                 `json:"id"`
-	DisplayName       string                `json:"displayName"`
+	ID int64 `json:"id"`
+	// Code is the share code; Name the player-facing name; Callsign is null until one is picked;
+	// CallsignChangeAt is when it may next be changed (absent when it can be changed now).
+	// ShareURL is the link to this profile. The account's real name is never sent.
+	Code              string                `json:"code"`
+	Name              string                `json:"name"`
+	Callsign          *string               `json:"callsign"`
+	CallsignChangeAt  *time.Time            `json:"callsignChangeAt,omitempty"`
+	ShareURL          string                `json:"shareUrl"`
 	Type              string                `json:"type"`
 	IsAdmin           bool                  `json:"isAdmin,omitempty"`
 	Progress          game.Progress         `json:"progress"`
@@ -360,7 +367,8 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 
 	me := &MeView{
 		PushAttacks: pushAttacks, PushResults: pushResults, Linked: linked,
-		ID: player.ID, DisplayName: player.DisplayName, Type: player.Type, IsAdmin: player.IsAdmin,
+		ID: player.ID, Code: player.Code, Name: player.Name, ShareURL: s.ShareURL(player.Code),
+		Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Badges: badges, Freelancer: membership == nil,
@@ -368,6 +376,15 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time
 		me.DeleteAfter = &t
+	}
+	if player.Callsign.Valid {
+		callsign := player.Callsign.String
+		me.Callsign = &callsign
+	}
+	if player.CallsignChangedAt.Valid {
+		if at := game.CallsignChangeAt(&player.CallsignChangedAt.Time, settings.CallsignChangeDays); at.After(s.now()) {
+			me.CallsignChangeAt = &at
+		}
 	}
 	return me, nil
 }

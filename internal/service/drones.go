@@ -299,13 +299,13 @@ func (s *Service) InterceptDrone(ctx context.Context, playerID, tetherID int64, 
 		}
 		if err := notify(ctx, tx, store.NewNotice{
 			PlayerID: playerID, TetherID: tetherID, ActorID: drone.LaunchedBy,
-			Kind: "drone_intercepted", Body: game.NoticeInterceptedDefender(attacker.DisplayName, place, share),
+			Kind: "drone_intercepted", Body: game.NoticeInterceptedDefender(attacker.Name, place, share),
 		}); err != nil {
 			return err
 		}
 		if err := notify(ctx, tx, store.NewNotice{
 			PlayerID: drone.LaunchedBy, TetherID: tetherID, ActorID: playerID,
-			Kind: "drone_intercepted", Body: game.NoticeInterceptedAttacker(owner.DisplayName, place, share),
+			Kind: "drone_intercepted", Body: game.NoticeInterceptedAttacker(owner.Name, place, share),
 		}); err != nil {
 			return err
 		}

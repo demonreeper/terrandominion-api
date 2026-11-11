@@ -20,9 +20,10 @@ type TetherLink struct {
 }
 
 type Tether struct {
-	ID        int64        `json:"id"`
-	OwnerID   int64        `json:"ownerId"`
-	OwnerName string       `json:"ownerName"`
+	ID      int64 `json:"id"`
+	OwnerID int64 `json:"-"`
+	// Owner is who built it, as other players see them (their profile opens from the code).
+	Owner     PlayerRef    `json:"owner"`
 	Mine      bool         `json:"mine"`
 	FactionID *int         `json:"factionId"`
 	Lat       float64      `json:"lat"`
@@ -69,7 +70,7 @@ const inboundDronesSQL = `COALESCE((
 
 // tetherColumns must stay in step with scanTether; the distance column is added by each query.
 const tetherColumns = `
-	t.id, t.owner_id, p.display_name, t.faction_id, ST_Y(t.location::geometry), ST_X(t.location::geometry),
+	t.id, t.owner_id, ` + playerRefP + `, t.faction_id, ST_Y(t.location::geometry), ST_X(t.location::geometry),
 	t.tier, t.status, t.health, t.built_at, t.expires_at,
 	COALESCE((
 	    SELECT jsonb_agg(jsonb_build_object(
@@ -88,7 +89,7 @@ func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, er
 	var faction sql.NullInt32
 	var links, stock, drones []byte
 	var jammed, attacked, spike, drone sql.NullTime
-	if err := row.Scan(&t.ID, &t.OwnerID, &t.OwnerName, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
+	if err := row.Scan(&t.ID, &t.OwnerID, &t.Owner.Code, &t.Owner.Name, &faction, &t.Lat, &t.Lon, &t.Tier, &t.Status, &t.Health,
 		&t.BuiltAt, &t.ExpiresAt, &links, &stock, &jammed, &attacked, &spike, &drone, &t.ShieldTier, &drones,
 		&t.DistanceM); err != nil {
 		return t, err

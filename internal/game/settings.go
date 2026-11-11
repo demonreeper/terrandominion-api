@@ -175,6 +175,9 @@ type Settings struct {
 	PushAttackThrottleMinutes int
 	PushMaxAgeMinutes         int
 
+	// CallsignChangeDays is how long a player waits between callsign changes (the first pick is free).
+	CallsignChangeDays int
+
 	AccessTokenMinutes int
 	SessionDays        int
 	DeleteGraceDays    int
@@ -338,6 +341,8 @@ func DefaultSettings() Settings {
 		PushEnabled:               1,
 		PushAttackThrottleMinutes: 10,
 		PushMaxAgeMinutes:         15,
+
+		CallsignChangeDays: 30,
 
 		AccessTokenMinutes: 15,
 		SessionDays:        60,
@@ -511,6 +516,8 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("PushEnabled", &s.PushEnabled)
 	i("PushAttackThrottleMinutes", &s.PushAttackThrottleMinutes)
 	i("PushMaxAgeMinutes", &s.PushMaxAgeMinutes)
+
+	i("CallsignChangeDays", &s.CallsignChangeDays)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
 	i("SessionDays", &s.SessionDays)

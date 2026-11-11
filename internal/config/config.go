@@ -30,6 +30,9 @@ type Config struct {
 	// FCMProjectID and FCMCredentialsFile enable phone notifications. The file holds a private key.
 	FCMProjectID       string
 	FCMCredentialsFile string
+	// PublicURL is the web address players reach this server at, without a trailing slash. Profile
+	// share links are built on it (PublicURL + "/p/<code>").
+	PublicURL string
 }
 
 func (c Config) IsLive() bool { return c.Env == "live" }
@@ -45,6 +48,7 @@ func Load() (Config, error) {
 		AppleBundleIDs:     splitList(os.Getenv("TD_APPLE_BUNDLE_IDS")),
 		FCMProjectID:       os.Getenv("TD_FCM_PROJECT_ID"),
 		FCMCredentialsFile: os.Getenv("TD_FCM_CREDENTIALS_FILE"),
+		PublicURL:          strings.TrimRight(getenv("TD_PUBLIC_URL", "https://td-dev.demonreeper.xyz"), "/"),
 	}
 
 	trust, err := strconv.ParseBool(getenv("TD_TRUST_PROXY", "true"))

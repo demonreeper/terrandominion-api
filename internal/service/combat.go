@@ -125,7 +125,7 @@ func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tet
 		return out, ruleErr
 	}
 	return attackTarget{
-		OwnerID: ownerID, OwnerName: owner.DisplayName, AttackerName: attacker.DisplayName,
+		OwnerID: ownerID, OwnerName: owner.Name, AttackerName: attacker.Name,
 		Tether: tether, LosesProtection: losesProtection,
 	}, nil
 }
@@ -313,7 +313,7 @@ func (s *Service) DefuseSpike(ctx context.Context, playerID, tetherID int64, fix
 		}
 		return notify(ctx, tx, store.NewNotice{
 			PlayerID: planter, TetherID: tetherID, ActorID: playerID,
-			Kind: "defused", Body: game.NoticeDefused(owner.DisplayName, place),
+			Kind: "defused", Body: game.NoticeDefused(owner.Name, place),
 		})
 	})
 }
@@ -422,5 +422,5 @@ func playerNames(ctx context.Context, q db.Querier, a, b int64) (string, string,
 	if err != nil {
 		return "", "", err
 	}
-	return first.DisplayName, second.DisplayName, nil
+	return first.Name, second.Name, nil
 }

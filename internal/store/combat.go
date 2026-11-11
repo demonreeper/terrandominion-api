@@ -365,18 +365,18 @@ func RecentlyHarvestedByOthers(ctx context.Context, q db.Querier, nodeIDs []int6
 
 // ---- notices ---------------------------------------------------------------------------
 
-// Notice is one thing that happened to a player. TetherID, Actor (the other player's display name,
-// read at list time) and Amount (damage or resources) are null when they don't apply. Severity is
+// Notice is one thing that happened to a player. TetherID, Actor (the other player, as named
+// at list time) and Amount (damage or resources) are null when they don't apply. Severity is
 // filled by the service from the kind.
 type Notice struct {
-	ID        int64     `json:"id"`
-	Kind      string    `json:"kind"`
-	Severity  string    `json:"severity"`
-	TetherID  *int64    `json:"tnId"`
-	Actor     *string   `json:"actor"`
-	Amount    *int64    `json:"amount"`
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID        int64      `json:"id"`
+	Kind      string     `json:"kind"`
+	Severity  string     `json:"severity"`
+	TetherID  *int64     `json:"tnId"`
+	Actor     *PlayerRef `json:"actor"`
+	Amount    *int64     `json:"amount"`
+	Body      string     `json:"body"`
+	CreatedAt time.Time  `json:"createdAt"`
 	// Push: this kind is sent to the phone as a notification, so ALERTS lists it. Filled by the service.
 	Push bool `json:"push"`
 }
@@ -399,7 +399,7 @@ func InsertNotice(ctx context.Context, q db.Querier, n NewNotice) error {
 // Notices returns a player's notices after an id, newest first. After 0 means the latest ones.
 func Notices(ctx context.Context, q db.Querier, playerID, after int64, limit int) ([]Notice, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT n.id, n.kind, n.tn_id, a.display_name, n.amount, n.body, n.created_at
+		SELECT n.id, n.kind, n.tn_id, a.id, `+playerRefSQL("a")+`, n.amount, n.body, n.created_at
 		FROM td.notices n LEFT JOIN td.players a ON a.id = n.actor_id
 		WHERE n.player_id = $1 AND n.id > $2 ORDER BY n.id DESC LIMIT $3`, playerID, after, limit)
 	if err != nil {
@@ -409,16 +409,16 @@ func Notices(ctx context.Context, q db.Querier, playerID, after int64, limit int
 	out := make([]Notice, 0, limit)
 	for rows.Next() {
 		var n Notice
-		var tether, amount sql.NullInt64
-		var actor sql.NullString
-		if err := rows.Scan(&n.ID, &n.Kind, &tether, &actor, &amount, &n.Body, &n.CreatedAt); err != nil {
+		var tether, amount, actorID sql.NullInt64
+		var actorCode, actorName sql.NullString
+		if err := rows.Scan(&n.ID, &n.Kind, &tether, &actorID, &actorCode, &actorName, &amount, &n.Body, &n.CreatedAt); err != nil {
 			return nil, err
 		}
 		if tether.Valid {
 			n.TetherID = &tether.Int64
 		}
-		if actor.Valid {
-			n.Actor = &actor.String
+		if actorID.Valid {
+			n.Actor = &PlayerRef{Code: actorCode.String, Name: actorName.String}
 		}
 		if amount.Valid {
 			n.Amount = &amount.Int64

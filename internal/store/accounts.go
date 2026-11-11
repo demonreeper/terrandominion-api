@@ -59,7 +59,7 @@ func AnonymizePlayer(ctx context.Context, q db.Querier, playerID int64) error {
 		`DELETE FROM td.sessions WHERE player_id = $1`,
 		`DELETE FROM td.faction_members WHERE player_id = $1`,
 		`UPDATE td.faction_branches SET leader_player_id = NULL WHERE leader_player_id = $1`,
-		`UPDATE td.players SET status = 'deleted', display_name = 'Deleted player', photo_file = NULL,
+		`UPDATE td.players SET status = 'deleted', display_name = 'Deleted player', callsign = NULL, photo_file = NULL,
 		        delete_after = NULL, last_app_version = NULL, updated_at = now() WHERE id = $1`,
 	}
 	for _, step := range steps {

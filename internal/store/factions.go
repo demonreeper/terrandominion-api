@@ -17,11 +17,11 @@ type Faction struct {
 	Color        string `json:"color"`
 	Status       string `json:"status"`
 	LockedReason string `json:"lockedReason,omitempty"`
-	// LeaderName is the faction's Regional Commander in the asked region (empty when nobody holds it).
-	LeaderName string     `json:"leaderName,omitempty"`
-	Region     string     `json:"region"`
-	ClaimedAt  *time.Time `json:"claimedAt,omitempty"`
-	Members    int        `json:"members"`
+	// Leader is the faction's Regional Commander in the asked region (null when nobody holds it).
+	Leader    *PlayerRef `json:"leader"`
+	Region    string     `json:"region"`
+	ClaimedAt *time.Time `json:"claimedAt,omitempty"`
+	Members   int        `json:"members"`
 	// Invited marks the faction that invited the asking player at the faction level; the service
 	// fills it.
 	Invited bool `json:"invited"`
@@ -34,7 +34,7 @@ type Faction struct {
 func ListFactions(ctx context.Context, q db.Querier, region string) ([]Faction, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT f.id, f.code, f.name, f.motto, f.color, f.status, f.locked_reason,
-		       COALESCE(p.display_name, ''), f.claimed_at,
+		       p.id, `+playerRefSQL("p")+`, f.claimed_at,
 		       (SELECT count(*) FROM td.faction_members m WHERE m.faction_id = f.id AND m.branch_id = b.id)
 		FROM td.factions f
 		LEFT JOIN td.faction_branches b ON b.faction_id = f.id AND b.country_code = $1::text AND b.region_code = $1::text
@@ -48,9 +48,14 @@ func ListFactions(ctx context.Context, q db.Querier, region string) ([]Faction, 
 	for rows.Next() {
 		var f Faction
 		var claimed sql.NullTime
+		var leaderID sql.NullInt64
+		var leaderCode, leaderName sql.NullString
 		if err := rows.Scan(&f.ID, &f.Code, &f.Name, &f.Motto, &f.Color, &f.Status, &f.LockedReason,
-			&f.LeaderName, &claimed, &f.Members); err != nil {
+			&leaderID, &leaderCode, &leaderName, &claimed, &f.Members); err != nil {
 			return nil, err
+		}
+		if leaderID.Valid {
+			f.Leader = &PlayerRef{Code: leaderCode.String, Name: leaderName.String}
 		}
 		if claimed.Valid {
 			f.ClaimedAt = &claimed.Time

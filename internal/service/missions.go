@@ -288,7 +288,7 @@ func (s *Service) AppointWarden(ctx context.Context, commanderID, targetID int64
 		}
 		if err := notify(ctx, tx, store.NewNotice{
 			PlayerID: targetID, ActorID: commanderID, Kind: "warden",
-			Body: game.NoticeWarden(names.DisplayName, commander.FactionName),
+			Body: game.NoticeWarden(names.Name, commander.FactionName),
 		}); err != nil {
 			return err
 		}

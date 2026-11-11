@@ -75,7 +75,7 @@ func (s *Service) StartContest(ctx context.Context, playerID, nodeID int64, fix 
 		if err != nil {
 			return err
 		}
-		body := game.NoticeContest(challenger.DisplayName, node.Name, settings.ContestRangeM, endsAt.Sub(now))
+		body := game.NoticeContest(challenger.Name, node.Name, settings.ContestRangeM, endsAt.Sub(now))
 		if err := notify(ctx, tx, store.NewNotice{PlayerID: defender, ActorID: playerID, Kind: "contest", Body: body}); err != nil {
 			return err
 		}

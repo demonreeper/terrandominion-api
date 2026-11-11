@@ -50,6 +50,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /v1/settings", s.publicSettings)
 	mux.HandleFunc("GET /v1/me", s.authed(s.me))
+	mux.HandleFunc("PUT /v1/me/callsign", s.authed(s.setCallsign))
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 	mux.HandleFunc("PUT /v1/me/push", s.authed(s.setPushPrefs))
 	mux.HandleFunc("POST /v1/me/link/google", s.authed(s.linkGoogle))
@@ -469,6 +470,24 @@ func (s *Server) claimMission(w http.ResponseWriter, r *http.Request) {
 	ok(w, res)
 }
 
+// setCallsign picks or changes the name other players see, and answers with the new /me.
+func (s *Server) setCallsign(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Callsign string `json:"callsign"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	me, err := s.svc.SetCallsign(r.Context(), playerID, body.Callsign)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, me)
+}
+
 func (s *Server) factionBranch(w http.ResponseWriter, r *http.Request) {
 	playerID, _ := playerFrom(r.Context())
 	res, err := s.svc.Branch(r.Context(), playerID)
@@ -482,13 +501,18 @@ func (s *Server) factionBranch(w http.ResponseWriter, r *http.Request) {
 func (s *Server) appointWarden(w http.ResponseWriter, r *http.Request) {
 	playerID, _ := playerFrom(r.Context())
 	var body struct {
-		PlayerID int64 `json:"playerId"`
+		Code string `json:"code"`
 	}
 	if err := decode(w, r, &body); err != nil {
 		fail(w, r, err)
 		return
 	}
-	if err := s.svc.AppointWarden(r.Context(), playerID, body.PlayerID); err != nil {
+	targetID, err := s.svc.PlayerIDByCode(r.Context(), body.Code)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.AppointWarden(r.Context(), playerID, targetID); err != nil {
 		fail(w, r, err)
 		return
 	}
