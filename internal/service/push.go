@@ -90,11 +90,16 @@ func (s *Service) RunPushLoop(ctx context.Context) {
 	ticker := time.NewTicker(pushTickInterval)
 	defer ticker.Stop()
 	var backoffUntil time.Time
+	tick := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// Every fifth tick: calls the app has not picked up become pushes in the outbox.
+			if tick++; tick%5 == 0 {
+				s.pushUnansweredCalls(ctx, s.Settings(ctx))
+			}
 			if s.now().Before(backoffUntil) {
 				continue
 			}
@@ -145,7 +150,7 @@ func (s *Service) deliverPush(ctx context.Context, tx *sql.Tx, notice store.Pend
 	if now.Sub(notice.CreatedAt) > time.Duration(settings.PushMaxAgeMinutes)*time.Minute {
 		return "skipped", nil
 	}
-	if (rule.Attacks() && !notice.Attacks) || (!rule.Attacks() && !notice.Results) {
+	if !rule.Always && ((rule.Attacks() && !notice.Attacks) || (!rule.Attacks() && !notice.Results)) {
 		return "skipped", nil
 	}
 	if rule.Throttled && notice.TetherID != 0 {

@@ -143,6 +143,12 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		if err := advanceMissions(ctx, tx, playerID, game.GoalHarvest, node.Resource, 1, settings, s.now()); err != nil {
 			return err
 		}
+		// Ground covered since the last harvest counts toward the power that values speed.
+		if lastFix != nil {
+			if err := scoreDistance(ctx, tx, playerID, game.DistanceM(lastFix.Lat, lastFix.Lon, req.Lat, req.Lon)); err != nil {
+				return err
+			}
+		}
 		progress, levelUp, err := awardXP(ctx, tx, playerID, "harvest", settings.XpHarvest, harvestID, settings)
 		if err != nil {
 			return err

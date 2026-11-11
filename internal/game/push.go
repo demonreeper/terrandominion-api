@@ -11,6 +11,9 @@ type PushRule struct {
 	Title     string
 	Channel   string
 	Throttled bool
+	// Always: sent whatever the player's two push switches say (a power's call is neither an
+	// attack nor a result).
+	Always bool
 }
 
 // Attacks reports whether the rule follows the player's "attacks on my Tether Nodes" switch;
@@ -31,6 +34,9 @@ var pushRules = map[string]PushRule{
 	"defused":           {Title: "Spike defused", Channel: PushChannelResults},
 	"drone_intercepted": {Title: "Drone intercepted", Channel: PushChannelResults},
 	"spike_fired":       {Title: "Spike went off", Channel: PushChannelResults},
+
+	// A power's call the app did not pick up. The body is "Incoming call: <power>".
+	"call": {Title: "Terran Dominion", Channel: PushChannelResults, Always: true},
 }
 
 // PushRuleFor returns the rule for a notice kind; false means it stays in the game only.

@@ -22,6 +22,9 @@ type Faction struct {
 	Region     string     `json:"region"`
 	ClaimedAt  *time.Time `json:"claimedAt,omitempty"`
 	Members    int        `json:"members"`
+	// Invited marks the faction that invited the asking player at the faction level; the service
+	// fills it.
+	Invited bool `json:"invited"`
 
 	LeaderID sql.NullInt64 `json:"-"`
 }

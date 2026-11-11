@@ -220,11 +220,6 @@ func NoticeMissionDone(persona, title string) string {
 	return fmt.Sprintf("%s: %s. Done. Claim your reward in ORDERS.", persona, title)
 }
 
-// NoticeInvitation: "Merki invites you to the Bastion Order. <the persona's line>"
-func NoticeInvitation(persona, faction, line string) string {
-	return fmt.Sprintf("%s invites you to %s. %s", persona, faction, line)
-}
-
 // NoticeWarden: "Aishath made you a Warden of Faction One."
 func NoticeWarden(commander, faction string) string {
 	return fmt.Sprintf("%s made you a Warden of %s.", someone(commander), faction)

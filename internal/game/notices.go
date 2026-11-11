@@ -38,6 +38,7 @@ var noticeSeverity = map[string]string{
 
 	"mission_done": SeverityInfo,
 	"invitation":   SeverityInfo,
+	"call":         SeverityInfo,
 	"warden":       SeverityInfo,
 }
 
