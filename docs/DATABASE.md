@@ -33,6 +33,8 @@ osm_land, osm_walkways, osm_blocked   the node seeder's map layers (tdapi import
 seed_cells       every seeding cell looked at: its target, path length, when seeded and topped up
 seed_areas       areas an admin pre-seeds (Malé, Hulhumalé, Villimalé)
 callsign_blocked words a callsign may not contain
+player_reports   a player reported for griefing: what happened, a note, and what the server knows about the two
+player_sanctions warnings, suspensions and bans, with who gave them and who lifted them
 admin_actions    who changed what, and when
 ```
 
@@ -52,8 +54,9 @@ counting id. Every player-facing query names a player through `td.player_name(ca
 status)` and `td.player_code(public_code, status)`: a deleted or banned account reads `Deleted player`
 with no code.
 
-Account types (`type`): `player`, `founder`, `bot`, `system`. Status: `active`, `banned`,
-`pending_delete`, `deleted`. A deleted account keeps its row (so logs and faction history stay
+Account types (`type`): `player`, `founder`, `bot`, `system`. Status: `active`, `banned`, `suspended` (0040:
+can't sign in until `suspended_until`), `pending_delete`, `deleted`. A ban or suspension removes nothing the
+player owns. A deleted account keeps its row (so logs and faction history stay
 consistent) but loses its name, photo, sign-in links and sessions.
 
 ### sessions

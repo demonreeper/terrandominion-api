@@ -54,6 +54,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/me/delete", s.authed(s.requestDeletion))
 	mux.HandleFunc("PUT /v1/me/push", s.authed(s.setPushPrefs))
 	mux.HandleFunc("GET /v1/players/{code}", s.authed(s.playerProfile))
+	mux.HandleFunc("POST /v1/players/{code}/report", s.authed(s.reportPlayer))
+
+	// Moderation: mods and admins.
+	mux.HandleFunc("GET /v1/mod/reports", s.mod(s.modReports))
+	mux.HandleFunc("POST /v1/mod/reports/{id}/dismiss", s.mod(s.modDismissReport))
+	mux.HandleFunc("POST /v1/mod/players/{code}/sanction", s.mod(s.modSanction))
 	mux.HandleFunc("POST /v1/me/link/google", s.authed(s.linkGoogle))
 	mux.HandleFunc("POST /v1/me/link/apple", s.authed(s.linkApple))
 	mux.HandleFunc("DELETE /v1/me/link/{provider}", s.authed(s.unlink))
@@ -107,6 +113,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
 	mux.HandleFunc("PUT /v1/admin/settings/{key}", s.admin(s.adminUpdateSetting))
 	mux.HandleFunc("PUT /v1/admin/announcement", s.admin(s.adminSetAnnouncement))
+	mux.HandleFunc("GET /v1/admin/sanctions", s.admin(s.adminSanctions))
+	mux.HandleFunc("POST /v1/admin/sanctions/{id}/lift", s.admin(s.adminLiftSanction))
+	mux.HandleFunc("POST /v1/admin/reports/{id}/reopen", s.admin(s.adminReopenReport))
 	mux.HandleFunc("POST /v1/admin/nodes", s.admin(s.adminCreateNode))
 	mux.HandleFunc("POST /v1/admin/nodes/scatter", s.admin(s.adminScatterNodes))
 	mux.HandleFunc("POST /v1/admin/nodes/clear-scatter", s.admin(s.adminClearScatter))

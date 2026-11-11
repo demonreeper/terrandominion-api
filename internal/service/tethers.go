@@ -452,6 +452,7 @@ func (s *Service) RunTetherLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.tetherTick(ctx)
+			s.endSuspensions(ctx)
 		case <-combat.C:
 			s.resolveCombat(ctx, s.Settings(ctx))
 		}

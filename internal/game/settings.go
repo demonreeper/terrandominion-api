@@ -187,6 +187,14 @@ type Settings struct {
 	PerkMerkiDamagePct         int // less damage to own Tether Nodes
 	PerkMerkiInterceptPct      int // more of a drone's damage stopped by an intercept (added to the share)
 
+	// Moderation (docs/profile-plan.md, M1).
+	SuspendDays1      int // the three lengths a suspension may have
+	SuspendDays2      int
+	SuspendDays3      int
+	ReportsPerDay     int // reports one player may make in 24 hours
+	ReportContextDays int // how far back a report's attached interactions go
+	SuspendRepeatDays int // a second suspension inside this many days suggests the next step up
+
 	// CallsignChangeDays is how long a player waits between callsign changes (the first pick is free).
 	CallsignChangeDays int
 
@@ -364,6 +372,13 @@ func DefaultSettings() Settings {
 		PerkTohuCarryPct:           25,
 		PerkMerkiDamagePct:         15,
 		PerkMerkiInterceptPct:      10,
+
+		SuspendDays1:      1,
+		SuspendDays2:      3,
+		SuspendDays3:      7,
+		ReportsPerDay:     5,
+		ReportContextDays: 7,
+		SuspendRepeatDays: 30,
 
 		CallsignChangeDays: 30,
 
@@ -550,6 +565,13 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("PerkTohuCarryPct", &s.PerkTohuCarryPct)
 	i("PerkMerkiDamagePct", &s.PerkMerkiDamagePct)
 	i("PerkMerkiInterceptPct", &s.PerkMerkiInterceptPct)
+
+	i("SuspendDays1", &s.SuspendDays1)
+	i("SuspendDays2", &s.SuspendDays2)
+	i("SuspendDays3", &s.SuspendDays3)
+	i("ReportsPerDay", &s.ReportsPerDay)
+	i("ReportContextDays", &s.ReportContextDays)
+	i("SuspendRepeatDays", &s.SuspendRepeatDays)
 
 	i("CallsignChangeDays", &s.CallsignChangeDays)
 

@@ -36,7 +36,8 @@ var noticeSeverity = map[string]string{
 	"drone_launched": SeverityInfo,
 	"shield_fitted":  SeverityInfo,
 
-	"drop_reclaimed": SeverityInfo,
+	"drop_reclaimed":  SeverityInfo,
+	"report_reviewed": SeverityInfo,
 
 	"mission_done": SeverityInfo,
 	"invitation":   SeverityInfo,

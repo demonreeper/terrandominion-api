@@ -83,6 +83,25 @@ or text that is not a code, gets the same page saying "This operative is no long
 `Cache-Control: public, max-age=300`; rate limited per IP like every request. `/me` and a profile carry the
 link as `shareUrl` (`TD_PUBLIC_URL` + `/p/` + code; the dev address until the release domain is bought).
 
+### Reports and moderation
+A player reports another for griefing; moderators (`is_mod`) and admins act on it. A ban or a suspension
+only stops sign-in: nothing the player owns is removed, and their Tether Nodes decay as normal.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| POST | `/players/{code}/report` | `detail, note?` | Any signed-in player. `detail` is what happened: `repeated_attacks`, `blocking_node`, `following` or `other`; `note` up to 300 characters. The server attaches what each of the two did to the other in the last `ReportContextDays` (7): weapon hits, drone strikes, intercepts and contests. 1113 yourself, 1114 bad detail or note, 1115 you already have an open report on them, 1116 over `ReportsPerDay` (5), 1003 unknown player |
+| GET | `/mod/reports` | – | Mods and admins. `players`: open reports grouped by reported player, most reporters first: `player {code, name}`, `level`, `faction`, `rankTitle`, `reporters` (how many different players), `reports [{id, reason, detail, note, context, createdAt}]`, `sanctions` (their history), `suggested {kind, days?}` (the next step up, shown not forced) and `canAct`. Also `suspendDays` (the three lengths) and `details`. No real name, email, device or location, and not who reported |
+| POST | `/mod/reports/{id}/dismiss` | `reason, all?` | Closes the report with no action (`all`: every open report on that player). Each reporter gets a `report_reviewed` notice |
+| POST | `/mod/players/{code}/sanction` | `kind, days?, reason, reportIds?` | `warn` (a written message from Moderation with the reason), `suspend` (`days` is one of `SuspendDays1/2/3`: 1, 3, 7) or `ban`. A reason of 3 to 500 characters is required (1117). A suspension or ban signs the player out everywhere at once. The reports named (all open ones on that player when left out) close as actioned and their reporters are told it was reviewed, never what was done. A mod can't act on a mod, an admin or themselves; an admin can't act on another admin or themselves (1118). Returns the sanction |
+| GET | `/admin/sanctions` | – | Admins. `sanctions` (active first: `{id, player, kind, reason, until, by, createdAt, liftedAt, liftedBy, liftReason, active}`) and `dismissed` (reports mods dismissed) |
+| POST | `/admin/sanctions/{id}/lift` | `reason` | Ends a running suspension or ban early; the player can sign in again at once unless another sanction still holds. Both entries stay in the history. 1119 when it is not running |
+| POST | `/admin/reports/{id}/reopen` | – | Puts a dismissed report back in the queue (1120 otherwise) |
+
+Sign-in and refresh answer 1112 with `until` for a suspended account ("Suspended until …") and 1102 for a banned
+one. A suspension that has run out returns the account to `active` (on the next sign-in, and by the tick). To
+other players a banned account reads `Deleted player` with no code; staff still see the callsign. Every action
+is written to `admin_actions`. `/me` carries `isMod`.
+
 ### Faction perks
 Members of a faction get its perks; they stop the moment the player leaves. The server applies them
 (`game.FactionPerks`), and every number is a setting (`Perk…Pct`, group `factions`; 0 switches a perk off):
@@ -329,6 +348,15 @@ never reads as inside the range).
 | 1109 | Callsign has the wrong shape | `error: "callsign_invalid"` |
 | 1110 | Callsign is taken, reserved or blocked | `error: "callsign_taken"` |
 | 1111 | Callsign was changed too recently | `error: "callsign_too_soon", changeAt, days` |
+| 1112 | Account suspended (sign-in and refresh) | `until` |
+| 1113 | Can't report yourself | |
+| 1114 | Report detail or note not allowed | |
+| 1115 | Already an open report on that player | |
+| 1116 | Daily report limit reached | `perDay` |
+| 1117 | Sanction kind, days or reason not allowed | `days` |
+| 1118 | Not allowed to act on that account | |
+| 1119 | Sanction is not running | |
+| 1120 | Report is not dismissed | |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

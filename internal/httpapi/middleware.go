@@ -145,6 +145,24 @@ func (s *Server) admin(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// mod lets moderators and admins through. The role is read from the database on every call, so a
+// removed role stops working at once.
+func (s *Server) mod(next http.HandlerFunc) http.HandlerFunc {
+	return s.authed(func(w http.ResponseWriter, r *http.Request) {
+		playerID, _ := playerFrom(r.Context())
+		staff, err := s.svc.IsStaff(r.Context(), playerID)
+		if err != nil {
+			fail(w, r, err)
+			return
+		}
+		if !staff {
+			fail(w, r, apperr.Forbidden)
+			return
+		}
+		next(w, r)
+	})
+}
+
 func (s *Server) clientIP(r *http.Request) string {
 	if s.cfg.TrustProxy {
 		if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {

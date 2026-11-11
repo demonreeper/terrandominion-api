@@ -230,7 +230,8 @@ func MarkCallPushed(ctx context.Context, q db.Querier, id int64, now time.Time) 
 	return err
 }
 
-// Message is one of the powers' written messages.
+// Message is a written message: from one of the powers, or (no faction, an amber colour) from the
+// game itself, such as a warning from Moderation.
 type Message struct {
 	ID          int64     `json:"id"`
 	Persona     string    `json:"persona"`
@@ -244,8 +245,9 @@ type Message struct {
 // Messages lists the player's messages that have arrived, newest first.
 func Messages(ctx context.Context, q db.Querier, playerID int64, now time.Time, limit int) ([]Message, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT m.id, f.persona, f.code, f.color, m.body, m.due_at, m.read_at IS NOT NULL
-		FROM td.player_messages m JOIN td.factions f ON f.id = m.faction_id
+		SELECT m.id, COALESCE(m.sender, f.persona, ''), COALESCE(f.code, ''), COALESCE(f.color, '#FFC740'),
+		       m.body, m.due_at, m.read_at IS NOT NULL
+		FROM td.player_messages m LEFT JOIN td.factions f ON f.id = m.faction_id
 		WHERE m.player_id = $1 AND m.due_at <= $2
 		ORDER BY m.due_at DESC, m.id DESC LIMIT $3`, playerID, now, limit)
 	if err != nil {

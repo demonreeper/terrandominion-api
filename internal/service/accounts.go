@@ -127,6 +127,9 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 		case "deleted":
 			return apperr.AccountDeleted
 		}
+		if err := s.checkSuspension(ctx, tx, player); err != nil {
+			return err
+		}
 
 		granted, err := store.RegisterDevice(ctx, tx, deviceHash, playerID, isNew)
 		if err != nil {
@@ -216,6 +219,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken, appVersion string) 
 		case "deleted":
 			return apperr.AccountDeleted
 		}
+		if err := s.checkSuspension(ctx, tx, player); err != nil {
+			return err
+		}
 
 		refresh, refreshHash, err := auth.NewRefreshToken()
 		if err != nil {
@@ -272,13 +278,15 @@ type MeView struct {
 	// Code is the share code; Name the player-facing name; Callsign is null until one is picked;
 	// CallsignChangeAt is when it may next be changed (absent when it can be changed now).
 	// ShareURL is the link to this profile. The account's real name is never sent.
-	Code              string                `json:"code"`
-	Name              string                `json:"name"`
-	Callsign          *string               `json:"callsign"`
-	CallsignChangeAt  *time.Time            `json:"callsignChangeAt,omitempty"`
-	ShareURL          string                `json:"shareUrl"`
-	Type              string                `json:"type"`
-	IsAdmin           bool                  `json:"isAdmin,omitempty"`
+	Code             string     `json:"code"`
+	Name             string     `json:"name"`
+	Callsign         *string    `json:"callsign"`
+	CallsignChangeAt *time.Time `json:"callsignChangeAt,omitempty"`
+	ShareURL         string     `json:"shareUrl"`
+	Type             string     `json:"type"`
+	IsAdmin          bool       `json:"isAdmin,omitempty"`
+	// IsMod: a moderator (the ADMIN area shows them the report queue). Admins can do all a mod can.
+	IsMod             bool                  `json:"isMod,omitempty"`
 	Progress          game.Progress         `json:"progress"`
 	Carried           map[string]int64      `json:"carried"`
 	Stored            map[string]int64      `json:"stored"`
@@ -375,7 +383,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	me := &MeView{
 		PushAttacks: pushAttacks, PushResults: pushResults, Linked: linked, ActivePerks: []game.PerkLine{},
 		ID: player.ID, Code: player.Code, Name: player.Name, ShareURL: s.ShareURL(player.Code),
-		Type: player.Type, IsAdmin: player.IsAdmin,
+		Type: player.Type, IsAdmin: player.IsAdmin, IsMod: player.IsMod,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
 		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(own), TetherUpgradeCost: game.TetherUpgradeCost(own), CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Badges: badges, Freelancer: membership == nil,

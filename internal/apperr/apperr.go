@@ -94,12 +94,21 @@ var (
 
 	GoogleTokenInvalid = def(1100, http.StatusUnauthorized, "Google sign-in could not be verified.")
 	SessionExpired     = def(1101, http.StatusUnauthorized, "Session expired. Sign in again.")
-	AccountBanned      = def(1102, http.StatusForbidden, "This account is suspended.")
+	AccountBanned      = def(1102, http.StatusForbidden, "This account has been banned.")
 	AccountDeleted     = def(1103, http.StatusForbidden, "This account was deleted.")
 	DeviceRequired     = def(1104, http.StatusBadRequest, "Device id is required.")
 	AppleTokenInvalid  = def(1105, http.StatusUnauthorized, "Apple sign-in could not be verified.")
 	IdentityTaken      = def(1106, http.StatusConflict, "That sign-in already has its own game account.")
 	LastSignIn         = def(1107, http.StatusConflict, "This is your only way to sign in. Link another one before removing it.")
+	AccountSuspended   = def(1112, http.StatusForbidden, "This account is suspended.") // data: until
+	ReportSelf         = def(1113, http.StatusBadRequest, "You can't report yourself.")
+	ReportBad          = def(1114, http.StatusBadRequest, "Pick what happened, and keep the note to 300 characters.")
+	ReportOpen         = def(1115, http.StatusConflict, "You already reported this operative. A moderator will look at it.")
+	ReportLimit        = def(1116, http.StatusTooManyRequests, "You have made as many reports as one day allows. Try again tomorrow.")                                // data: perDay
+	SanctionBad        = def(1117, http.StatusBadRequest, "A sanction needs a kind (warn, suspend, ban), a reason, and for a suspension one of the allowed lengths.") // data: days
+	SanctionNotYours   = def(1118, http.StatusForbidden, "You can't act on that account.")
+	SanctionNotLive    = def(1119, http.StatusConflict, "That sanction is not running, so there is nothing to lift.")
+	ReportNotDismissed = def(1120, http.StatusConflict, "Only a dismissed report can be reopened.")
 	// The callsign errors carry data.error: "callsign_invalid", "callsign_taken" or "callsign_too_soon".
 	CallsignInvalid = def(1109, http.StatusBadRequest, "Use 3 to 16 letters, digits, - or _, starting and ending with a letter or digit.")
 	CallsignTaken   = def(1110, http.StatusConflict, "That callsign is taken or not allowed. Try another.")
