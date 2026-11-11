@@ -138,6 +138,13 @@ Suspend, ban and lift from a player's info use the moderation endpoints above. F
 request: at most one of each kind per player in `InfringementGapMinutes` (10), with the numbers behind
 it and the path, never a position.
 
+### Freelancer standing and missions
+- **Neutral standing** (F5): a faction player can't hit a freelancer's Tether Node (1611 with the reason), at any level,
+  unless that freelancer attacked a faction Tether Node in the last `ProtectionLossDays` (3). Freelancer against
+  freelancer keeps the level band. A freelancer's Tether Node still takes uploads from every faction.
+- **Missions** (F3): a freelancer gets `MissionsPerDay` (6), one from each power, at every level; a member gets
+  `MemberMissionsPerDay` (1) from their own power, and a Warden or above a command order besides.
+
 ### Device record
 A pledge and a ban stick to the phone and to the Google/Apple sign-in (freelancer-path-plan.md phase 2): the server
 keeps salted one-way hashes in `td.device_marks`, never tied to a player row, so deleting an account undoes neither.
@@ -191,7 +198,9 @@ a member (read-only), and must never list the admin as present, as a reader or a
 | Slipstream Vanguard (Tohu) | Faster drones; more carry capacity | `PerkTohuDroneSpeedPct` 30, `PerkTohuCarryPct` 25 |
 | Bastion Order (Merki) | Their Tether Nodes take less damage; intercepts stop more | `PerkMerkiDamagePct` 15, `PerkMerkiInterceptPct` 10 |
 
-`/me` carries `activePerks [{key, line, tag}]` (empty for a freelancer); its `carryCapacity`, `scanRangeM`,
+`/me` carries `activePerks [{key, line, tag}]`: a member's faction perks, or for a freelancer today's **daily favour**
+(freelancer-path-plan.md F4: each power whose freelancer mission they finished today gives `FavourPerkPct`, 40%, of its
+perk until the mission day ends; tags like `+10% SIGNUM`), and `favourOpen` for a freelancer; its `carryCapacity`, `scanRangeM`,
 `tetherCost` and `tetherUpgradeCost` already include them. `key` is one of `crystal`, `upgrade_cost`, `scan`,
 `rare`, `build_cost`, `mission_credit`, `drone_speed`, `carry`, `damage`, `intercept`. A harvest and a mission
 claim answer with `perkTag` when a perk raised the amount. A profile's `faction.perks` lists the same lines,

@@ -246,3 +246,25 @@ func SetMemberRank(ctx context.Context, q db.Querier, playerID int64, rank int) 
 	_, err := q.ExecContext(ctx, `UPDATE td.faction_members SET rank = $2 WHERE player_id = $1`, playerID, rank)
 	return err
 }
+
+// FinishedMissionPowers lists the powers whose freelancer mission the player finished on this
+// mission day (done or claimed): each gives them its daily favour until the day ends.
+func FinishedMissionPowers(ctx context.Context, q db.Querier, playerID int64, day time.Time) ([]int, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT DISTINCT faction_id FROM td.player_missions
+		WHERE player_id = $1 AND day = $2::date AND audience = 'freelancer' AND status IN ('done', 'claimed')
+		ORDER BY faction_id`, playerID, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []int{}
+	for rows.Next() {
+		var f int
+		if err := rows.Scan(&f); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}

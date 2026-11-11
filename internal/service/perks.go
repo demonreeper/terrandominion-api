@@ -9,9 +9,9 @@ import (
 	"github.com/demonreeper/terrandominion/api/internal/store"
 )
 
-// Faction perks (docs/profile-plan.md, P1b): applied here, on the server, to members only. A
-// player's perks are read from their membership at the moment of the action, so they stop the
-// moment the player leaves.
+// Faction perks (docs/profile-plan.md, P1b) and the freelancer's daily favour
+// (docs/freelancer-path-plan.md F4), applied here on the server. They are read at the moment of
+// each action.
 
 // factionOf is the id of the faction the player is in, or 0 for a freelancer.
 func factionOf(ctx context.Context, q db.Querier, playerID int64) (int, error) {
@@ -22,23 +22,33 @@ func factionOf(ctx context.Context, q db.Querier, playerID int64) (int, error) {
 	return membership.FactionID, nil
 }
 
-// perksOf is what the player's faction gives them right now (nothing for a freelancer).
-func perksOf(ctx context.Context, q db.Querier, playerID int64, settings game.Settings) (game.Perks, int, error) {
+// perksOf is what works on the player right now, with its lines and tags: their faction's perks at
+// full strength for a member; for a freelancer today's favour from each power whose mission they
+// finished (freelancer-path-plan.md F4), until the mission day ends.
+func (s *Service) perksOf(ctx context.Context, q db.Querier, playerID int64, settings game.Settings) (game.Perks, []game.PerkLine, error) {
 	faction, err := factionOf(ctx, q, playerID)
 	if err != nil {
-		return game.NoPerks(), 0, err
+		return game.NoPerks(), nil, err
 	}
-	return game.FactionPerks(settings, faction), faction, nil
+	if faction != 0 {
+		return game.FactionPerks(settings, faction), game.FactionPerkLines(settings, faction), nil
+	}
+	day, _ := game.MissionDay(settings, s.now())
+	powers, err := store.FinishedMissionPowers(ctx, q, playerID, day)
+	if err != nil {
+		return game.NoPerks(), nil, err
+	}
+	return game.FavourPerks(settings, powers), game.FavourPerkLines(settings, powers), nil
 }
 
-// equipped is the player's gear stats with their faction's perks on top: carry capacity and scan
+// equipped is the player's gear stats with their perks (or favour) on top: carry capacity and scan
 // range. Every rule that reads either goes through here.
-func equipped(ctx context.Context, q db.Querier, playerID int64, settings game.Settings) (store.EquippedStats, game.Perks, error) {
+func (s *Service) equipped(ctx context.Context, q db.Querier, playerID int64, settings game.Settings) (store.EquippedStats, game.Perks, error) {
 	stats, err := store.Equipped(ctx, q, playerID)
 	if err != nil {
 		return stats, game.NoPerks(), err
 	}
-	perks, _, err := perksOf(ctx, q, playerID, settings)
+	perks, _, err := s.perksOf(ctx, q, playerID, settings)
 	if err != nil {
 		return stats, perks, err
 	}

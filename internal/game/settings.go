@@ -191,6 +191,10 @@ type Settings struct {
 	PerkMerkiDamagePct         int // less damage to own Tether Nodes
 	PerkMerkiInterceptPct      int // more of a drone's damage stopped by an intercept (added to the share)
 
+	// The freelancer path (docs/freelancer-path-plan.md).
+	FavourPerkPct        int // a power's daily favour is this percent of its faction perk (F4)
+	MemberMissionsPerDay int // daily missions a member gets from their own power (F3)
+
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
 	SuspendDays2      int
@@ -384,6 +388,8 @@ func DefaultSettings() Settings {
 		PerkTohuCarryPct:           25,
 		PerkMerkiDamagePct:         15,
 		PerkMerkiInterceptPct:      10,
+		FavourPerkPct:              40,
+		MemberMissionsPerDay:       1,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -534,6 +540,8 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("CraftShield4Data", &s.CraftShield4Data)
 	i("CraftShield4Credit", &s.CraftShield4Credit)
 	i("MissionsPerDay", &s.MissionsPerDay)
+	i("FavourPerkPct", &s.FavourPerkPct)
+	i("MemberMissionsPerDay", &s.MemberMissionsPerDay)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

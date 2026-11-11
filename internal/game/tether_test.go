@@ -207,8 +207,13 @@ func TestCanAttackTether(t *testing.T) {
 		loses   bool
 	}{
 		{"own node", TetherAttack{AttackerID: 1, OwnerID: 1}, false, false},
-		{"faction player, owner above join level", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 21}, true, false},
-		{"faction player, owner at join level", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 20}, false, false},
+		// Neutral standing (F5): at any level a freelancer's node is off limits to faction players,
+		// unless that freelancer attacked a faction lately.
+		{"faction player, neutral freelancer", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 30,
+			OwnerFreelancer: true, OwnerProtected: true}, false, false},
+		{"faction player, freelancer who attacked a faction", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 5,
+			OwnerFreelancer: true, OwnerProtected: false}, true, false},
+		{"faction player, a member's node outside a faction", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerFaction: &one, OwnerLevel: 25}, true, false},
 		{"freelancer within band", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerLevel: 15, OwnerLevel: 10}, true, false},
 		{"freelancer outside band", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerLevel: 16, OwnerLevel: 10}, false, false},
 		{"freelancer outside band, lower", TetherAttack{AttackerID: 2, OwnerID: 1, AttackerLevel: 4, OwnerLevel: 10}, false, false},

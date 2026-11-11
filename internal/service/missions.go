@@ -94,13 +94,15 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 	if membership == nil {
 		return give(game.AudienceFreelancer, 0, n, true)
 	}
-	if membership.Rank >= game.RankWarden && n > 0 {
-		if err := give(game.AudienceCommand, membership.FactionID, 1, false); err != nil {
+	// A member hears only from their own power: MemberMissionsPerDay, and a command order for a
+	// Warden or above (freelancer-path-plan.md F3).
+	command, own := game.MissionCounts(settings, true, membership.Rank)
+	if command > 0 {
+		if err := give(game.AudienceCommand, membership.FactionID, command, false); err != nil {
 			return err
 		}
-		n--
 	}
-	return give(game.AudienceMember, membership.FactionID, n, false)
+	return give(game.AudienceMember, membership.FactionID, own, false)
 }
 
 // advanceMissions counts an action toward the player's missions for today, giving them first if
@@ -166,13 +168,13 @@ func (s *Service) ClaimMission(ctx context.Context, playerID, missionID int64) (
 		// A faction perk may pay more credit, for as long as the player is a member.
 		perkTag := ""
 		if mission.Reward.Credits > 0 {
-			perks, faction, err := perksOf(ctx, tx, playerID, settings)
+			perks, lines, err := s.perksOf(ctx, tx, playerID, settings)
 			if err != nil {
 				return err
 			}
 			if boosted := int(game.PerkAmount(int64(mission.Reward.Credits), perks.MissionCreditMult)); boosted > mission.Reward.Credits {
 				mission.Reward.Credits = boosted
-				perkTag = game.PerkTag(settings, faction, game.PerkMissionCredit)
+				perkTag = game.PerkTagIn(lines, game.PerkMissionCredit)
 			}
 			if err := store.AddUploaded(ctx, tx, playerID, "credit", int64(mission.Reward.Credits)); err != nil {
 				return err

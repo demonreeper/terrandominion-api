@@ -323,8 +323,10 @@ type MeView struct {
 	// player may pledge only to this faction ("Your pledge stands."). AppealCode and AppealURL go with
 	// the APPEAL link for a second-hand phone.
 	PledgeBound string `json:"pledgeBound,omitempty"`
-	AppealCode  string `json:"appealCode,omitempty"`
-	AppealURL   string `json:"appealUrl,omitempty"`
+	// FavourOpen: a freelancer, who earns a power's daily favour by finishing its mission (F4).
+	FavourOpen bool   `json:"favourOpen,omitempty"`
+	AppealCode string `json:"appealCode,omitempty"`
+	AppealURL  string `json:"appealUrl,omitempty"`
 	// Badges are permanent marks, such as Founder of a faction's branch in a country.
 	Badges []store.Badge `json:"badges"`
 	// Linked are the sign-ins that open this account ("apple", "google"; "dev" on the dev server).
@@ -379,7 +381,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
-	stats, perks, err := equipped(ctx, q, playerID, settings)
+	stats, perks, err := s.equipped(ctx, q, playerID, settings)
 	// The costs this player pays: their faction may discount them.
 	own := game.SettingsWithPerks(settings, perks)
 	if err != nil {
@@ -429,9 +431,13 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 		t := player.DeleteAfter.Time
 		me.DeleteAfter = &t
 	}
-	if membership != nil {
-		me.ActivePerks = game.FactionPerkLines(settings, membership.FactionID)
+	// Working on the player now: their faction's perks, or for a freelancer today's favour.
+	if _, lines, err := s.perksOf(ctx, q, playerID, settings); err != nil {
+		return nil, err
+	} else if lines != nil {
+		me.ActivePerks = lines
 	}
+	me.FavourOpen = membership == nil
 	if me.Announcement, err = store.CurrentAnnouncement(ctx, q); err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 		return nil, apperr.BadRequest.With("bad coordinate")
 	}
 	settings := s.Settings(ctx)
-	stats, perks, err := equipped(ctx, s.db, playerID, settings)
+	stats, perks, err := s.equipped(ctx, s.db, playerID, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 			return apperr.NodeInactive
 		}
 
-		stats, perks, err := equipped(ctx, tx, playerID, settings)
+		stats, perks, err := s.equipped(ctx, tx, playerID, settings)
 		if err != nil {
 			return err
 		}
@@ -146,8 +146,8 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 			boosted := min(game.PerkAmount(int64(result.Amount), perks.CrystalMult), in.CarryCapacity-in.CarriedTotal)
 			if boosted > int64(result.Amount) {
 				result.Amount = int(boosted)
-				if faction, err := factionOf(ctx, tx, playerID); err == nil {
-					perkTag = game.PerkTag(settings, faction, game.PerkCrystal)
+				if _, lines, err := s.perksOf(ctx, tx, playerID, settings); err == nil {
+					perkTag = game.PerkTagIn(lines, game.PerkCrystal)
 				}
 			}
 		}
