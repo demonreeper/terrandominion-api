@@ -29,10 +29,10 @@ GAME_DESIGN.md (mobile repo) has the matching "Player profile, sharing and moder
 
 | # | Question | Recommended |
 |---|---|---|
-| D1 | **Which name do other players see?** **DECIDED 2026-11-11: player-chosen callsign.** | Players pick a **callsign** (3 to 16 letters, digits, `-` or `_`, unique, case-insensitive). The real name from Google or Apple is never shown to anyone. Until a callsign is picked, show `OPERATIVE-` plus the share code. Asked once, right after sign-in, and editable from your profile (once every 30 days). |
+| D1 | **Which name do other players see?** **DECIDED 2026-11-11: a callsign the player picks from ones the game offers.** | Players pick a **callsign** from six the game makes up (`Night-Heron-42`, SHOW OTHERS for six more); it is **never typed** (changed by the owner the same day, so nothing offensive can be entered). Unique. The real name from Google or Apple is never shown to anyone. Until a callsign is picked, show `OPERATIVE-` plus the share code. Asked once, right after sign-in, and editable from your profile (once every 30 days). |
 | D2 | **What goes in the share link?** | A random **8-character share code** (`td.players.public_code`, e.g. `K7QX3M9P`), never the counting id (anyone could walk 1, 2, 3...) and never the callsign (it can change and links would break). |
 | D3 | **Which web address?** **DECIDED 2026-11-11: dev links for now; the owner gets a new domain before launch.** | Dev: `https://td-dev.demonreeper.xyz/p/<code>`. Release: a short neutral domain you own (Open: which one). App Links need the domain fixed before release, because the app build carries it. |
-| D4 | **Avatar** | v1 keeps the hexagon with callsign initials. Later: pick from a set of game emblems (no cross shapes, no photos, so nothing to moderate). The unused `photo_file` stays unused. |
+| D4 | **Avatar** | v1 keeps the hexagon with callsign initials. Future (P4): pick from a set of game emblems (no cross shapes, no photos, so nothing to moderate). The unused `photo_file` stays unused. |
 | D5 | **Show the region?** | Not in v1. Player-facing text stays country-neutral, and the faction line already shows rank. |
 
 ## What a profile shows
@@ -110,7 +110,7 @@ Breaking changes are fine now, so no compatibility fields.
 | `GET /p/{code}` (public, no sign-in) | Web profile page (HTML). Same public fields, the game's look, "Open in Terran Dominion" and the store buttons. Open Graph tags so chat apps show a preview card. Cached by Cloudflare for 5 minutes, rate limited. |
 | `GET /.well-known/assetlinks.json` | Android App Links file (app id + signing SHA-256 fingerprints). |
 | `GET /.well-known/apple-app-site-association` | iOS Universal Links file (team id + app id, path `/p/*`). |
-| Later: `GET /p/{code}/card.png` | A rendered preview image for link previews (phase 4). |
+| Future: `GET /p/{code}/card.png` | A rendered preview image for link previews (P4, moved to the future 2026-11-11; not built). |
 
 The service record comes from tables that already exist (`harvests`, `tether_nodes`, `xp_events`,
 `drone_strikes`, `player_missions`), one query with counts. If it gets slow, keep a
@@ -149,13 +149,16 @@ migrations), per the rule that web pages go in the API repo.
 | **P1 Profile screen** | `GET /v1/players/{code}`, profile screen, own profile from the operative card, all tap targets | API + mobile |
 | **P2 Share links** | `/p/{code}` web page with OG tags, share button (Android + iOS bridge), copy link | API + mobile |
 | **P3 Open in the game** | `.well-known` files, App Links intent filter, Associated Domains, deep link routing | API + mobile + your steps |
-| **P4 Nicer previews** (optional) | Rendered `card.png` preview image; emblem avatars | API + mobile |
+| **P4 Nicer previews** (**FUTURE**, moved 2026-11-11: not built, not scheduled) | Rendered `card.png` preview image; emblem avatars | API + mobile |
 | **A1 Admin settings** | MonoCity-style settings screen (groups, ranges, locks, search, confirm, history, announcement) | API + mobile |
 | **P1b Faction perks** | Perks from Side fix 2; numbers tuned from A1 | API + mobile |
 | **M1 Reports and moderation** | Report a player, mod queue, warn / suspend / ban, admin lifts | API + mobile |
 | **A2 Admin players and stats** | Player search and info, adjust, roles, callsign reset, game stats + share card, player share cards | API + mobile |
 
-**Build order (decided 2026-11-11):** P0, P1, A1, P1b, P2, M1 (needs profiles to report from), A2, P3, P4. A1 comes
+**Status (2026-11-11):** P0, P1, A1, P1b, P2, M1, A2 and P3 are built and merged. **P4 is moved to the future**
+by the owner: nothing of it is built, and it is not to be started without being asked.
+
+**Build order (decided 2026-11-11):** P0, P1, A1, P1b, P2, M1 (needs profiles to report from), A2, P3, then P4 (future). A1 comes
 before the perks so their numbers can be tuned on the phone. P0 to P2, A1, M1 and A2 need nothing
 from you beyond reviewing. P3 needs the steps below.
 
