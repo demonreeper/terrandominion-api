@@ -110,7 +110,8 @@ linked by `upgrades_to`, with `range_m`, `damage`, `drones` and `cells` in `stat
 ### factions
 Six factions are seeded (`faction_1` to `faction_6`), named in 0044: Lumen Collective, Forge Meridian, Verdant
 Exchange, Veil Cipher, Slipstream Vanguard, Bastion Order (their powers, `persona`: Signum, Shingō, Ishāra, Sēma,
-Tohu, Merki). All start `locked` with a lore reason. The first player at
+Tohu, Merki). Their colours are final (0045): `#4FD8FF`, `#FFB52E`, `#4CF08A`, `#B57CFF`, `#FF5D6C`, `#DBE8F5`. All
+start `locked` with a lore reason. The first player at
 `LeadFactionLevel` to claim one becomes its head: the claim is a conditional update, so of two
 players racing, exactly one wins. `leader_player_id` is unique, so nobody heads two factions.
 Locked factions cannot be joined. A player is in at most one faction (`faction_members` is keyed
