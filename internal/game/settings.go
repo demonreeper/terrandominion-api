@@ -57,10 +57,18 @@ type Settings struct {
 	WalkLinkXpPct3        int
 	WalkLinkXpPct4        int
 	WalkLinkKeepDays      int
-	WalkLinkFormM         float64
-	WalkLinkHoldM         float64
-	WalkLinkMaxAccuracyM  float64
-	WalkLinkMoveM         float64
+	// W2: Bluetooth proof and the L3 / L8 checks.
+	WalkLinkRequireBle     int
+	WalkLinkBleGraceSec    int
+	WalkLinkBleTokenSec    int
+	WalkLinkBleHeardSec    int
+	WalkLinkTwinFixes      int
+	WalkLinkTwinM          float64
+	WalkLinkNoBleReportSec int
+	WalkLinkFormM          float64
+	WalkLinkHoldM          float64
+	WalkLinkMaxAccuracyM   float64
+	WalkLinkMoveM          float64
 
 	WelcomeCrystal int
 	WelcomeAlloy   int
@@ -351,6 +359,14 @@ func DefaultSettings() Settings {
 		WalkLinkXpPct4:        30,
 		WalkLinkKeepDays:      90,
 
+		WalkLinkRequireBle:     1,
+		WalkLinkBleGraceSec:    60,
+		WalkLinkBleTokenSec:    60,
+		WalkLinkBleHeardSec:    30,
+		WalkLinkTwinFixes:      3,
+		WalkLinkTwinM:          1,
+		WalkLinkNoBleReportSec: 300,
+
 		WelcomeCrystal: 800,
 		WelcomeAlloy:   600,
 		WelcomeData:    200,
@@ -623,6 +639,13 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("WalkLinkXpPct3", &s.WalkLinkXpPct3)
 	i("WalkLinkXpPct4", &s.WalkLinkXpPct4)
 	i("WalkLinkKeepDays", &s.WalkLinkKeepDays)
+	i("WalkLinkRequireBle", &s.WalkLinkRequireBle)
+	i("WalkLinkBleGraceSec", &s.WalkLinkBleGraceSec)
+	i("WalkLinkBleTokenSec", &s.WalkLinkBleTokenSec)
+	i("WalkLinkBleHeardSec", &s.WalkLinkBleHeardSec)
+	i("WalkLinkTwinFixes", &s.WalkLinkTwinFixes)
+	f("WalkLinkTwinM", &s.WalkLinkTwinM)
+	i("WalkLinkNoBleReportSec", &s.WalkLinkNoBleReportSec)
 
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)

@@ -3,10 +3,13 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
@@ -68,6 +71,71 @@ type WalkLinkView struct {
 	HeartbeatSec     int              `json:"heartbeatSec"`
 	BonusSecondsLeft int              `json:"bonusSecondsLeft"`
 	WalkedM          float64          `json:"walkedM"`
+	// W2 Bluetooth proof: the token this phone advertises now, the other members' tokens to listen for (current
+	// and previous), and whether the bonus needs Bluetooth.
+	BleToken    string   `json:"bleToken"`
+	BleListen   []string `json:"bleListen"`
+	BleRequired bool     `json:"bleRequired"`
+}
+
+// WalkBeatIn is what a heartbeat carries besides the fix: whether Bluetooth is on (and allowed) on this phone,
+// and the tokens it heard in the last WalkLinkBleHeardSec.
+type WalkBeatIn struct {
+	BleOn    bool
+	BleHeard []string
+}
+
+// newBleToken is 8 random bytes, as 16 hex characters: never tied to the device or the player.
+func newBleToken() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b)
+}
+
+// cleanHeard keeps at most 16 well-formed tokens from a phone's report.
+func cleanHeard(heard []string) []string {
+	out := make([]string, 0, len(heard))
+	for _, t := range heard {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if len(t) != 16 {
+			continue
+		}
+		if _, err := hex.DecodeString(t); err != nil {
+			continue
+		}
+		out = append(out, t)
+		if len(out) == 16 {
+			break
+		}
+	}
+	return out
+}
+
+func splitHeard(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, ",")
+}
+
+// fileWalkReport adds a walk-link signal to the player's Signal watch report (no lock): L3 twin fixes, L8 no
+// Bluetooth contact and, in W3, L4 lockstep. The mod queue shows it with the other auto signals.
+func (s *Service) fileWalkReport(ctx context.Context, tx *sql.Tx, playerID int64, kind, detail string, now time.Time) error {
+	signal := store.SpoofSignal{Kind: kind, Detail: detail, At: now}
+	reportID, context, err := store.OpenSpoofReport(ctx, tx, game.SignalWatchID, playerID)
+	if err != nil {
+		return err
+	}
+	if reportID == 0 {
+		_, err = store.InsertReport(ctx, tx, game.SignalWatchID, playerID, game.ReportReasonSpoof, kind, "",
+			store.SpoofReportContext{Auto: true, Signals: []store.SpoofSignal{signal}})
+		return err
+	}
+	context.Auto = true
+	context.Signals = append(context.Signals, signal)
+	return store.UpdateReportContext(ctx, tx, reportID, kind, context)
 }
 
 // WalkPanel is the WALK TOGETHER panel: friends nearby with theirs open (callsign only, never a distance),
@@ -381,7 +449,7 @@ func (s *Service) AcceptWalk(ctx context.Context, playerID, sessionID int64, ask
 // WalkHeartbeat is every WalkLinkHeartbeatSec while linked: the fix is checked, the member's place in range
 // decided (out of range for WalkLinkGraceSec leaves the link), the bonus decided (moving, under the daily
 // cap), bonus time and metres counted. It returns the link as the phone draws it.
-func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixIn) (WalkPanel, error) {
+func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixIn, beat WalkBeatIn) (WalkPanel, error) {
 	settings := s.Settings(ctx)
 	now := s.now()
 	linkID, err := store.LiveWalkLink(ctx, s.db, playerID)
@@ -477,7 +545,87 @@ func (s *Service) WalkHeartbeat(ctx context.Context, playerID int64, in WalkFixI
 			return err
 		}
 		capLeft := game.WalkCapLeft(settings, used)
-		paused := game.WalkPaused(usable, inRange, moved, capLeft)
+
+		// Bluetooth proof (W2): rotate the token, then confirm this member by what they heard or who heard them.
+		token, prev, tokenAt := member.BleToken, member.BleTokenPrev, member.BleTokenAt
+		if token == "" || tokenAt == nil || now.Sub(*tokenAt) >= time.Duration(settings.WalkLinkBleTokenSec)*time.Second {
+			prev, token, tokenAt = token, newBleToken(), &now
+		}
+		othersTokens := map[string]bool{}
+		var othersHeard [][]string
+		heardWindow := time.Duration(settings.WalkLinkBleHeardSec) * time.Second
+		for i, o := range members {
+			if i == me {
+				continue
+			}
+			othersTokens[o.BleToken] = true
+			othersTokens[o.BleTokenPrev] = true
+			if o.BleHeardAt != nil && now.Sub(*o.BleHeardAt) <= heardWindow {
+				othersHeard = append(othersHeard, splitHeard(o.BleHeard))
+			}
+		}
+		delete(othersTokens, "")
+		heard := cleanHeard(beat.BleHeard)
+		confirmedAt := member.BleConfirmedAt
+		if beat.BleOn && game.WalkBleHeard(heard, othersTokens, []string{token, prev, member.BleToken}, othersHeard) {
+			confirmedAt = &now
+		}
+		bleState := game.WalkBleState(settings, beat.BleOn, confirmedAt, now)
+
+		// L3 twin fixes (exempt testers skip it): the same position and accuracy as another member, beat after
+		// beat. The group's bonus stops for the rest of the link and Signal watch reports both.
+		flagged, err := store.WalkLinkTwinFlagged(ctx, tx, linkID)
+		if err != nil {
+			return err
+		}
+		twinCount := 0
+		var twinWith []int64
+		if usable && !exempt {
+			for i, o := range members {
+				if i != me && o.Fix != nil && game.WalkTwin(settings, mine, fromPoint(*o.Fix)) {
+					twinWith = append(twinWith, o.PlayerID)
+				}
+			}
+			if len(twinWith) > 0 {
+				twinCount = member.TwinCount + 1
+			}
+		}
+		if twinCount >= settings.WalkLinkTwinFixes && !flagged {
+			flagged = true
+			if err := store.FlagWalkLinkTwins(ctx, tx, linkID); err != nil {
+				return err
+			}
+			for _, id := range append([]int64{playerID}, twinWith...) {
+				if err := s.fileWalkReport(ctx, tx, id, "walk_twin_fixes", "twin fixes in a walk link", now); err != nil {
+					return err
+				}
+			}
+		}
+
+		// L8: GPS says together and Bluetooth is on, but nobody has heard anyone. Report once per link.
+		together, reported := member.TogetherSince, member.BleReported
+		switch {
+		case inRange && beat.BleOn && bleState == game.WalkPausedBleConfirming:
+			if together == nil {
+				together = &now
+			}
+			if !reported && now.Sub(*together) >= time.Duration(settings.WalkLinkNoBleReportSec)*time.Second {
+				reported = true
+				if err := s.fileWalkReport(ctx, tx, playerID, "walk_no_bluetooth", "GPS together, no Bluetooth contact", now); err != nil {
+					return err
+				}
+			}
+		case bleState == "":
+			together = nil
+		}
+		if err := store.UpdateWalkMemberBle(ctx, tx, linkID, playerID, store.WalkBleUpdate{
+			BleOn: beat.BleOn, Token: token, Prev: prev, TokenAt: tokenAt, Heard: strings.Join(heard, ","), HeardAt: now,
+			ConfirmedAt: confirmedAt, TwinCount: twinCount, TogetherSince: together, BleReported: reported,
+		}); err != nil {
+			return err
+		}
+
+		paused := game.WalkPaused(usable, inRange, flagged, bleState, moved, capLeft)
 		active := paused == ""
 
 		update := store.WalkMemberUpdate{SeenAt: now, OutSince: outSince, BonusActive: active, PausedReason: paused}
@@ -621,6 +769,8 @@ func (s *Service) walkLinkView(ctx context.Context, q db.Querier, linkID, player
 		Size: len(members), Members: make([]WalkMemberView, 0, len(members)),
 		Bonus: game.WalkLinkPcts(settings, len(members)), HeartbeatSec: settings.WalkLinkHeartbeatSec,
 		BonusSecondsLeft: game.WalkCapLeft(settings, used),
+		BleListen:        []string{},
+		BleRequired:      settings.WalkLinkRequireBle == 1,
 	}
 	for _, m := range members {
 		mv := WalkMemberView{Player: m.Player, Me: m.PlayerID == playerID, OutOfRange: m.OutSince != nil}
@@ -628,9 +778,17 @@ func (s *Service) walkLinkView(ctx context.Context, q db.Querier, linkID, player
 			view.BonusActive = m.BonusActive
 			view.PausedReason = m.PausedReason
 			view.WalkedM = m.WalkedM
-		} else if m.Fix != nil {
-			lat, lon := round6(m.Fix.Lat), round6(m.Fix.Lon)
-			mv.Lat, mv.Lon = &lat, &lon
+			view.BleToken = m.BleToken
+		} else {
+			if m.Fix != nil {
+				lat, lon := round6(m.Fix.Lat), round6(m.Fix.Lon)
+				mv.Lat, mv.Lon = &lat, &lon
+			}
+			for _, t := range []string{m.BleToken, m.BleTokenPrev} {
+				if t != "" {
+					view.BleListen = append(view.BleListen, t)
+				}
+			}
 		}
 		view.Members = append(view.Members, mv)
 	}

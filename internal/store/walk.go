@@ -198,6 +198,18 @@ type WalkMember struct {
 	PausedReason string
 	BonusSeconds int
 	WalkedM      float64
+
+	// W2: Bluetooth proof (tokens rotate; Heard is what this phone reported hearing, comma-joined).
+	BleOn          bool
+	BleToken       string
+	BleTokenPrev   string
+	BleTokenAt     *time.Time
+	BleHeard       string
+	BleHeardAt     *time.Time
+	BleConfirmedAt *time.Time
+	TwinCount      int
+	TogetherSince  *time.Time
+	BleReported    bool
 }
 
 // WalkMembers lists a link's live members, earliest first.
@@ -205,7 +217,9 @@ func WalkMembers(ctx context.Context, q db.Querier, linkID int64) ([]WalkMember,
 	rows, err := q.QueryContext(ctx, `
 		SELECT m.player_id, `+playerRefSQL("p")+`, m.device_hash, m.joined_at, m.last_seen_at,
 		       m.last_fix_at, m.last_lat, m.last_lng, m.last_acc, m.out_since, m.bonus_active,
-		       COALESCE(m.paused_reason, ''), m.bonus_seconds, m.walked_m
+		       COALESCE(m.paused_reason, ''), m.bonus_seconds, m.walked_m,
+		       m.ble_on, COALESCE(m.ble_token, ''), COALESCE(m.ble_token_prev, ''), m.ble_token_at,
+		       m.ble_heard, m.ble_heard_at, m.ble_confirmed_at, m.twin_count, m.together_since, m.ble_reported
 		FROM td.walk_link_members m JOIN td.players p ON p.id = m.player_id
 		WHERE m.link_id = $1 AND m.left_at IS NULL
 		ORDER BY m.joined_at, m.player_id`, linkID)
@@ -216,12 +230,16 @@ func WalkMembers(ctx context.Context, q db.Querier, linkID int64) ([]WalkMember,
 	out := []WalkMember{}
 	for rows.Next() {
 		var m WalkMember
-		var fixAt, out2 sql.NullTime
+		var fixAt, out2, tokenAt, heardAt, confirmedAt, together sql.NullTime
 		var lat, lng, acc sql.NullFloat64
 		if err := rows.Scan(&m.PlayerID, &m.Player.Code, &m.Player.Name, &m.Device, &m.JoinedAt, &m.LastSeenAt,
-			&fixAt, &lat, &lng, &acc, &out2, &m.BonusActive, &m.PausedReason, &m.BonusSeconds, &m.WalkedM); err != nil {
+			&fixAt, &lat, &lng, &acc, &out2, &m.BonusActive, &m.PausedReason, &m.BonusSeconds, &m.WalkedM,
+			&m.BleOn, &m.BleToken, &m.BleTokenPrev, &tokenAt, &m.BleHeard, &heardAt, &confirmedAt, &m.TwinCount,
+			&together, &m.BleReported); err != nil {
 			return nil, err
 		}
+		m.BleTokenAt, m.BleHeardAt, m.BleConfirmedAt, m.TogetherSince =
+			timePtr(tokenAt), timePtr(heardAt), timePtr(confirmedAt), timePtr(together)
 		if fixAt.Valid && lat.Valid && lng.Valid && acc.Valid {
 			m.Fix = &WalkPoint{Lat: lat.Float64, Lon: lng.Float64, AccuracyM: acc.Float64, FixAt: fixAt.Time}
 		}
@@ -260,6 +278,42 @@ func UpdateWalkMember(ctx context.Context, q db.Querier, linkID, playerID int64,
 		    bonus_seconds = bonus_seconds + $11, walked_m = walked_m + $12
 		WHERE link_id = $1 AND player_id = $2 AND left_at IS NULL`,
 		linkID, playerID, u.SeenAt, fixAt, lat, lng, acc, u.OutSince, u.BonusActive, u.PausedReason, u.AddBonusSec, u.AddWalkedM)
+	return err
+}
+
+// WalkBleUpdate is what a heartbeat writes for a member's Bluetooth proof and the L3 / L8 checks.
+type WalkBleUpdate struct {
+	BleOn         bool
+	Token, Prev   string
+	TokenAt       *time.Time
+	Heard         string
+	HeardAt       time.Time
+	ConfirmedAt   *time.Time
+	TwinCount     int
+	TogetherSince *time.Time
+	BleReported   bool
+}
+
+func UpdateWalkMemberBle(ctx context.Context, q db.Querier, linkID, playerID int64, u WalkBleUpdate) error {
+	_, err := q.ExecContext(ctx, `
+		UPDATE td.walk_link_members SET ble_on = $3, ble_token = NULLIF($4, ''), ble_token_prev = NULLIF($5, ''),
+		       ble_token_at = $6, ble_heard = $7, ble_heard_at = $8, ble_confirmed_at = $9, twin_count = $10,
+		       together_since = $11, ble_reported = $12
+		WHERE link_id = $1 AND player_id = $2 AND left_at IS NULL`,
+		linkID, playerID, u.BleOn, u.Token, u.Prev, u.TokenAt, u.Heard, u.HeardAt, u.ConfirmedAt, u.TwinCount,
+		u.TogetherSince, u.BleReported)
+	return err
+}
+
+// WalkLinkTwinFlagged says whether a link has had twin fixes (L3): no bonus for the rest of it.
+func WalkLinkTwinFlagged(ctx context.Context, q db.Querier, linkID int64) (bool, error) {
+	var flagged bool
+	err := q.QueryRowContext(ctx, `SELECT twin_flagged FROM td.walk_links WHERE id = $1`, linkID).Scan(&flagged)
+	return flagged, err
+}
+
+func FlagWalkLinkTwins(ctx context.Context, q db.Querier, linkID int64) error {
+	_, err := q.ExecContext(ctx, `UPDATE td.walk_links SET twin_flagged = true WHERE id = $1`, linkID)
 	return err
 }
 

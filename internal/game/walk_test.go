@@ -98,10 +98,10 @@ func TestWalkBonusPausesStandingStill(t *testing.T) {
 	if WalkMoved(s, old, north(60), 73.5, walkNow) {
 		t.Error("movement before the window should not count")
 	}
-	if got := WalkPaused(true, true, false, 600); got != WalkPausedKeepWalking {
+	if got := WalkPaused(true, true, false, "", false, 600); got != WalkPausedKeepWalking {
 		t.Errorf("standing still: %q", got)
 	}
-	if got := WalkPaused(true, true, true, 600); got != "" {
+	if got := WalkPaused(true, true, false, "", true, 600); got != "" {
 		t.Errorf("walking: %q", got)
 	}
 }
@@ -111,7 +111,7 @@ func TestWalkDailyCap(t *testing.T) {
 	if left := WalkCapLeft(s, 120*60); left != 0 {
 		t.Errorf("120 minutes used: %d left", left)
 	}
-	if got := WalkPaused(true, true, true, 0); got != WalkPausedCapSpent {
+	if got := WalkPaused(true, true, false, "", true, 0); got != WalkPausedCapSpent {
 		t.Errorf("cap spent: %q", got)
 	}
 	// A beat counts its time, never more than two beats, never past the cap.
@@ -163,5 +163,58 @@ func TestWalkBonusAddsToPerksNeverMultiplies(t *testing.T) {
 	// Sēma's scan x2 (+100%) plus a 2-link's +25% is +125% on the base.
 	if got := WalkScanRange(300, 2, 25); got != 675 {
 		t.Errorf("scan: %v, want 675", got)
+	}
+}
+
+func TestWalkBonusNeedsBluetooth(t *testing.T) {
+	s := DefaultSettings()
+	heard := walkNow.Add(-20 * time.Second)
+	if got := WalkBleState(s, false, &heard, walkNow); got != WalkPausedBleOff {
+		t.Errorf("Bluetooth off: %q", got)
+	}
+	if got := WalkBleState(s, true, nil, walkNow); got != WalkPausedBleConfirming {
+		t.Errorf("never heard: %q", got)
+	}
+	if got := WalkBleState(s, true, &heard, walkNow); got != "" {
+		t.Errorf("heard 20 s ago: %q", got)
+	}
+	old := walkNow.Add(-90 * time.Second)
+	if got := WalkBleState(s, true, &old, walkNow); got != WalkPausedBleConfirming {
+		t.Errorf("heard 90 s ago: %q", got)
+	}
+	off := s
+	off.WalkLinkRequireBle = 0
+	if got := WalkBleState(off, false, nil, walkNow); got != "" {
+		t.Errorf("not required: %q", got)
+	}
+	if got := WalkPaused(true, true, false, WalkPausedBleOff, true, 600); got != WalkPausedBleOff {
+		t.Errorf("paused for Bluetooth: %q", got)
+	}
+}
+
+func TestWalkBleHeard(t *testing.T) {
+	others := map[string]bool{"aa11": true, "bb22": true}
+	if !WalkBleHeard([]string{"bb22"}, others, []string{"cc33"}, nil) {
+		t.Error("hearing another member confirms")
+	}
+	if !WalkBleHeard(nil, others, []string{"cc33", "cc00"}, [][]string{{"zz"}, {"cc00"}}) {
+		t.Error("being heard (previous token) confirms")
+	}
+	if WalkBleHeard([]string{"dd44"}, others, []string{"cc33"}, [][]string{{"ee55"}}) {
+		t.Error("strangers' tokens don't confirm")
+	}
+}
+
+func TestWalkTwinFixes(t *testing.T) {
+	s := DefaultSettings()
+	a := walkAt(north(0), 73.5, 8, 0)
+	if !WalkTwin(s, a, walkAt(north(0.4), 73.5, 8, 0)) {
+		t.Error("same spot, same accuracy is a twin")
+	}
+	if WalkTwin(s, a, walkAt(north(0.4), 73.5, 9, 0)) {
+		t.Error("a different accuracy is not a twin")
+	}
+	if WalkTwin(s, a, walkAt(north(3), 73.5, 8, 0)) {
+		t.Error("3 m apart is not a twin")
 	}
 }

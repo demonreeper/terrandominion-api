@@ -1016,6 +1016,9 @@ type walkBody struct {
 	AccuracyM float64    `json:"accuracyM"`
 	Mock      bool       `json:"mock"`
 	FixAt     *time.Time `json:"fixAt"`
+	// Heartbeats (W2): Bluetooth on and allowed on this phone, and the tokens it heard.
+	BleOn    bool     `json:"bleOn"`
+	BleHeard []string `json:"bleHeard"`
 }
 
 func readWalk(w http.ResponseWriter, r *http.Request) (walkBody, service.WalkFixIn, error) {
@@ -1077,12 +1080,12 @@ func (s *Server) walkAccept(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) walkHeartbeat(w http.ResponseWriter, r *http.Request) {
 	playerID, _ := playerFrom(r.Context())
-	_, in, err := readWalk(w, r)
+	body, in, err := readWalk(w, r)
 	if err != nil {
 		fail(w, r, err)
 		return
 	}
-	res, err := s.svc.WalkHeartbeat(r.Context(), playerID, in)
+	res, err := s.svc.WalkHeartbeat(r.Context(), playerID, in, service.WalkBeatIn{BleOn: body.BleOn, BleHeard: body.BleHeard})
 	if err != nil {
 		fail(w, r, err)
 		return

@@ -482,6 +482,17 @@ Two to four accepted friends standing together form a signal link (any faction m
 | POST | `/walk/heartbeat` | fix | Every `heartbeatSec` while linked. Returns the panel; `link {size, members [{player, me, lat?, lon?, outOfRange}], bonusActive, pausedReason (keep_walking, cap_spent, out_of_range, weak_fix), bonus {scanPct, yieldPct, xpPct}, heartbeatSec, bonusSecondsLeft, walkedM}`; positions are the other members' only. `ended` (and `link` null) when this beat ended your place: `fell_behind`, `alone`, `disabled`. 1819 when not linked |
 | DELETE | `/walk` | – | Leave (also on going to the background); a link left with one player ends |
 
+**Bluetooth proof (W2):** a heartbeat also sends `bleOn` (Bluetooth on and allowed on this phone) and `bleHeard`
+(the 16-hex tokens it heard in the last `WalkLinkBleHeardSec`, 30 s). The link view adds `bleToken` (what this phone
+advertises; a new random one every `WalkLinkBleTokenSec`, 60 s), `bleListen` (the other members' current and previous
+tokens) and `bleRequired`. A member is Bluetooth-confirmed when they heard another member's token or another member
+heard theirs; with `WalkLinkRequireBle` (on) the bonus needs it: `pausedReason` `ble_off` (Bluetooth off or refused)
+or `ble_confirming` (nobody heard for `WalkLinkBleGraceSec`, 60 s); the link stays. Spoof-exempt testers do not skip
+this. L3: the same position (within `WalkLinkTwinM`, 1 m) and accuracy as another member `WalkLinkTwinFixes` (3) beats
+running stops the bonus for the rest of the link (`twin_fixes`) and adds a `walk_twin_fixes` signal to both players'
+Signal watch reports (exempt testers skip it). L8: GPS together with Bluetooth on but nobody heard for
+`WalkLinkNoBleReportSec` (300 s) adds a `walk_no_bluetooth` signal, once per link. Neither locks anyone.
+
 Proximity, on forming and every beat: fix taken within `WalkLinkFixAgeSec` (20 s), accuracy ≤ `WalkLinkMaxAccuracyM` (25),
 not fake (spoof-exempt testers skip this); distance less both accuracies (together at most `WalkLinkMaxAccuracyM`) ≤
 `WalkLinkFormM` (30) to form, ≤ `WalkLinkHoldM` (60) to at least one other member to hold; the two fixes within 20 s of each

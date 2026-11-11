@@ -16,6 +16,12 @@ const (
 	WalkPausedCapSpent    = "cap_spent"
 	WalkPausedOutOfRange  = "out_of_range"
 	WalkPausedWeakFix     = "weak_fix"
+	// W2: Bluetooth. Off on this phone (or permission refused): no bonus, the link stays for company.
+	WalkPausedBleOff = "ble_off"
+	// Bluetooth on, but no member heard this phone (or it heard none) within WalkLinkBleGraceSec.
+	WalkPausedBleConfirming = "ble_confirming"
+	// L3: twin fixes in the group; no bonus for the rest of the link.
+	WalkPausedTwinFixes = "twin_fixes"
 )
 
 // Why a link (or a member's place in it) ended.
@@ -170,20 +176,67 @@ func WalkBonusSeconds(s Settings, since time.Duration, capLeft int) int {
 	return max(0, min(sec, capLeft))
 }
 
-// WalkPaused decides a member's bonus at a heartbeat, in order: an unusable fix, out of range, the daily cap,
-// then standing still. Empty means the bonus is on.
-func WalkPaused(fixUsable, inRange, moved bool, capLeft int) string {
+// WalkPaused decides a member's bonus at a heartbeat, in order: an unusable fix, out of range, twin fixes in
+// the group (L3), Bluetooth (ble is "" when confirmed or not required, else ble_off or ble_confirming), the
+// daily cap, then standing still. Empty means the bonus is on.
+func WalkPaused(fixUsable, inRange, twins bool, ble string, moved bool, capLeft int) string {
 	switch {
 	case !fixUsable:
 		return WalkPausedWeakFix
 	case !inRange:
 		return WalkPausedOutOfRange
+	case twins:
+		return WalkPausedTwinFixes
+	case ble != "":
+		return ble
 	case capLeft <= 0:
 		return WalkPausedCapSpent
 	case !moved:
 		return WalkPausedKeepWalking
 	}
 	return ""
+}
+
+// WalkBleState is the Bluetooth gate on a member's bonus: "" when confirmed recently (or Bluetooth isn't
+// required), ble_off when the phone says Bluetooth is off or refused, ble_confirming while waiting to hear or
+// be heard. Exempt testers do not skip it (owner 2026-11-11).
+func WalkBleState(s Settings, bleOn bool, confirmedAt *time.Time, now time.Time) string {
+	if s.WalkLinkRequireBle != 1 {
+		return ""
+	}
+	if !bleOn {
+		return WalkPausedBleOff
+	}
+	if confirmedAt == nil || now.Sub(*confirmedAt) > time.Duration(s.WalkLinkBleGraceSec)*time.Second {
+		return WalkPausedBleConfirming
+	}
+	return ""
+}
+
+// WalkBleHeard says whether a member is Bluetooth-confirmed this beat: they heard another member's current or
+// previous token, or another member (reporting within WalkLinkBleHeardSec) heard theirs.
+func WalkBleHeard(heard []string, othersTokens map[string]bool, mine []string, othersHeard [][]string) bool {
+	for _, t := range heard {
+		if t != "" && othersTokens[t] {
+			return true
+		}
+	}
+	for _, list := range othersHeard {
+		for _, t := range list {
+			for _, m := range mine {
+				if m != "" && t == m {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// WalkTwin is L3 for one pair: the same position (to WalkLinkTwinM) and the same accuracy. Real phones side by
+// side always differ a little.
+func WalkTwin(s Settings, a, b WalkFix) bool {
+	return DistanceM(a.Lat, a.Lon, b.Lat, b.Lon) <= s.WalkLinkTwinM && math.Abs(a.AccuracyM-b.AccuracyM) < 0.01
 }
 
 // WalkAmount is an amount with a faction perk multiplier and the link bonus added, never multiplied: a
