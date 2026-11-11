@@ -531,6 +531,7 @@ func (s *Service) tetherTick(ctx context.Context) {
 	s.respawnDepletedNodes(ctx, s.Settings(ctx))
 	s.seedTick(ctx, s.Settings(ctx), tetherTickInterval)
 	s.decayTethers(ctx, s.Settings(ctx))
+	s.expireJobs(ctx)
 	if err := store.DeleteOldNotices(ctx, s.db, s.now().AddDate(0, 0, -noticeKeepDays)); err != nil && ctx.Err() == nil {
 		slog.Error("E1900 notice cleanup failed", "err", err)
 	}

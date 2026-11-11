@@ -103,6 +103,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/drops/nearby", s.authed(s.nearbyDrops))
 	mux.HandleFunc("POST /v1/drops/{id}/pick", s.authed(s.pickDrop))
 
+	mux.HandleFunc("GET /v1/jobs", s.authed(s.jobs))
+	mux.HandleFunc("POST /v1/jobs", s.authed(s.postJob))
+	mux.HandleFunc("POST /v1/jobs/{id}/take", s.authed(s.takeJob))
 	mux.HandleFunc("GET /v1/factions", s.authed(s.factions))
 	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.leadFaction))
 	mux.HandleFunc("POST /v1/factions/{code}/join", s.authed(s.joinFaction))
@@ -629,6 +632,10 @@ func (s *Server) nearbyNodes(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, r, err)
 		return
+	}
+	// A scan with a fix counts toward the player's scout and guard jobs (F6).
+	if accuracy, err := strconv.ParseFloat(q.Get("accuracy"), 64); err == nil && accuracy > 0 {
+		s.svc.JobFix(r.Context(), playerID, lat, lon, accuracy)
 	}
 	ok(w, nodes)
 }

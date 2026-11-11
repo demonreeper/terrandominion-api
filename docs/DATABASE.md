@@ -36,6 +36,8 @@ callsign_blocked words a callsign may not contain
 player_reports   a player reported for griefing: what happened, a note, and what the server knows about the two
 player_sanctions warnings, suspensions and bans, with who gave them and who lifted them
 infringements    failed location checks per player (GPS too weak, travel speed), for admins
+jobs             the JOBS board: a faction's paid job (hit, scout, guard), its reward per slot held in escrow (0051)
+job_takes        a freelancer's slot on a job, with guard time
 device_marks     salted hashes of phones and sign-ins with the faction pledged or a ban; outlives accounts (0047)
 admin_actions    who changed what, and when (a change to a player has the player's id as target)
 ```

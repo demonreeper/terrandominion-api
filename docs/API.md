@@ -155,6 +155,24 @@ its account (id 8, `signal_unbound`) and lines stay on the server until then.
 - It never contacts a member: a pledge drops whatever of it has not reached the player, and reaching the faction
   level drops its level 19 message and call if they had not come due.
 
+### JOBS board
+F6 (phase 6): faction players at Warden and above post paid jobs; only freelancers who have had the seventh voice's
+level 18 call (`/me` `jobsUnlocked`) take them. Members can't take jobs.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/jobs` | – | A freelancer with the board: `board` (open jobs with free slots, soonest deadline first, their own takes first, with `myStatus` and `guardSeconds`), `canTake: true`. A Warden or above: `posted` (their faction's jobs lately), `canPost: true`. Also `kinds`, `slotsMax`, `hoursMin`, `hoursMax`, `rewardMin`, `rewardMax`, `guardMinutes` |
+| POST | `/jobs` | `kind, tetherId?, nodeId?, lat?, lon?, reward {resource: amount}, slots, hours` | `hit` (`tetherId`: not your own nor your faction's), `scout` (`lat, lon`: an area of `JobScoutRadiusM` around it) or `guard` (`nodeId`). `reward` is per slot, all resources together from `JobRewardMin` to `JobRewardMax`; the reward for every slot leaves your storage now (escrow, 1774 when short). Limits: `JobSlotsMax`, `JobHoursMin`..`JobHoursMax`, `JobsOpenPerFaction`, `JobsPostedPerDay` (1771) |
+| POST | `/jobs/{id}/take` | – | A freelancer takes a slot. Refused (1773) against their own Tether Node, for a poster who signs in on the same phone, and for a hit job when they already hit that owner `XpAttackPerTargetDay` times today; 1771 past `JobsTakenMax`; 1772 no slot or ended |
+
+A job is a **job** (`id, kind, factionCode, factionName, factionColor, target, tetherId, nodeId, lat, lon, radiusM, reward,
+slots, taken, done, status, deadline, createdAt`); the poster is shown by faction only. **The server checks completion:**
+a weapon hit or a landed drone on the target Tether Node finishes a hit job; a scan (`GET /nodes/nearby` with
+`accuracy`) inside the area finishes a scout job; scans near the node add up time for a guard job (`JobGuardRadiusM`, each
+gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`. A finished job pays the taker into storage at once
+(notice `job_paid`; the poster gets `job_done`). Past the deadline unfinished takes fail and the reward for every unpaid
+slot goes back to the poster (`job_ended`). Errors 1770 to 1774.
+
 ### Unbound titles
 F2 (phase 5): past the faction level a freelancer who has heard from the seventh voice is given titles, each a badge
 on their profile (`badges [{badge, factionCode: "", factionName: "", region: ""}]`) and a message from `LANGIS`:
@@ -480,6 +498,11 @@ never reads as inside the range).
 | 1121 | Admin change to a player not allowed (the message says why) | |
 | 1122 | This device is banned (the device record: the phone or the sign-in carries a ban). Sign-up and sign-in | `appealCode, appealUrl` |
 | 1305 | The primary admin (player 1) stays a freelancer: can't lead or join a faction | |
+| 1770 | That job can't be posted (the message says which rule) | |
+| 1771 | Over a JOBS board limit | |
+| 1772 | That job has no slot left, or it ended | |
+| 1773 | You can't take that job (the message says why) | |
+| 1774 | Not enough in storage to pay every slot | `short` |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

@@ -191,6 +191,12 @@ var (
 	AlreadyWarden        = def(1764, http.StatusConflict, "That player is already a Warden or above.")
 	CallGone             = def(1765, http.StatusNotFound, "That call has ended.")
 	MessageGone          = def(1766, http.StatusNotFound, "That message is gone.")
+	// The JOBS board (freelancer-path-plan.md F6). The message says which rule refused it.
+	JobBad      = def(1770, http.StatusBadRequest, "That job can't be posted.")
+	JobLimit    = def(1771, http.StatusConflict, "That is over a limit of the JOBS board.")
+	JobGone     = def(1772, http.StatusConflict, "That job has no slot left, or it has ended.")
+	JobNotYours = def(1773, http.StatusForbidden, "You can't take that job.")
+	JobFunds    = def(1774, http.StatusConflict, "You don't have enough in storage to pay that job.") // data: short
 
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

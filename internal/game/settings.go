@@ -203,6 +203,19 @@ type Settings struct {
 	TitleDrifterLevel  int
 	TitleWayfarerLevel int
 	TitleUnboundLevel  int
+	// The JOBS board (F6).
+	JobSlotsMax        int
+	JobHoursMin        int
+	JobHoursMax        int
+	JobRewardMin       int
+	JobRewardMax       int
+	JobsOpenPerFaction int
+	JobsPostedPerDay   int
+	JobsTakenMax       int
+	JobScoutRadiusM    int
+	JobGuardMinutes    int
+	JobGuardRadiusM    int
+	JobGuardGapSeconds int
 
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
@@ -406,6 +419,18 @@ func DefaultSettings() Settings {
 		TitleDrifterLevel:          22,
 		TitleWayfarerLevel:         26,
 		TitleUnboundLevel:          30,
+		JobSlotsMax:                3,
+		JobHoursMin:                1,
+		JobHoursMax:                24,
+		JobRewardMin:               10,
+		JobRewardMax:               2000,
+		JobsOpenPerFaction:         20,
+		JobsPostedPerDay:           5,
+		JobsTakenMax:               3,
+		JobScoutRadiusM:            150,
+		JobGuardMinutes:            60,
+		JobGuardRadiusM:            40,
+		JobGuardGapSeconds:         90,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -565,6 +590,18 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("TitleDrifterLevel", &s.TitleDrifterLevel)
 	i("TitleWayfarerLevel", &s.TitleWayfarerLevel)
 	i("TitleUnboundLevel", &s.TitleUnboundLevel)
+	i("JobSlotsMax", &s.JobSlotsMax)
+	i("JobHoursMin", &s.JobHoursMin)
+	i("JobHoursMax", &s.JobHoursMax)
+	i("JobRewardMin", &s.JobRewardMin)
+	i("JobRewardMax", &s.JobRewardMax)
+	i("JobsOpenPerFaction", &s.JobsOpenPerFaction)
+	i("JobsPostedPerDay", &s.JobsPostedPerDay)
+	i("JobsTakenMax", &s.JobsTakenMax)
+	i("JobScoutRadiusM", &s.JobScoutRadiusM)
+	i("JobGuardMinutes", &s.JobGuardMinutes)
+	i("JobGuardRadiusM", &s.JobGuardRadiusM)
+	i("JobGuardGapSeconds", &s.JobGuardGapSeconds)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

@@ -236,6 +236,10 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 		if err := store.MarkTetherAttacked(ctx, tx, drone.TetherID); err != nil {
 			return err
 		}
+		// A landed drone is a hit for the launcher's hit job on this Tether Node (F6).
+		if err := s.jobHit(ctx, tx, drone.LaunchedBy, drone.TetherID); err != nil {
+			return err
+		}
 		damage := game.Damage(hit)
 		destroyed := health <= 0
 		toOwner := store.NewNotice{PlayerID: drone.OwnerID, TetherID: drone.TetherID, ActorID: drone.LaunchedBy,

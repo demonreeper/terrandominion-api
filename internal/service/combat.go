@@ -272,6 +272,10 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 				return err
 			}
 		}
+		// A hit on a job's target Tether Node finishes the hitter's hit job on it (F6).
+		if err := s.jobHit(ctx, tx, attackerID, tetherID); err != nil {
+			return err
+		}
 		if err := advanceMissions(ctx, tx, attackerID, game.GoalAttack, weapon.ID, 1, settings, s.now()); err != nil {
 			return err
 		}
