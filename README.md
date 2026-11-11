@@ -53,7 +53,9 @@ With `TD_ENV=dev` and `TD_DEV_LOGIN=true`, `POST /v1/auth/dev {"name":"me","devi
 "platform":"editor"}` signs in without Google, for the Unity editor and quick tests. It does not
 exist on live.
 
-Make yourself an admin once, by hand: `UPDATE td.players SET is_admin = true WHERE id = 1;`
+The owner is player 1, the primary admin: set `TD_PRIMARY_ADMIN_EMAIL` in `.env` and the first sign-in with that
+email on a database with no player 1 takes it (ids 2 to 10 are reserved, players start at 11). Make another admin
+by hand: `UPDATE td.players SET is_admin = true WHERE id = …;`
 
 ## Deploying (same pattern as the MonoCity server)
 

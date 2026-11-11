@@ -105,8 +105,17 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 		}
 
 		if isNew {
-			playerID, err = store.CreatePlayer(ctx, tx, defaultDisplayName(name), "MV")
-			if err != nil {
+			// The owner's first sign-in on a database with no player 1 takes id 1 (the primary admin).
+			owner := provider != "dev" && game.IsPrimaryAdminEmail(s.cfg.PrimaryAdminEmail, email)
+			made := false
+			if owner {
+				if made, err = store.CreatePrimaryAdmin(ctx, tx, game.PrimaryAdminID, defaultDisplayName(name), "MV"); err != nil {
+					return err
+				}
+			}
+			if made {
+				playerID = game.PrimaryAdminID
+			} else if playerID, err = store.CreatePlayer(ctx, tx, defaultDisplayName(name), "MV"); err != nil {
 				return err
 			}
 			if err := store.LinkIdentity(ctx, tx, provider, subject, playerID, email); err != nil {

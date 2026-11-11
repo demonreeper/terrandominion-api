@@ -55,6 +55,10 @@ counting id. Every player-facing query names a player through `td.player_name(ca
 status)` and `td.player_code(public_code, status)`: a deleted or banned account reads `Deleted player`
 with no code.
 
+**Reserved ids (0043):** 1 is the owner (primary admin, also a player), 2 to 7 the six powers (`system` accounts,
+faction id + 1), 8 to 10 held for later; the id counter starts at 11. Every foreign key to `players.id` is
+`ON UPDATE CASCADE`, which is how existing players were moved.
+
 Account types (`type`): `player`, `founder`, `bot`, `system`. Status: `active`, `banned`, `suspended` (0040:
 can't sign in until `suspended_until`), `pending_delete`, `deleted`. A ban or suspension removes nothing the
 player owns. A deleted account keeps its row (so logs and faction history stay

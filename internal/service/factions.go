@@ -51,6 +51,10 @@ func (s *Service) JoinFaction(ctx context.Context, playerID int64, code string) 
 }
 
 func (s *Service) enterFaction(ctx context.Context, playerID int64, code string, lead bool) (*store.Membership, error) {
+	// The primary admin plays as a freelancer: never a commander, never a member.
+	if !game.MayEnterFaction(playerID) {
+		return nil, apperr.PrimaryAdminFreelancer
+	}
 	settings := s.Settings(ctx)
 	var membership *store.Membership
 
@@ -124,4 +128,52 @@ func describeMembership(m *store.Membership) {
 	if m != nil {
 		m.RankTitle = game.RankTitle(m.Rank)
 	}
+}
+
+// FactionInside is a faction as an admin looking inside sees it: every branch with its commander
+// and members. The admin is not a member, is not listed and nobody is told (a "ghost" visit, for
+// investigating); each look is written to the admin log.
+type FactionInside struct {
+	Code     string                `json:"code"`
+	Name     string                `json:"name"`
+	Color    string                `json:"color"`
+	Status   string                `json:"status"`
+	Members  int                   `json:"members"`
+	Branches []store.FactionBranch `json:"branches"`
+}
+
+// AdminFactions lists the six factions for an admin to look inside.
+func (s *Service) AdminFactions(ctx context.Context) ([]store.Faction, error) {
+	return store.ListFactions(ctx, s.db, game.LaunchRegion)
+}
+
+// AdminFaction looks inside one faction without joining it.
+func (s *Service) AdminFaction(ctx context.Context, adminID int64, code string) (FactionInside, error) {
+	var out FactionInside
+	err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
+		faction, err := store.FactionByCodeForUpdate(ctx, tx, code)
+		if errors.Is(err, store.ErrNotFound) {
+			return apperr.NotFound.With("faction %q", code)
+		}
+		if err != nil {
+			return err
+		}
+		out = FactionInside{Code: faction.Code, Name: faction.Name, Color: faction.Color, Status: faction.Status}
+		if out.Branches, err = store.FactionBranches(ctx, tx, faction.ID); err != nil {
+			return err
+		}
+		for i := range out.Branches {
+			members, err := store.BranchMembers(ctx, tx, out.Branches[i].ID)
+			if err != nil {
+				return err
+			}
+			for j := range members {
+				members[j].RankTitle = game.RankTitle(members[j].Rank)
+			}
+			out.Branches[i].Members = members
+			out.Members += len(members)
+		}
+		return store.LogAdminAction(ctx, tx, adminID, "faction.inspect", faction.Code, "{}")
+	})
+	return out, err
 }

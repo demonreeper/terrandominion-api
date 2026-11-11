@@ -40,6 +40,10 @@ type Config struct {
 	// What lets the app open profile links (docs/profile-plan.md, P3). AndroidCertSHA256 are the
 	// SHA-256 fingerprints of every key an installed build may be signed with (debug, upload, Play
 	// App Signing); AppleAppIDs are "<team id>.<bundle id>". Public values, not secrets.
+	// PrimaryAdminEmail is the owner's sign-in email. On a database with no player 1, the account
+	// that signs in with it (Google or Apple, verified) becomes id 1, the primary admin. Kept in
+	// .env only, never in a tracked file.
+	PrimaryAdminEmail string
 	AndroidPackage    string
 	AndroidCertSHA256 []string
 	AppleAppIDs       []string
@@ -61,6 +65,7 @@ func Load() (Config, error) {
 		PublicURL:          strings.TrimRight(getenv("TD_PUBLIC_URL", "https://td-dev.demonreeper.xyz"), "/"),
 		PlayURL:            os.Getenv("TD_PLAY_URL"),
 		AppStoreURL:        os.Getenv("TD_APPSTORE_URL"),
+		PrimaryAdminEmail:  os.Getenv("TD_PRIMARY_ADMIN_EMAIL"),
 		AndroidPackage:     getenv("TD_ANDROID_PACKAGE", "com.hisstudios.terrandominion"),
 		AndroidCertSHA256:  splitList(os.Getenv("TD_ANDROID_CERT_SHA256")),
 		AppleAppIDs:        splitList(getenv("TD_APPLE_APP_IDS", "J2P3QBTV3J.com.hisstudios.terrandominion")),

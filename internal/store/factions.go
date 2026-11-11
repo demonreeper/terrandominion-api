@@ -212,3 +212,38 @@ func MembershipOf(ctx context.Context, q db.Querier, playerID int64) (*Membershi
 	}
 	return &m, nil
 }
+
+// FactionBranch is one region of a faction as an admin looking inside sees it.
+type FactionBranch struct {
+	ID        int64          `json:"-"`
+	Region    string         `json:"region"`
+	Name      string         `json:"name"`
+	Commander *PlayerRef     `json:"commander"`
+	Members   []BranchMember `json:"members"`
+}
+
+// FactionBranches lists a faction's branches (members are filled by the caller).
+func FactionBranches(ctx context.Context, q db.Querier, factionID int) ([]FactionBranch, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT b.id, b.region_code, b.name, p.id, `+playerRefSQL("p")+`
+		FROM td.faction_branches b LEFT JOIN td.players p ON p.id = b.leader_player_id
+		WHERE b.faction_id = $1 ORDER BY b.id`, factionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []FactionBranch{}
+	for rows.Next() {
+		var b FactionBranch
+		var leaderID sql.NullInt64
+		var code, name sql.NullString
+		if err := rows.Scan(&b.ID, &b.Region, &b.Name, &leaderID, &code, &name); err != nil {
+			return nil, err
+		}
+		if leaderID.Valid {
+			b.Commander = &PlayerRef{Code: code.String, Name: name.String}
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}

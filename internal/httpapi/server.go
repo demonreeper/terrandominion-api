@@ -124,6 +124,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/admin/players/{code}/reset-callsign", s.admin(s.adminResetCallsign))
 	mux.HandleFunc("PUT /v1/admin/players/{code}/mod", s.admin(s.adminSetMod))
 	mux.HandleFunc("GET /v1/admin/stats", s.admin(s.adminStats))
+	mux.HandleFunc("GET /v1/admin/factions", s.admin(s.adminFactions))
+	mux.HandleFunc("GET /v1/admin/factions/{code}", s.admin(s.adminFaction))
 	mux.HandleFunc("GET /v1/admin/sanctions", s.admin(s.adminSanctions))
 	mux.HandleFunc("POST /v1/admin/sanctions/{id}/lift", s.admin(s.adminLiftSanction))
 	mux.HandleFunc("POST /v1/admin/reports/{id}/reopen", s.admin(s.adminReopenReport))

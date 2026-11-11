@@ -91,7 +91,7 @@ func GetPlayerForUpdate(ctx context.Context, q db.Querier, id int64) (Player, er
 func PlayerIDByCode(ctx context.Context, q db.Querier, code string) (int64, error) {
 	var id int64
 	err := q.QueryRowContext(ctx,
-		`SELECT id FROM td.players WHERE public_code = $1 AND status NOT IN ('deleted', 'banned')`, code).Scan(&id)
+		`SELECT id FROM td.players WHERE public_code = $1 AND status NOT IN ('deleted', 'banned') AND type <> 'system'`, code).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrNotFound
 	}
@@ -148,6 +148,19 @@ func FindIdentity(ctx context.Context, q db.Querier, provider, subject string) (
 		return 0, ErrNotFound
 	}
 	return id, err
+}
+
+// CreatePrimaryAdmin makes player 1, the owner (an admin), if there is no player 1 yet. It reports
+// false when the id was already taken, and the caller makes an ordinary account.
+func CreatePrimaryAdmin(ctx context.Context, q db.Querier, id int64, displayName, countryCode string) (bool, error) {
+	res, err := q.ExecContext(ctx, `
+		INSERT INTO td.players (id, display_name, country_code, is_admin) OVERRIDING SYSTEM VALUE
+		VALUES ($1, $2, $3, true) ON CONFLICT (id) DO NOTHING`, id, displayName, countryCode)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }
 
 func CreatePlayer(ctx context.Context, q db.Querier, displayName, countryCode string) (int64, error) {

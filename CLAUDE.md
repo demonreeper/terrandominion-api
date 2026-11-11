@@ -29,8 +29,12 @@ Schema: `docs/DATABASE.md`. Endpoints and error codes: `docs/API.md`. Running an
   DB URL and secrets). Deploy to dev: `.\scripts\deploy-dev.ps1` (builds linux/**arm64**, copies
   as `tdapi.new`, renames over the running binary, restarts the service).
 - `go test ./...` before committing. `go.sum` is committed.
-- Test players: `POST /v1/auth/dev` (dev only). Make an admin by hand in the DB:
+- Test players: `POST /v1/auth/dev` (dev only). Make another admin by hand in the DB:
   `UPDATE td.players SET is_admin = true WHERE id = …`; the player signs in again to pick it up.
+- **Reserved ids** (`game/reserved.go`, migration 0043): 1 is the owner (primary admin, also a player, always a
+  freelancer), 2 to 7 the six powers (`system` accounts), 8 to 10 held, players from 11. After a wipe the owner
+  gets id 1 by signing in with `TD_PRIMARY_ADMIN_EMAIL` (in `.env`). Keep `type = 'player'` in any query that
+  lists or counts players.
 - DBeaver: keep **auto-commit on**. An open transaction there once blocked every sign-in
   (lock timeout, E1900) until it was ended.
 

@@ -111,6 +111,12 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 			fail(w, r, apperr.Unauthorized.With("subject: %v", err))
 			return
 		}
+		// A token from before player ids were moved names an id that may now be someone else's.
+		if after := s.svc.Settings(r.Context()).TokensValidAfter; after > 0 &&
+			(claims.IssuedAt == nil || float64(claims.IssuedAt.Unix()) < after) {
+			fail(w, r, apperr.Unauthorized.With("token issued before TokensValidAfter"))
+			return
+		}
 		if !s.playerLimiter.allow("p"+itoa(int(playerID)), time.Now()) {
 			fail(w, r, apperr.RateLimited)
 			return

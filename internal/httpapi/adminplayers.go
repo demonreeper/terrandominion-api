@@ -92,3 +92,24 @@ func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, stats)
 }
+
+// adminFactions lists the factions for an admin to look inside.
+func (s *Server) adminFactions(w http.ResponseWriter, r *http.Request) {
+	factions, err := s.svc.AdminFactions(r.Context())
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"factions": factions})
+}
+
+// adminFaction is an admin's look inside one faction without joining it.
+func (s *Server) adminFaction(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	inside, err := s.svc.AdminFaction(r.Context(), playerID, r.PathValue("code"))
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, inside)
+}

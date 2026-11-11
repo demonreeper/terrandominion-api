@@ -135,6 +135,29 @@ Suspend, ban and lift from a player's info use the moderation endpoints above. F
 request: at most one of each kind per player in `InfringementGapMinutes` (10), with the numbers behind
 it and the path, never a position.
 
+### Reserved accounts
+Player ids 1 to 10 are never given to a new account (migration 0043, `game/reserved.go`):
+
+| Id | Who |
+|---|---|
+| 1 | The owner, the **primary admin**. A player like any other (counted in stats, plays the game) but always a freelancer: `POST /factions/{code}/lead` and `/join` answer 1305 |
+| 2 to 7 | The six powers, one `system` account each (faction id + 1). No sign-in; never found by share code, search, report or sanction; not counted |
+| 8 to 10 | Held for later |
+| 11+ | Everyone else. Moderators and other admins are ordinary accounts |
+
+On a database with no player 1 (after the launch wipe), the account that first signs in with Google or Apple
+under `TD_PRIMARY_ADMIN_EMAIL` (verified email, kept in `.env` only) is made id 1 and an admin. Access tokens
+issued before the setting `TokensValidAfter` (a unix time, locked; set when ids were moved) are refused with 1001,
+and every session from before was revoked, so each phone signs in once more.
+
+**Looking inside a faction (admins).** An admin can read a faction without joining it: they are not a member, are
+not listed, and nobody is told. Each look is written to `admin_actions` (`faction.inspect`).
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/factions` | `factions`: the six, as `GET /factions` gives them (name, colour, status, commander, members) |
+| GET | `/admin/factions/{code}` | `code, name, color, status, members` and `branches [{region, name, commander {code, name}, members [{code, name, level, rank, rankTitle}]}]` |
+
 ### Faction perksMembers of a faction get its perks; they stop the moment the player leaves. The server applies them
 (`game.FactionPerks`), and every number is a setting (`Perk…Pct`, group `factions`; 0 switches a perk off):
 
@@ -400,6 +423,7 @@ never reads as inside the range).
 | 1119 | Sanction is not running | |
 | 1120 | Report is not dismissed | |
 | 1121 | Admin change to a player not allowed (the message says why) | |
+| 1305 | The primary admin (player 1) stays a freelancer: can't lead or join a faction | |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |
 | 1202 | Node recharging for this player | `readyInSec` |

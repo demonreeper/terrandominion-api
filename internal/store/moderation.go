@@ -369,7 +369,7 @@ func StaffForUpdate(ctx context.Context, q db.Querier, playerID int64) (StaffOf,
 func PlayerIDByAnyCode(ctx context.Context, q db.Querier, code string) (int64, error) {
 	var id int64
 	err := q.QueryRowContext(ctx,
-		`SELECT id FROM td.players WHERE public_code = $1 AND status <> 'deleted'`, code).Scan(&id)
+		`SELECT id FROM td.players WHERE public_code = $1 AND status <> 'deleted' AND type <> 'system'`, code).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrNotFound
 	}

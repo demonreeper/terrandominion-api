@@ -260,6 +260,7 @@ The main menu's ADMIN button shows for both; each sees only the tabs their role 
 | PLAYERS | Admins (mods: read-only, no private fields) | Search, player info, actions |
 | SETTINGS | Admins | Every tunable number, MonoCity-style |
 | STATS | Admins | Game totals and the share-stats card |
+| FACTIONS | Admins | Look inside a faction without joining it (added 2026-11-11): branches, commander, members. Not listed, nobody told, logged |
 | TOOLS | Admins | Today's panel: minimum app build, sound board, node seeding |
 
 ### A1 Settings (MonoCity-style)

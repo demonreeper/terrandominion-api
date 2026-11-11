@@ -205,6 +205,9 @@ type Settings struct {
 	CallsignChangeDays int
 
 	AccessTokenMinutes int
+	// TokensValidAfter is a unix time: access tokens issued before it are refused (set when player
+	// ids were moved, migration 0043). 0 refuses none.
+	TokensValidAfter   float64
 	SessionDays        int
 	DeleteGraceDays    int
 	InactiveDeleteDays int
@@ -591,6 +594,7 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("CallsignChangeDays", &s.CallsignChangeDays)
 
 	i("AccessTokenMinutes", &s.AccessTokenMinutes)
+	f("TokensValidAfter", &s.TokensValidAfter)
 	i("SessionDays", &s.SessionDays)
 	i("DeleteGraceDays", &s.DeleteGraceDays)
 	i("InactiveDeleteDays", &s.InactiveDeleteDays)
