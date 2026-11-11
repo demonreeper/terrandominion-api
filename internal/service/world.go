@@ -19,7 +19,7 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 		return nil, apperr.BadRequest.With("bad coordinate")
 	}
 	settings := s.Settings(ctx)
-	stats, err := store.Equipped(ctx, s.db, playerID)
+	stats, perks, err := equipped(ctx, s.db, playerID, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -32,9 +32,24 @@ func (s *Service) NearbyNodes(ctx context.Context, playerID int64, lat, lon, rad
 	}
 	// Cells this scan touches for the first time get their nodes now (drone strike plan, milestone 0).
 	s.seedScan(ctx, settings, lat, lon, radiusM)
-	nodes, err := store.NearbyNodes(ctx, s.db, playerID, lat, lon, radiusM, 100, settings.HarvestCooldownSec)
+	// A perk may show rare roaming nodes from further than everything else: ask that far, then
+	// keep the ordinary nodes to the scan range.
+	rareRadiusM := radiusM
+	if stats.ScanRangeM > 0 && perks.RareRangeMult > perks.ScanRangeMult {
+		rareRadiusM = math.Max(radiusM, math.Min(settings.NearbyMaxRadiusM, stats.ScanRangeM/perks.ScanRangeMult*perks.RareRangeMult))
+	}
+	nodes, err := store.NearbyNodes(ctx, s.db, playerID, lat, lon, rareRadiusM, 100, settings.HarvestCooldownSec)
 	if err != nil {
 		return nil, err
+	}
+	if rareRadiusM > radiusM {
+		kept := nodes[:0]
+		for _, node := range nodes {
+			if node.Rare || node.DistanceM <= radiusM {
+				kept = append(kept, node)
+			}
+		}
+		nodes = kept
 	}
 	return nodes, s.addContestInfo(ctx, playerID, nodes, settings)
 }
@@ -55,6 +70,8 @@ type HarvestOutcome struct {
 	LevelUp  bool             `json:"levelUp"`
 	// ReadyInSec is how long until this player may harvest the node again.
 	ReadyInSec int `json:"readyInSec"`
+	// PerkTag is set when a faction perk raised the amount ("+25% SIGNUM").
+	PerkTag string `json:"perkTag,omitempty"`
 }
 
 // Harvest takes resources from a node. The node and the player are locked for the transaction,
@@ -81,7 +98,7 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 			return apperr.NodeInactive
 		}
 
-		stats, err := store.Equipped(ctx, tx, playerID)
+		stats, perks, err := equipped(ctx, tx, playerID, settings)
 		if err != nil {
 			return err
 		}
@@ -123,6 +140,17 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		if ruleErr != nil {
 			return ruleErr
 		}
+		// A faction perk gives more crystal, as far as the player can still carry it.
+		perkTag := ""
+		if node.Resource == "crystal" && perks.CrystalMult != 1 {
+			boosted := min(game.PerkAmount(int64(result.Amount), perks.CrystalMult), in.CarryCapacity-in.CarriedTotal)
+			if boosted > int64(result.Amount) {
+				result.Amount = int(boosted)
+				if faction, err := factionOf(ctx, tx, playerID); err == nil {
+					perkTag = game.PerkTag(settings, faction, game.PerkCrystal)
+				}
+			}
+		}
 
 		if err := checkNodeHold(ctx, tx, playerID, node.ID); err != nil {
 			return err
@@ -158,7 +186,7 @@ func (s *Service) Harvest(ctx context.Context, playerID int64, req HarvestReques
 		out = HarvestOutcome{
 			Resource: node.Resource, Amount: result.Amount, Reserve: reserve, Carried: carried,
 			XP: settings.XpHarvest, Progress: progress, LevelUp: levelUp,
-			ReadyInSec: game.HarvestReadyIn(settings, &now, now),
+			ReadyInSec: game.HarvestReadyIn(settings, &now, now), PerkTag: perkTag,
 		}
 		return nil
 	})

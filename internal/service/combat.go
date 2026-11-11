@@ -179,11 +179,16 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 		if err != nil {
 			return err
 		}
+		// The owner's faction may soften the hit.
+		ownerPerks, _, err := perksOf(ctx, tx, ownerID, settings)
+		if err != nil {
+			return err
+		}
 		toOwner := store.NewNotice{PlayerID: ownerID, TetherID: tetherID, ActorID: attackerID}
 		switch weapon.ID {
 		case game.WeaponEmPulse:
 			// A shield stops part of it, and stops one hit from destroying the node.
-			hit := game.HitDamage(weapon.Damage, 0, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
+			hit := game.HitDamage(weapon.Damage*ownerPerks.DamageTakenMult, 0, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
 			hit = game.CapShieldedHit(tether.Health, hit, tether.ShieldTier > 0)
 			health, err := store.DamageTether(ctx, tx, tetherID, hit)
 			if err != nil {
@@ -240,7 +245,7 @@ func (s *Service) AttackTether(ctx context.Context, attackerID, tetherID int64, 
 			}
 			// What it will do through the shield fitted now (the floor is applied when it fires).
 			toOwner.Kind = "spike"
-			toOwner.Amount = amountOf(game.Damage(game.HitDamage(weapon.Damage, 0,
+			toOwner.Amount = amountOf(game.Damage(game.HitDamage(weapon.Damage*ownerPerks.DamageTakenMult, 0,
 				game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))))
 			toOwner.Body = game.NoticeSpikePlanted(target.AttackerName, place, weapon.Fuse, *toOwner.Amount)
 			if err := notify(ctx, tx, toOwner); err != nil {
@@ -383,7 +388,12 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 		if err != nil {
 			return err
 		}
-		hit := game.HitDamage(settings.SpikeDamage, 0, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
+		// The owner's faction may soften the hit.
+		ownerPerks, _, err := perksOf(ctx, tx, spike.OwnerID, settings)
+		if err != nil {
+			return err
+		}
+		hit := game.HitDamage(settings.SpikeDamage*ownerPerks.DamageTakenMult, 0, game.ShieldShare(settings, tether.ShieldTier, game.WeaponMk))
 		hit = game.CapShieldedHit(tether.Health, hit, tether.ShieldTier > 0)
 		health, err := store.DamageTether(ctx, tx, spike.TetherID, hit)
 		if err != nil {

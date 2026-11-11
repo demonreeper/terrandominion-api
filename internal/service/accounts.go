@@ -301,6 +301,9 @@ type MeView struct {
 	PushAttacks bool       `json:"pushAttacks"`
 	PushResults bool       `json:"pushResults"`
 	DeleteAfter *time.Time `json:"deleteAfter,omitempty"`
+	// ActivePerks are the faction perks working on this player now (empty for a freelancer). Carry
+	// capacity, scan range and the Tether Node costs above already include them.
+	ActivePerks []game.PerkLine `json:"activePerks"`
 	// Announcement is the one-line banner for the main menu while one is running (admin settings).
 	Announcement *store.Announcement `json:"announcement,omitempty"`
 }
@@ -344,7 +347,9 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
-	stats, err := store.Equipped(ctx, q, playerID)
+	stats, perks, err := equipped(ctx, q, playerID, settings)
+	// The costs this player pays: their faction may discount them.
+	own := game.SettingsWithPerks(settings, perks)
 	if err != nil {
 		return nil, err
 	}
@@ -368,16 +373,19 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	}
 
 	me := &MeView{
-		PushAttacks: pushAttacks, PushResults: pushResults, Linked: linked,
+		PushAttacks: pushAttacks, PushResults: pushResults, Linked: linked, ActivePerks: []game.PerkLine{},
 		ID: player.ID, Code: player.Code, Name: player.Name, ShareURL: s.ShareURL(player.Code),
 		Type: player.Type, IsAdmin: player.IsAdmin,
 		Progress: game.ProgressFor(player.XP, settings), Carried: carried, Stored: uploaded, TethersOwned: tethersOwned,
-		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(settings), TetherUpgradeCost: game.TetherUpgradeCost(settings), CarryCap: stats.CarryCapacity,
+		TetherMax: settings.TnMaxPerPlayer, TetherCost: game.TetherBuildCost(own), TetherUpgradeCost: game.TetherUpgradeCost(own), CarryCap: stats.CarryCapacity,
 		ScanRangeM: stats.ScanRangeM, Gear: gear, Items: items, Recipes: game.Recipes(settings), CraftableGear: craftable, Faction: membership, Badges: badges, Freelancer: membership == nil,
 	}
 	if player.DeleteAfter.Valid {
 		t := player.DeleteAfter.Time
 		me.DeleteAfter = &t
+	}
+	if membership != nil {
+		me.ActivePerks = game.FactionPerkLines(settings, membership.FactionID)
 	}
 	if me.Announcement, err = store.CurrentAnnouncement(ctx, q); err != nil {
 		return nil, err

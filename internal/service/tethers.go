@@ -22,7 +22,7 @@ func (s *Service) NearbyTethers(ctx context.Context, playerID int64, lat, lon, r
 		return nil, apperr.BadRequest.With("bad coordinate")
 	}
 	settings := s.Settings(ctx)
-	stats, err := store.Equipped(ctx, s.db, playerID)
+	stats, _, err := equipped(ctx, s.db, playerID, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +85,13 @@ func (s *Service) BuildTether(ctx context.Context, playerID int64, req BuildTeth
 		if err != nil {
 			return err
 		}
+
+		// A faction perk may make the build cheaper: the rules below see this player's costs.
+		perks, _, err := perksOf(ctx, tx, playerID, settings)
+		if err != nil {
+			return err
+		}
+		settings := game.SettingsWithPerks(settings, perks)
 
 		now := s.now()
 		in := game.TetherBuildInput{
@@ -546,6 +553,11 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 		if err != nil {
 			return err
 		}
+		// The owner's faction may give more crystal from what the Tether Node gathers.
+		perks, _, err := perksOf(ctx, tx, tether.OwnerID, settings)
+		if err != nil {
+			return err
+		}
 		for _, link := range links {
 			var gathered int64
 			node, err := store.NodeForUpdate(ctx, tx, link.NodeID)
@@ -555,6 +567,12 @@ func (s *Service) harvestTether(ctx context.Context, due store.DueTether, settin
 			harvest, ok := game.TetherHarvest{}, false
 			if node.Status == "active" {
 				harvest, ok = game.EvaluateTetherHarvest(settings, node.Yield, node.Reserve)
+			}
+			if ok && node.Resource == "crystal" && perks.CrystalMult != 1 {
+				// The bonus is on top: it does not drain the node any faster.
+				harvest.Amount = game.PerkAmount(harvest.Amount, perks.CrystalMult)
+				harvest.ToOwner = int64(math.Round(float64(harvest.Amount) * settings.TnOwnerShare))
+				harvest.ToStock = harvest.Amount - harvest.ToOwner
 			}
 			if ok {
 				if _, err := store.DrainNode(ctx, tx, node.ID, harvest.ReserveCost); err != nil {
@@ -682,7 +700,12 @@ func (s *Service) UpgradeTether(ctx context.Context, playerID, tetherID int64, f
 		if err != nil {
 			return err
 		}
-		cost := game.TetherUpgradeCost(settings)
+		// A faction perk may make the upgrade cheaper.
+		perks, _, err := perksOf(ctx, tx, playerID, settings)
+		if err != nil {
+			return err
+		}
+		cost := game.TetherUpgradeCost(game.SettingsWithPerks(settings, perks))
 		payment, ruleErr := game.PayCost(cost, carried, uploaded)
 		if ruleErr != nil {
 			return ruleErr

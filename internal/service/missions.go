@@ -137,6 +137,9 @@ type ClaimOutcome struct {
 	XP       int                 `json:"xp"`
 	Progress game.Progress       `json:"progress"`
 	LevelUp  bool                `json:"levelUp"`
+	// PerkTag is set when a faction perk raised the credit ("+25% ISHĀRA"); Reward.Credits is
+	// what was paid, perk included.
+	PerkTag string `json:"perkTag,omitempty"`
 }
 
 // ClaimMission pays a finished mission: XP, credits into storage, and its item if it has one.
@@ -160,7 +163,17 @@ func (s *Service) ClaimMission(ctx context.Context, playerID, missionID int64) (
 		case "active":
 			return apperr.MissionNotDone.WithData(map[string]any{"progress": mission.Progress, "count": mission.Count})
 		}
+		// A faction perk may pay more credit, for as long as the player is a member.
+		perkTag := ""
 		if mission.Reward.Credits > 0 {
+			perks, faction, err := perksOf(ctx, tx, playerID, settings)
+			if err != nil {
+				return err
+			}
+			if boosted := int(game.PerkAmount(int64(mission.Reward.Credits), perks.MissionCreditMult)); boosted > mission.Reward.Credits {
+				mission.Reward.Credits = boosted
+				perkTag = game.PerkTag(settings, faction, game.PerkMissionCredit)
+			}
 			if err := store.AddUploaded(ctx, tx, playerID, "credit", int64(mission.Reward.Credits)); err != nil {
 				return err
 			}
@@ -177,7 +190,7 @@ func (s *Service) ClaimMission(ctx context.Context, playerID, missionID int64) (
 		if err != nil {
 			return err
 		}
-		out = ClaimOutcome{Reward: mission.Reward, XP: mission.Reward.XP, Progress: progress, LevelUp: levelUp}
+		out = ClaimOutcome{Reward: mission.Reward, XP: mission.Reward.XP, Progress: progress, LevelUp: levelUp, PerkTag: perkTag}
 		return nil
 	})
 	return out, err

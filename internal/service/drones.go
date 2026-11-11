@@ -121,7 +121,16 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 			return err
 		}
 
-		arrives := now.Add(game.DroneFlight(settings, distance))
+		// The launcher's faction may make the drone faster; the owner's may soften the hit.
+		attackerPerks, _, err := perksOf(ctx, tx, attackerID, settings)
+		if err != nil {
+			return err
+		}
+		ownerPerks, _, err := perksOf(ctx, tx, target.OwnerID, settings)
+		if err != nil {
+			return err
+		}
+		arrives := now.Add(game.DroneFlight(game.SettingsWithPerks(settings, attackerPerks), distance))
 		id, launched, err := store.LaunchDrone(ctx, tx, tetherID, attackerID, bay.Damage, bay.Mk, fix.Lat, fix.Lon, arrives)
 		if err != nil {
 			return err
@@ -143,7 +152,7 @@ func (s *Service) LaunchDrone(ctx context.Context, attackerID, tetherID int64, f
 			return err
 		}
 		// What lands if nobody intercepts it: the shield is known now and lasts as long as the node.
-		damage := game.Damage(game.HitDamage(bay.Damage, 0, game.ShieldShare(settings, tether.ShieldTier, bay.Mk)))
+		damage := game.Damage(game.HitDamage(bay.Damage*ownerPerks.DamageTakenMult, 0, game.ShieldShare(settings, tether.ShieldTier, bay.Mk)))
 		flight := arrives.Sub(now)
 		if err := notify(ctx, tx, store.NewNotice{
 			PlayerID: target.OwnerID, TetherID: tetherID, ActorID: attackerID, Amount: amountOf(damage),
@@ -210,7 +219,12 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 			return err
 		}
 		// Intercept and shield stack; a shield also stops one hit from destroying the node.
-		hit := game.HitDamage(drone.Damage, drone.InterceptShare, game.ShieldShare(settings, tether.ShieldTier, drone.Mk))
+		// The owner's faction may soften the hit.
+		ownerPerks, _, err := perksOf(ctx, tx, drone.OwnerID, settings)
+		if err != nil {
+			return err
+		}
+		hit := game.HitDamage(drone.Damage*ownerPerks.DamageTakenMult, drone.InterceptShare, game.ShieldShare(settings, tether.ShieldTier, drone.Mk))
 		hit = game.CapShieldedHit(tether.Health, hit, tether.ShieldTier > 0)
 		health, err := store.DamageTether(ctx, tx, drone.TetherID, hit)
 		if err != nil {
@@ -288,7 +302,12 @@ func (s *Service) InterceptDrone(ctx context.Context, playerID, tetherID int64, 
 		if err := spendCells(ctx, tx, playerID, settings.CellsIntercept); err != nil {
 			return err
 		}
-		share := game.InterceptShare(settings, drone.Mk)
+		// The defender's faction may make the intercept stop more.
+		perks, _, err := perksOf(ctx, tx, playerID, settings)
+		if err != nil {
+			return err
+		}
+		share := game.PerkInterceptShare(game.InterceptShare(settings, drone.Mk), perks.InterceptBonus)
 		if err := store.InterceptDrone(ctx, tx, drone.ID, share); err != nil {
 			return err
 		}

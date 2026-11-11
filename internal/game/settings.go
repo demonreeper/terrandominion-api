@@ -175,6 +175,18 @@ type Settings struct {
 	PushAttackThrottleMinutes int
 	PushMaxAgeMinutes         int
 
+	// Faction perks (docs/profile-plan.md, P1b), each a percentage; 0 switches the perk off.
+	PerkSignumCrystalPct       int // more crystal from harvests and Tether Node collection
+	PerkShingoUpgradePct       int // cheaper Tether Node upgrades
+	PerkSemaScanPct            int // longer scan range (100 = twice as far)
+	PerkSemaRarePct            int // rare roaming nodes seen from further (100 = twice as far)
+	PerkIsharaBuildPct         int // cheaper Tether Node builds
+	PerkIsharaMissionCreditPct int // more credit from missions
+	PerkTohuDroneSpeedPct      int // faster drones
+	PerkTohuCarryPct           int // more carry capacity
+	PerkMerkiDamagePct         int // less damage to own Tether Nodes
+	PerkMerkiInterceptPct      int // more of a drone's damage stopped by an intercept (added to the share)
+
 	// CallsignChangeDays is how long a player waits between callsign changes (the first pick is free).
 	CallsignChangeDays int
 
@@ -341,6 +353,17 @@ func DefaultSettings() Settings {
 		PushEnabled:               1,
 		PushAttackThrottleMinutes: 10,
 		PushMaxAgeMinutes:         15,
+
+		PerkSignumCrystalPct:       25,
+		PerkShingoUpgradePct:       25,
+		PerkSemaScanPct:            100,
+		PerkSemaRarePct:            100,
+		PerkIsharaBuildPct:         20,
+		PerkIsharaMissionCreditPct: 25,
+		PerkTohuDroneSpeedPct:      30,
+		PerkTohuCarryPct:           25,
+		PerkMerkiDamagePct:         15,
+		PerkMerkiInterceptPct:      10,
 
 		CallsignChangeDays: 30,
 
@@ -516,6 +539,17 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("PushEnabled", &s.PushEnabled)
 	i("PushAttackThrottleMinutes", &s.PushAttackThrottleMinutes)
 	i("PushMaxAgeMinutes", &s.PushMaxAgeMinutes)
+
+	i("PerkSignumCrystalPct", &s.PerkSignumCrystalPct)
+	i("PerkShingoUpgradePct", &s.PerkShingoUpgradePct)
+	i("PerkSemaScanPct", &s.PerkSemaScanPct)
+	i("PerkSemaRarePct", &s.PerkSemaRarePct)
+	i("PerkIsharaBuildPct", &s.PerkIsharaBuildPct)
+	i("PerkIsharaMissionCreditPct", &s.PerkIsharaMissionCreditPct)
+	i("PerkTohuDroneSpeedPct", &s.PerkTohuDroneSpeedPct)
+	i("PerkTohuCarryPct", &s.PerkTohuCarryPct)
+	i("PerkMerkiDamagePct", &s.PerkMerkiDamagePct)
+	i("PerkMerkiInterceptPct", &s.PerkMerkiInterceptPct)
 
 	i("CallsignChangeDays", &s.CallsignChangeDays)
 

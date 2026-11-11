@@ -73,6 +73,25 @@ gear, items, Tether Node places or last-seen time. Your own profile adds XP and 
 (`tether_nodes.destroyed_by`), `dronesIntercepted` drones stopped at their own Tether Nodes, `activeSince` the
 first day of the month the account was made.
 
+### Faction perks
+Members of a faction get its perks; they stop the moment the player leaves. The server applies them
+(`game.FactionPerks`), and every number is a setting (`Perk…Pct`, group `factions`; 0 switches a perk off):
+
+| Faction (power) | Perk | Settings |
+|---|---|---|
+| Lumen Collective (Signum) | More crystal from each harvest and from what their Tether Nodes gather | `PerkSignumCrystalPct` 25 |
+| Forge Meridian (Shingō) | Tether Node upgrades cost less | `PerkShingoUpgradePct` 25 |
+| Veil Cipher (Sēma) | Longer scan range; rare roaming nodes seen from further | `PerkSemaScanPct` 100, `PerkSemaRarePct` 100 |
+| Verdant Exchange (Ishāra) | Tether Node builds cost less; more credit from missions | `PerkIsharaBuildPct` 20, `PerkIsharaMissionCreditPct` 25 |
+| Slipstream Vanguard (Tohu) | Faster drones; more carry capacity | `PerkTohuDroneSpeedPct` 30, `PerkTohuCarryPct` 25 |
+| Bastion Order (Merki) | Their Tether Nodes take less damage; intercepts stop more | `PerkMerkiDamagePct` 15, `PerkMerkiInterceptPct` 10 |
+
+`/me` carries `activePerks [{key, line, tag}]` (empty for a freelancer); its `carryCapacity`, `scanRangeM`,
+`tetherCost` and `tetherUpgradeCost` already include them. `key` is one of `crystal`, `upgrade_cost`, `scan`,
+`rare`, `build_cost`, `mission_credit`, `drone_speed`, `carry`, `damage`, `intercept`. A harvest and a mission
+claim answer with `perkTag` when a perk raised the amount. A profile's `faction.perks` lists the same lines,
+so a perk is visible on anyone in that faction.
+
 ## Push notifications
 | Method | Path | Body | Notes |
 |---|---|---|---|
@@ -218,7 +237,7 @@ Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBas
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leader {code, name}` (the Regional Commander here, null when nobody holds it), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
+| GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leader {code, name}` (the Regional Commander here, null when nobody holds it), `perks [{key, line, tag}]` (what members get, with the numbers: `line` for the FACTIONS screen, `tag` for beside a number it changed, e.g. `+25% SIGNUM`), `mine` (the asking player's own faction: the perks are working on them now), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
 | POST | `/factions/{code}/lead` | Claim regional command of the faction in your region (one Regional Commander per faction per country; first to claim wins). Rank 90. Returns the membership |
 | GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{code, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
 | POST | `/factions/branch/wardens` | `code` (the member's share code; 1003 if unknown): the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |

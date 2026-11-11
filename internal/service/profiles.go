@@ -60,6 +60,8 @@ type ProfileFaction struct {
 	Color     string `json:"color"`
 	Rank      int    `json:"rank"`
 	RankTitle string `json:"rankTitle"`
+	// Perks are what every member of this faction gets, so a perk is visible on anyone in it.
+	Perks []store.PerkLine `json:"perks"`
 }
 
 // Profile is the public profile behind a share code, for a signed-in player (viewerID) or the web
@@ -93,6 +95,7 @@ func (s *Service) Profile(ctx context.Context, viewerID int64, code string) (*Pr
 		view.Faction = &ProfileFaction{
 			Code: membership.FactionCode, Name: membership.FactionName, Color: color,
 			Rank: membership.Rank, RankTitle: membership.RankTitle,
+			Perks: perkLines(s.Settings(ctx), membership.FactionID),
 		}
 	}
 	if view.Badges, err = store.Badges(ctx, s.db, playerID); err != nil {

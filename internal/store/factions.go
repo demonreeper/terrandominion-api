@@ -25,6 +25,10 @@ type Faction struct {
 	// Invited marks the faction that invited the asking player at the faction level; the service
 	// fills it.
 	Invited bool `json:"invited"`
+	// Perks are what members get, with their numbers; Mine marks the asking player's own faction,
+	// where they are working on them now. Both filled by the service.
+	Perks []PerkLine `json:"perks"`
+	Mine  bool       `json:"mine"`
 
 	LeaderID sql.NullInt64 `json:"-"`
 }
@@ -67,6 +71,13 @@ func ListFactions(ctx context.Context, q db.Querier, region string) ([]Faction, 
 		out = append(out, f)
 	}
 	return out, rows.Err()
+}
+
+// PerkLine is one perk as players read it (game.PerkLine, repeated here so store needs no game import).
+type PerkLine struct {
+	Key  string `json:"key"`
+	Line string `json:"line"`
+	Tag  string `json:"tag"`
 }
 
 func FactionByCodeForUpdate(ctx context.Context, q db.Querier, code string) (Faction, error) {

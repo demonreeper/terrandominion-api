@@ -20,7 +20,7 @@ func (s *Service) NearbyDrops(ctx context.Context, playerID int64, lat, lon floa
 		return nil, apperr.BadRequest.With("bad coordinate")
 	}
 	settings := s.Settings(ctx)
-	stats, err := store.Equipped(ctx, s.db, playerID)
+	stats, _, err := equipped(ctx, s.db, playerID, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (s *Service) PickDrop(ctx context.Context, playerID, dropID int64, fix Teth
 			return ruleErr
 		}
 
-		stats, err := store.Equipped(ctx, tx, playerID)
+		stats, _, err := equipped(ctx, tx, playerID, settings)
 		if err != nil {
 			return err
 		}

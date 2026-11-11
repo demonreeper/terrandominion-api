@@ -19,7 +19,12 @@ func (s *Service) Factions(ctx context.Context, playerID int64) ([]store.Faction
 	if err != nil {
 		return nil, err
 	}
+	settings := s.Settings(ctx)
 	membership, err := store.MembershipOf(ctx, s.db, playerID)
+	for i := range factions {
+		factions[i].Perks = perkLines(settings, factions[i].ID)
+		factions[i].Mine = membership != nil && membership.FactionID == factions[i].ID
+	}
 	if err != nil || membership != nil {
 		return factions, err
 	}
