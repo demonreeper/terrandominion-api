@@ -99,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/missions/{id}/claim", s.authed(s.claimMission))
 	mux.HandleFunc("GET /v1/calls", s.authed(s.calls))
 	mux.HandleFunc("POST /v1/calls/{id}/played", s.authed(s.playCall))
+	mux.HandleFunc("POST /v1/calls/{id}/reject", s.authed(s.rejectCall))
 	mux.HandleFunc("POST /v1/messages/{id}/read", s.authed(s.readMessage))
 
 	mux.HandleFunc("GET /v1/admin/settings", s.admin(s.adminSettings))
@@ -871,6 +872,20 @@ func (s *Server) playCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, "played")
+}
+
+func (s *Server) rejectCall(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("call id"))
+		return
+	}
+	if err := s.svc.RejectCall(r.Context(), playerID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, "rejected")
 }
 
 func (s *Server) readMessage(w http.ResponseWriter, r *http.Request) {

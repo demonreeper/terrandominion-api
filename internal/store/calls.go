@@ -100,13 +100,40 @@ type Call struct {
 	FactionID int    `json:"-"`
 }
 
-// DueCalls lists the player's calls that have come due and have not been played, oldest first.
+// DueCalls lists the player's calls that have come due and have been neither played nor rejected,
+// oldest first: the ones that ring.
 func DueCalls(ctx context.Context, q db.Querier, playerID int64, now time.Time) ([]Call, error) {
-	rows, err := q.QueryContext(ctx, `
+	return scanCalls(q.QueryContext(ctx, `
 		SELECT c.id, c.kind, f.persona, f.code, f.color, c.line, c.due_at, c.faction_id
 		FROM td.player_calls c JOIN td.factions f ON f.id = c.faction_id
-		WHERE c.player_id = $1 AND c.played_at IS NULL AND c.due_at <= $2
-		ORDER BY c.due_at, c.id`, playerID, now)
+		WHERE c.player_id = $1 AND c.played_at IS NULL AND c.rejected_at IS NULL AND c.due_at <= $2
+		ORDER BY c.due_at, c.id`, playerID, now))
+}
+
+// MissedCalls lists the calls the player rejected and has not played yet, latest rejected first.
+func MissedCalls(ctx context.Context, q db.Querier, playerID int64) ([]Call, error) {
+	return scanCalls(q.QueryContext(ctx, `
+		SELECT c.id, c.kind, f.persona, f.code, f.color, c.line, c.due_at, c.faction_id
+		FROM td.player_calls c JOIN td.factions f ON f.id = c.faction_id
+		WHERE c.player_id = $1 AND c.played_at IS NULL AND c.rejected_at IS NOT NULL
+		ORDER BY c.rejected_at DESC, c.id DESC`, playerID))
+}
+
+// MarkCallRejected moves a ringing call to the missed calls. It reports false when the call is not
+// the player's, not due, already played or already rejected.
+func MarkCallRejected(ctx context.Context, q db.Querier, playerID, id int64, now time.Time) (bool, error) {
+	res, err := q.ExecContext(ctx, `
+		UPDATE td.player_calls SET rejected_at = $3, delivered_at = COALESCE(delivered_at, $3)
+		WHERE id = $1 AND player_id = $2 AND played_at IS NULL AND rejected_at IS NULL AND due_at <= $3`,
+		id, playerID, now)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
+func scanCalls(rows *sql.Rows, err error) ([]Call, error) {
 	if err != nil {
 		return nil, err
 	}

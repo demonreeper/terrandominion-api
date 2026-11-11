@@ -206,8 +206,9 @@ most. The same power makes the level 19 offer and is the faction marked `invited
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/calls` | `calls`: the calls that have come due and were not played, oldest first; `messages`: the written messages that have arrived, newest first; `unread`. Fetching a call delivers it, so no push follows |
-| POST | `/calls/{id}/played` | The call was heard or ended: it never comes back. 1765 if it isn't there to play |
+| GET | `/calls` | `calls`: the calls that have come due and were neither played nor rejected, oldest first (they ring); `missedCalls`: the calls the player rejected and has not played, latest first (`missed: true`, played once from the message area); `messages`: the written messages that have arrived, newest first; `unread`. Fetching a call delivers it, so no push follows |
+| POST | `/calls/{id}/played` | The call was heard (answered, or a missed call played): it never comes back. 1765 if it isn't there to play |
+| POST | `/calls/{id}/reject` | REJECT on a ringing call (or it rang out in the app): it stops ringing and moves to `missedCalls`. The power's repeat call and message still come. 1765 if it isn't ringing |
 | POST | `/messages/{id}/read` | Clears a message's unread mark; messages stay. 1766 |
 
 Each call: `{id, kind (level10, level19, level19_repeat), persona, factionCode, color, line, dueAt, voice, audio,

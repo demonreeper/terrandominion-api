@@ -107,9 +107,11 @@ func startCalls(ctx context.Context, q db.Querier, playerID int64, beforeXP, aft
 
 // CallsView is GET /v1/calls: the calls waiting for the player and their written messages.
 type CallsView struct {
-	Calls    []store.Call    `json:"calls"`
-	Messages []store.Message `json:"messages"`
-	Unread   int             `json:"unread"`
+	Calls []store.Call `json:"calls"`
+	// MissedCalls are the calls the player rejected, to play once from the message area.
+	MissedCalls []store.Call    `json:"missedCalls"`
+	Messages    []store.Message `json:"messages"`
+	Unread      int             `json:"unread"`
 }
 
 // Calls lists the calls that have come due and the messages that have arrived. Fetching a call is
@@ -134,6 +136,16 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 				return err
 			}
 		}
+		missed, err := store.MissedCalls(ctx, tx, playerID)
+		if err != nil {
+			return err
+		}
+		for i := range missed {
+			missed[i].Voice = game.PowerVoice(missed[i].FactionID)
+			missed[i].Audio = game.CallAudioKey(missed[i].Kind)
+			missed[i].Missed = true
+		}
+		out.MissedCalls = missed
 		out.Messages, err = store.Messages(ctx, tx, playerID, now, 50)
 		if err != nil {
 			return err
@@ -151,6 +163,19 @@ func (s *Service) Calls(ctx context.Context, playerID int64) (CallsView, error) 
 // PlayCall marks a call played: it was heard (or ended), and never comes back.
 func (s *Service) PlayCall(ctx context.Context, playerID, callID int64) error {
 	done, err := store.MarkCallPlayed(ctx, s.db, playerID, callID, s.now())
+	if err != nil {
+		return err
+	}
+	if !done {
+		return apperr.CallGone
+	}
+	return nil
+}
+
+// RejectCall turns down a ringing call: it stops ringing and waits in the missed calls, to be
+// played once. The power's repeat call and message still come as scheduled.
+func (s *Service) RejectCall(ctx context.Context, playerID, callID int64) error {
+	done, err := store.MarkCallRejected(ctx, s.db, playerID, callID, s.now())
 	if err != nil {
 		return err
 	}
