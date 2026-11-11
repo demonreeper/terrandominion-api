@@ -224,6 +224,8 @@ type Settings struct {
 	FriendSearchPerMinute    int
 	FriendRequestExpireDays  int
 	FriendRedeclineDays      int
+	// Regions (social-signal-plan.md Part B).
+	CountryAtMaxKm float64
 	// Anti-cheat (social-signal-plan.md Part C). The two switches are 1 (on) or 0.
 	SpoofLockEnabled   int
 	SpoofCheckMockFlag int
@@ -456,6 +458,7 @@ func DefaultSettings() Settings {
 		FriendSearchPerMinute:      20,
 		FriendRequestExpireDays:    14,
 		FriendRedeclineDays:        7,
+		CountryAtMaxKm:             60,
 		SpoofLockEnabled:           1,
 		SpoofCheckMockFlag:         1,
 		SpoofLockMinutes1:          30,
@@ -643,6 +646,7 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("FriendSearchPerMinute", &s.FriendSearchPerMinute)
 	i("FriendRequestExpireDays", &s.FriendRequestExpireDays)
 	i("FriendRedeclineDays", &s.FriendRedeclineDays)
+	f("CountryAtMaxKm", &s.CountryAtMaxKm)
 	i("SpoofLockEnabled", &s.SpoofLockEnabled)
 	i("SpoofCheckMockFlag", &s.SpoofCheckMockFlag)
 	i("SpoofLockMinutes1", &s.SpoofLockMinutes1)

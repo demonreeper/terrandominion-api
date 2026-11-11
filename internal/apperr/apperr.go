@@ -208,5 +208,9 @@ var (
 	SignalLocked = def(1790, http.StatusForbidden, "Signal rejected.") // data: until, incident (first or repeat)
 	FixStale     = def(1791, http.StatusBadRequest, "That position is too old. Wait for a fresh fix.")
 
+	// Regions (social-signal-plan.md Part B).
+	RegionUnknown = def(1795, http.StatusConflict, "Your region could not be found from where you stand.")
+	RegionNotLive = def(1796, http.StatusConflict, "The game hasn't launched in your region yet.") // data: region
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )

@@ -173,6 +173,20 @@ gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`. A finished job 
 (notice `job_paid`; the poster gets `job_done`). Past the deadline unfinished takes fail and the reward for every unpaid
 slot goes back to the poster (`job_ended`). Errors 1770 to 1774.
 
+### Regions from GPS (social-signal-plan.md Part B, R1)
+
+A region is a whole country, found from the player's fix: inside a Natural Earth admin-0 shape, else the nearest
+country within `CountryAtMaxKm` (reefs, lagoons, the sea). `POST /factions/{code}/lead` and `/join` take
+`{lat, lon, accuracyM}` (and pass the anti-spoofing gate) and use that country's branch; no fix counts as the launch
+region (old builds). Only a live country can be claimed: **1796** `RegionNotLive` (data `region`); nowhere near a
+country: **1795**. `GET /factions?lat=&lon=` shows each faction's standing in that region (no fix: your own branch's
+region). `GET /regions/here?lat=&lon=` is `{code, name, live, test?}`.
+
+Admins: `GET /admin/regions` (`test`, `live`), `PUT /admin/regions/live/{code} {live}` (LiveRegions), and on dev only
+`PUT /admin/regions/test/{code} {name, points: [[lat, lon], ...]}` / `DELETE` for test regions `XA`..`XZ` (a point
+inside one counts as that region; never on production). The shapes are loaded once per database with
+`go run ./cmd/loadcountries` (from `.env`' `TD_DATABASE_URL`).
+
 ### Anti GPS spoofing (social-signal-plan.md Part C)
 
 Every route that acts on a place passes one check first (`httpapi/located.go`): nodes and tethers nearby, a
@@ -548,6 +562,8 @@ never reads as inside the range).
 | 1783 | Too many email searches today | |
 | 1790 | Signal lock: location actions refused | `until`, `incident` |
 | 1791 | The fix is too old or from the future | |
+| 1795 | No region near where the player stands | |
+| 1796 | The region where the player stands isn't live yet | `region` |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

@@ -115,8 +115,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/jobs", s.authed(s.located(s.postJob)))
 	mux.HandleFunc("POST /v1/jobs/{id}/take", s.authed(s.located(s.takeJob)))
 	mux.HandleFunc("GET /v1/factions", s.authed(s.factions))
-	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.leadFaction))
-	mux.HandleFunc("POST /v1/factions/{code}/join", s.authed(s.joinFaction))
+	mux.HandleFunc("POST /v1/factions/{code}/lead", s.authed(s.located(s.leadFaction)))
+	mux.HandleFunc("POST /v1/factions/{code}/join", s.authed(s.located(s.joinFaction)))
+	mux.HandleFunc("GET /v1/regions/here", s.authed(s.regionHere))
+	mux.HandleFunc("GET /v1/admin/regions", s.admin(s.adminRegions))
+	mux.HandleFunc("PUT /v1/admin/regions/test/{code}", s.admin(s.adminSaveTestRegion))
+	mux.HandleFunc("DELETE /v1/admin/regions/test/{code}", s.admin(s.adminDeleteTestRegion))
+	mux.HandleFunc("PUT /v1/admin/regions/live/{code}", s.admin(s.adminSetLiveRegion))
 	mux.HandleFunc("GET /v1/factions/branch", s.authed(s.factionBranch))
 	mux.HandleFunc("POST /v1/factions/branch/wardens", s.authed(s.appointWarden))
 	mux.HandleFunc("GET /v1/missions", s.authed(s.missions))
@@ -1001,7 +1006,8 @@ func (s *Server) readMessage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) factions(w http.ResponseWriter, r *http.Request) {
 	playerID, _ := playerFrom(r.Context())
-	list, err := s.svc.Factions(r.Context(), playerID)
+	fix, _ := readFix(r)
+	list, err := s.svc.Factions(r.Context(), playerID, service.RegionFix{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM})
 	if err != nil {
 		fail(w, r, err)
 		return
@@ -1011,7 +1017,8 @@ func (s *Server) factions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) leadFaction(w http.ResponseWriter, r *http.Request) {
 	playerID, _ := playerFrom(r.Context())
-	m, err := s.svc.LeadFaction(r.Context(), playerID, r.PathValue("code"))
+	fix, _ := readFix(r)
+	m, err := s.svc.LeadFaction(r.Context(), playerID, r.PathValue("code"), service.RegionFix{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM})
 	if err != nil {
 		fail(w, r, err)
 		return
@@ -1021,7 +1028,8 @@ func (s *Server) leadFaction(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) joinFaction(w http.ResponseWriter, r *http.Request) {
 	playerID, _ := playerFrom(r.Context())
-	m, err := s.svc.JoinFaction(r.Context(), playerID, r.PathValue("code"))
+	fix, _ := readFix(r)
+	m, err := s.svc.JoinFaction(r.Context(), playerID, r.PathValue("code"), service.RegionFix{Lat: fix.Lat, Lon: fix.Lon, AccuracyM: fix.AccuracyM})
 	if err != nil {
 		fail(w, r, err)
 		return

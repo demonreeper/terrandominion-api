@@ -159,6 +159,11 @@ severity is not stored: it follows from its kind (`internal/game/notices.go`).
 `push_tokens` holds one FCM token per phone, tied to the session that registered it; only tokens with
 a live session receive pushes. `players.push_attacks` and `push_results` are the player's switches.
 
+### regions
+`countries` holds Natural Earth admin-0 shapes (`code` ISO 3166 two letters, `main` false for a territory filed under its
+sovereign's code), loaded by `cmd/loadcountries`, plus admin test regions on dev (`test`, codes `XA`..`XZ`).
+`live_regions` is LiveRegions: the countries that can be claimed (MV first).
+
 ### anti GPS spoofing
 `infringements` also keeps spoofing signals (`mock_location`, `teleport`, `pattern`, `stale_fix`): `hard` ones start a
 signal lock, `dismissed` ones no longer count toward the step-up, `evidence` holds the two fixes (admins only).
