@@ -234,6 +234,17 @@ neutral standing for 3 days; attacking it ends a walk-together link that has one
 - **Other factions' bases** show to everyone in their colour; only members see the inside (projects,
   vault).
 
+## 9b. Art assets (owner, 2026-11-11)
+
+Start with **free assets only**; paid packs come later, after funding.
+- Structures: **Quaternius Modular Sci-Fi MegaKit** and **Sci-Fi Essentials Kit** (CC0), with **Kenney Space
+  Station Kit / Modular Space Kit** (CC0) for placeholders. Kitbash the Spire tower, modules and turrets from them.
+- Shield: **Free Force Field Shader for URP** (Void1 Gaming, itch.io), tinted to the faction's colour.
+- Textures: CC0 sci-fi panels (ambientCG / Poly Haven) or the procedural panel set from the mock-up renders.
+- Look reference: the Blender mock-up renders (`video/base-mockup/v3-blender/` in the project files), one glow colour per faction.
+- Check every asset for cross shapes before it goes in the game.
+- Later, after funding: a heavier paid kit (for example Sci-Fi Heavy Station Kit) and a hit-effect shield.
+
 ## 10. Missions and story
 
 - Members' daily mission from their power becomes base work when the faction has a base: *give 200
