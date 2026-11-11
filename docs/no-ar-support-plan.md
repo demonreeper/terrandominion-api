@@ -76,34 +76,67 @@ for the phone they own, and in the launch region many phones are not on Google's
 3. **Walkthrough branch.** The first-TN walkthrough has a map-only path.
 4. **Holo table for TNs.** "View TN" opens the 3D orbit view of your TN (tier, link lines, health ring).
    This is the base view's first version.
-5. **Base design (phase 4)** uses the rule above: GPS spot + server hex-slot layout, built in the
-   holo table, shown life-size in AR.
-6. **Later: AR sees more** (section below), after bases.
+5. **Living TNs in AR.** Your TN and other players' TNs get extra life in AR only: link lines pulse
+   with packets in the resource colour flowing toward the pylon, the pylon idles (slow turn, breathing
+   glow), and a fresh collection sends a visible burst up the line. The holo table shows the same TN,
+   plainer (static lines, no packets). Bases inherit all of this later.
+6. **AR photo mode.** A camera button in AR hides the HUD, frames your TN (later your base) in the real
+   street, and adds a small TETHER RISE mark and your callsign. SHARE uses the existing share sheet
+   (`ShareService`); SAVE writes it to the gallery. No location or country text on the picture.
+7. **Signal echoes + CODEX.** See *AR sees more* below. Server places echoes, the AR view shows them,
+   the profile gets a CODEX.
+8. **Sky battles.** Drone strikes, intercepts and shield hits near you play out life-size in AR.
+   Ships with the drone strike build (`drone-strike-plan.md`); if drones are already in, it goes now.
+9. **Base design (phase 4)** uses the rule above: GPS spot + server hex-slot layout, built in the
+   holo table, shown life-size in AR, with the living look from milestone 5.
 
-## Later phase: AR sees more
+## AR sees more (now, owner 2026-11-11)
 
-Owner, 2026-11-11: AR stays looks-only, but later AR players get to **see more** than the map shows.
-The rule that keeps it fair: what only AR shows gives **no resources, no XP and no combat information**.
-It is story, spectacle and collection, never an edge in a fight or a harvest.
+The owner first set this as a later phase, then asked for it now. AR stays looks-only: what only AR
+shows gives **no resources, no XP and no combat information**. It is story, spectacle and collection,
+never an edge in a fight or a harvest. A non-AR player misses the show, never a move.
 
-Ideas to pick from when this phase comes:
+### Living TNs (milestone 5)
+- Link lines carry packets: small hexes in the resource colour moving from the node to the pylon, faster
+  when the TN collects at full speed and slower as the harvest slows (no numbers shown).
+- Low health: the flicker from the field AR plan, plus sparks falling from the pylon.
+- Other players' TNs get the same life, in their faction colour (neutral for freelancers).
 
-1. **Signal echoes.** Faint traces left in the Undersignal, seen only through the camera near nodes
-   and TNs. Tapping one plays a short lore fragment and adds it to a CODEX on your profile, with a badge
-   for each set. No rewards beyond the codex and badges. (Never a hint of a seventh power.)
-2. **The sky in a fight.** Drone strikes, intercepts and shield hits play out above you, life-size,
-   when they happen near you. The map shows the same result as an icon.
-3. **Living bases.** Faction bases and TNs show extra life in AR: link lines pulsing with what flows
-   through them, faction colours on the structures, idle animations. The holo table shows the same base,
-   only plainer.
-4. **AR photo mode.** Frame your TN or base in the real street and share it as a card (uses the
-   existing share sheet).
+### AR photo mode (milestone 6)
+- Reached from a camera button in AR, only while a TN is in view.
+- Picture: the camera frame, the hologram, a thin frame line, the TETHER RISE mark and the callsign.
+  Never the place name, coordinates or a country.
+- SHARE (share sheet) or SAVE (gallery permission asked the first time only).
 
-Everything here is extra to look at: a non-AR player misses the show, never a move.
+### Signal echoes (milestone 7)
+- **What:** faint traces in the Undersignal. In AR they are a slow shimmer of hex static about head
+  height, near nodes and TNs. On the map they are **not shown** at all.
+- **Where:** the server places them like nodes, a few per area, and moves them now and then (the
+  Undersignal keeps shifting). `GET /v1/echoes/nearby` returns the ones within the AR view radius.
+- **Read:** within 40 m, tap it in AR. The echo plays a short line of text in the narrator's style
+  (no voice at first) and fades. `POST /v1/echoes/{id}/read` stores it. The client sends that the AR view
+  was open; nothing is gained, so there is nothing to cheat for.
+- **CODEX:** a new section on your own profile listing echoes found, in sets of five. A finished set
+  gives a profile badge. Locked lines show as static. No XP, no resources.
+- **Lore rules:** follow `LORE.md` and the screen rules (never link the six powers, no "AI", no power
+  says its name, country-neutral). **Never a hint of a seventh voice**: no "someone walked here before
+  you", no "stay free", nothing about unbound freelancers.
+- **First set (draft, owner to approve):**
+  1. "Before the first map, this street was already listening."
+  2. "Something counted your steps. It did not lose count."
+  3. "A signal folded here and never unfolded."
+  4. "Every stake driven into the lattice is felt."
+  5. "What decays is not lost. It is taken back."
+
+### Sky battles (milestone 8)
+- When a drone strike, an intercept or a shield hit happens near you while AR is open, it plays above
+  you life-size: the drone's trail in, the intercept flash, the shield ring lighting up.
+- It shows only what the map already shows (an icon and the result). No hidden attackers, no early warning.
+- Effects follow the effects restyle plan (`effects-restyle-plan.md`): clean, not childish.
 
 ## Open (owner's choice)
 
 - ~~Bases on non-AR phones~~: **decided A, holo table**, available on AR phones too (owner, 2026-11-11).
 - ~~AR advantage~~: **decided, looks only, no gameplay bonus** (owner, 2026-11-11).
-- **AR sees more:** planned below as a later phase (owner, 2026-11-11).
+- ~~AR sees more~~: **now**, milestones 5 to 8 (owner, 2026-11-11). Echo lines need the owner's OK.
 - ~~Use AR view setting~~: **decided yes**, AR phones can pick the holo table (owner, 2026-11-11).
