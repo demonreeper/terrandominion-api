@@ -28,6 +28,7 @@ var SettingGroups = []SettingGroup{
 	{"progress", "Levels and welcome"},
 	{"profile", "Profile"},
 	{"moderation", "Moderation"},
+	{"anticheat", "Anti-cheat"},
 	{"app", "App and accounts"},
 	{"other", "Other"},
 }

@@ -59,7 +59,9 @@ type PlayerInfo struct {
 	// CanAct: this member of staff may warn, suspend or ban them.
 	CanAct bool `json:"canAct"`
 	// SuspendDays are the three lengths a suspension may have.
-	SuspendDays []int          `json:"suspendDays"`
+	SuspendDays []int `json:"suspendDays"`
+	// SpoofExempt: a tester who may use a fake location; never signal-locked.
+	SpoofExempt bool           `json:"spoofExempt"`
 	Private     *PlayerPrivate `json:"private,omitempty"`
 }
 
@@ -124,6 +126,11 @@ func (s *Service) playerInfo(ctx context.Context, q db.Querier, actor store.Play
 	}
 	if info.Sanctions, err = store.SanctionsOf(ctx, q, targetID, s.now()); err != nil {
 		return nil, err
+	}
+	if spoof, err := store.SpoofStateOf(ctx, q, targetID, s.now()); err != nil {
+		return nil, err
+	} else {
+		info.SpoofExempt = spoof.Exempt
 	}
 	if !actor.IsAdmin {
 		return info, nil
@@ -338,6 +345,8 @@ func (s *Service) NoteInfringement(ctx context.Context, playerID int64, e *apper
 		detail = fmt.Sprintf("accuracy %v m, limit %v m", e.Data["accuracyM"], e.Data["maxAccuracyM"])
 	case apperr.HarvestImplausible.Code:
 		kind, detail = game.InfringementTravelSpeed, e.Detail
+	case apperr.FixStale.Code:
+		kind, detail = game.InfringementStaleFix, "fix too old or from the future"
 	default:
 		return
 	}

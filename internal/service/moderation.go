@@ -206,8 +206,19 @@ func (s *Service) DismissReport(ctx context.Context, modID, reportID int64, reas
 			return err
 		}
 		ids := []int64{reportID}
+		spoofIDs := []int64{}
+		if report.Reason == game.ReportReasonSpoof {
+			spoofIDs = append(spoofIDs, reportID)
+		}
 		if all {
 			ids = nil
+			if spoofIDs, err = store.OpenSpoofReportIDs(ctx, tx, report.TargetID); err != nil {
+				return err
+			}
+		}
+		// A false alarm from Signal watch: the lock goes at once and the incidents stop counting.
+		if err := s.dismissSpoof(ctx, tx, modID, report.TargetID, spoofIDs, reason); err != nil {
+			return err
 		}
 		reporters, err := store.CloseReports(ctx, tx, report.TargetID, ids, "dismissed", modID, 0)
 		if err != nil {
@@ -223,7 +234,8 @@ func (s *Service) DismissReport(ctx context.Context, modID, reportID int64, reas
 
 // tellReporters sends each reporter one "Your report was reviewed." notice.
 func tellReporters(ctx context.Context, tx *sql.Tx, reporters []int64) error {
-	told := map[int64]bool{}
+	// Signal watch is no player: it is never told.
+	told := map[int64]bool{game.SignalWatchID: true}
 	for _, reporter := range reporters {
 		if told[reporter] {
 			continue

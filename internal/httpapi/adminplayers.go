@@ -87,6 +87,25 @@ func (s *Server) adminSetMod(w http.ResponseWriter, r *http.Request) {
 	ok(w, info)
 }
 
+// adminSpoofExempt marks a tester who may use a fake location (anti-spoofing G0), logged.
+func (s *Server) adminSpoofExempt(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Exempt bool   `json:"exempt"`
+		Reason string `json:"reason"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	info, err := s.svc.SetSpoofExempt(r.Context(), playerID, r.PathValue("code"), body.Exempt, body.Reason)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, info)
+}
+
 func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := s.svc.AdminStats(r.Context())
 	if err != nil {

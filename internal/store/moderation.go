@@ -223,7 +223,8 @@ func scanSanction(row interface{ Scan(...any) error }, now time.Time) (Sanction,
 		return s, err
 	}
 	s.Until, s.LiftedAt = timePtr(until), timePtr(lifted)
-	s.Active = s.LiftedAt == nil && (s.Kind == "ban" || (s.Kind == "suspend" && s.Until != nil && s.Until.After(now)))
+	s.Active = s.LiftedAt == nil && (s.Kind == "ban" ||
+		((s.Kind == "suspend" || s.Kind == "spoof_lock") && s.Until != nil && s.Until.After(now)))
 	return s, nil
 }
 
@@ -244,7 +245,7 @@ func SanctionsOf(ctx context.Context, q db.Querier, playerID int64, now time.Tim
 // AllSanctions lists every sanction, active ones first, then newest first.
 func AllSanctions(ctx context.Context, q db.Querier, now time.Time, limit int) ([]Sanction, error) {
 	return listSanctions(ctx, q, now, `
-		ORDER BY (s.lifted_at IS NULL AND (s.kind = 'ban' OR (s.kind = 'suspend' AND s.until > now()))) DESC, s.id DESC
+		ORDER BY (s.lifted_at IS NULL AND (s.kind = 'ban' OR (s.kind IN ('suspend', 'spoof_lock') AND s.until > now()))) DESC, s.id DESC
 		LIMIT $1`, limit)
 }
 

@@ -220,6 +220,16 @@ type Settings struct {
 	FriendsMax           int
 	FriendRequestsPerDay int
 	EmailSearchesPerDay  int
+	// Anti-cheat (social-signal-plan.md Part C). The two switches are 1 (on) or 0.
+	SpoofLockEnabled   int
+	SpoofCheckMockFlag int
+	SpoofLockMinutes1  int
+	SpoofLockMinutes2  int
+	SpoofLockMinutes3  int
+	SpoofRepeatDays    int
+	SpoofTeleportKmh   float64
+	SpoofTeleportMinKm float64
+	FixMaxAgeSeconds   int
 
 	// Moderation (docs/profile-plan.md, M1).
 	SuspendDays1      int // the three lengths a suspension may have
@@ -438,6 +448,15 @@ func DefaultSettings() Settings {
 		FriendsMax:                 200,
 		FriendRequestsPerDay:       20,
 		EmailSearchesPerDay:        10,
+		SpoofLockEnabled:           1,
+		SpoofCheckMockFlag:         1,
+		SpoofLockMinutes1:          30,
+		SpoofLockMinutes2:          120,
+		SpoofLockMinutes3:          720,
+		SpoofRepeatDays:            7,
+		SpoofTeleportKmh:           300,
+		SpoofTeleportMinKm:         5,
+		FixMaxAgeSeconds:           120,
 
 		SuspendDays1:      1,
 		SuspendDays2:      3,
@@ -612,6 +631,15 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("FriendsMax", &s.FriendsMax)
 	i("FriendRequestsPerDay", &s.FriendRequestsPerDay)
 	i("EmailSearchesPerDay", &s.EmailSearchesPerDay)
+	i("SpoofLockEnabled", &s.SpoofLockEnabled)
+	i("SpoofCheckMockFlag", &s.SpoofCheckMockFlag)
+	i("SpoofLockMinutes1", &s.SpoofLockMinutes1)
+	i("SpoofLockMinutes2", &s.SpoofLockMinutes2)
+	i("SpoofLockMinutes3", &s.SpoofLockMinutes3)
+	i("SpoofRepeatDays", &s.SpoofRepeatDays)
+	f("SpoofTeleportKmh", &s.SpoofTeleportKmh)
+	f("SpoofTeleportMinKm", &s.SpoofTeleportMinKm)
+	i("FixMaxAgeSeconds", &s.FixMaxAgeSeconds)
 	i("MissionDayOffsetMinutes", &s.MissionDayOffsetMinutes)
 	i("MissionXpBase", &s.MissionXpBase)
 	i("MissionXpPerLevel", &s.MissionXpPerLevel)

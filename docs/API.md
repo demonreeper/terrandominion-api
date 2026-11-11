@@ -173,6 +173,27 @@ gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`. A finished job 
 (notice `job_paid`; the poster gets `job_done`). Past the deadline unfinished takes fail and the reward for every unpaid
 slot goes back to the poster (`job_ended`). Errors 1770 to 1774.
 
+### Anti GPS spoofing (social-signal-plan.md Part C)
+
+Every route that acts on a place passes one check first (`httpapi/located.go`): nodes and tethers nearby, a
+Tether Node's info, harvest, build, upgrade, collect, upload, attack, defuse, drone, intercept, shield, contests,
+drops, posting and taking a job. Each may carry `mock` (the phone marked the fix fake) and `fixAt` (the fix's own
+time, RFC 3339) beside `lat`, `lon` and `accuracyM` (`accuracy` on `/nodes/nearby`); GET routes take them as query
+parameters. Old builds that send neither still work.
+
+- During a **signal lock** every one of them returns **1790** `SignalLocked` (403, data `until`, `incident`: `first` or
+  `repeat`). Sign-in and everything else still work. `/me` returns `signalLockedUntil` and `signalLockLine`.
+- A fix older than `FixMaxAgeSeconds` or from the future: **1791** `FixStale`, noted (`stale_fix`), no lock.
+- A hard signal (the fake flag with `SpoofCheckMockFlag`, or a jump over `SpoofTeleportKmh` and `SpoofTeleportMinKm`
+  after both fixes' accuracy) refuses the request, starts a lock (`SpoofLockMinutes1/2/3`, stepping up within
+  `SpoofRepeatDays`; a new incident during a lock adds no time) and files a report from Signal watch
+  (reason `spoof`, context `{auto, incidents, signals}`; never a position). `SpoofLockEnabled` 0: report only,
+  the request gets 1205. Spoof-exempt players are noted only, never locked.
+- Mods: dismissing a `spoof` report lifts the lock and takes its incidents out of the step-up count. `/me` gives staff
+  `openReports` (players with open reports). Admins: `PUT /admin/players/{code}/spoof-exempt {exempt, reason}`
+  (logged); player info shows `spoofExempt`, and the private block's infringements carry `hard`, `dismissed` and
+  `evidence` (the two fixes, admins only).
+
 ### Friends
 
 | Method | Path | Body | Notes |
@@ -521,6 +542,8 @@ never reads as inside the range).
 | 1781 | No friend request from that player | |
 | 1782 | The name for friends can't be used | |
 | 1783 | Too many email searches today | |
+| 1790 | Signal lock: location actions refused | `until`, `incident` |
+| 1791 | The fix is too old or from the future | |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

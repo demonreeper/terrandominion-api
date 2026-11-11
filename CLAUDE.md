@@ -35,6 +35,9 @@ Schema: `docs/DATABASE.md`. Endpoints and error codes: `docs/API.md`. Running an
   freelancer), 2 to 7 the six powers (`system` accounts), 8 to 10 held, players from 11. After a wipe the owner
   gets id 1 by signing in with `TD_PRIMARY_ADMIN_EMAIL` (in `.env`). Keep `type = 'player'` in any query that
   lists or counts players.
+- **Anti-spoofing:** wrap every new route that acts on a place in `s.located(...)` (`httpapi/located.go`), so the
+  signal lock, stale-fix and teleport checks cover it. Player 9 is Signal watch (system account, files the automatic
+  reports). On dev the owner (player 1) is spoof-exempt.
 - DBeaver: keep **auto-commit on**. An open transaction there once blocked every sign-in
   (lock timeout, E1900) until it was ended.
 

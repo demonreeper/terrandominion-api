@@ -204,5 +204,9 @@ var (
 	FriendNameBad   = def(1782, http.StatusBadRequest, "Use letters only, up to 32, for the name your friends see.")
 	SearchLimit     = def(1783, http.StatusTooManyRequests, "That is enough email searches for today.")
 
+	// Anti GPS spoofing (social-signal-plan.md Part C).
+	SignalLocked = def(1790, http.StatusForbidden, "Signal rejected.") // data: until, incident (first or repeat)
+	FixStale     = def(1791, http.StatusBadRequest, "That position is too old. Wait for a fresh fix.")
+
 	Internal = def(1900, http.StatusInternalServerError, "Something went wrong. Try again.")
 )
