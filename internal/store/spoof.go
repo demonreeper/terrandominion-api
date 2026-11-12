@@ -69,6 +69,19 @@ func CountedIncidents(ctx context.Context, q db.Querier, playerID int64, since t
 	return n, err
 }
 
+// LatestIncidentKind is the kind of the player's latest counted incident (the one behind a running lock):
+// teleport or mock_location; "" when there is none.
+func LatestIncidentKind(ctx context.Context, q db.Querier, playerID int64) (string, error) {
+	var kind string
+	err := q.QueryRowContext(ctx, `
+		SELECT kind FROM td.infringements WHERE player_id = $1 AND hard AND NOT dismissed
+		ORDER BY created_at DESC, id DESC LIMIT 1`, playerID).Scan(&kind)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return kind, err
+}
+
 // InsertIncident stores a hard (or, for an exempt player, noted) spoofing signal and returns its id.
 // evidence holds the positions and is shown to admins only.
 func InsertIncident(ctx context.Context, q db.Querier, playerID int64, kind, detail, path string, hard bool, evidence any) (int64, error) {

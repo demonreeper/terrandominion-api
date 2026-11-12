@@ -105,7 +105,7 @@ func (s *Service) spoofIncident(ctx context.Context, playerID int64, incident ga
 			refusal = apperr.HarvestImplausible.Say("That position can't be right.")
 		case state.LockedUntil != nil:
 			// Locks stack with nothing: the incident is recorded, the lock keeps its end.
-			refusal = lockError(*state.LockedUntil, game.LockLine(earlier), now)
+			refusal = lockError(*state.LockedUntil, game.LockLine(earlier), incident.Kind, now)
 		default:
 			minutes = game.LockMinutes(settings, earlier)
 			until := now.Add(time.Duration(minutes) * time.Minute)
@@ -113,7 +113,7 @@ func (s *Service) spoofIncident(ctx context.Context, playerID int64, incident ga
 				"Signal lock: "+detail, &until, game.SignalWatchID); err != nil {
 				return err
 			}
-			refusal = lockError(until, game.LockLine(earlier), now)
+			refusal = lockError(until, game.LockLine(earlier), incident.Kind, now)
 		}
 		signal := store.SpoofSignal{ID: id, Kind: incident.Kind, Detail: detail, LockMinutes: minutes, At: now}
 		reportID, context, err := store.OpenSpoofReport(ctx, tx, game.SignalWatchID, playerID)
@@ -140,10 +140,12 @@ func (s *Service) spoofIncident(ctx context.Context, playerID int64, incident ga
 	return refusal
 }
 
-func lockError(until time.Time, line string, now time.Time) *apperr.Error {
+// lockError is E1790. kind (teleport or mock_location) lets the app say plainly what tripped the lock, with
+// no numbers: a distance or a time would only help a spoofer tune the fake.
+func lockError(until time.Time, line, kind string, now time.Time) *apperr.Error {
 	left := int(until.Sub(now).Minutes() + 0.999)
 	return apperr.SignalLocked.Say("Signal rejected. Back in %d min.", left).
-		WithData(map[string]any{"until": until.UTC(), "incident": line})
+		WithData(map[string]any{"until": until.UTC(), "incident": line, "kind": kind})
 }
 
 func (s *Service) lockedError(ctx context.Context, playerID int64, until time.Time, settings game.Settings, now time.Time) error {
@@ -151,7 +153,11 @@ func (s *Service) lockedError(ctx context.Context, playerID int64, until time.Ti
 	if err != nil {
 		return err
 	}
-	return lockError(until, line, now)
+	kind, err := store.LatestIncidentKind(ctx, s.db, playerID)
+	if err != nil {
+		return err
+	}
+	return lockError(until, line, kind, now)
 }
 
 // lockLine is the narrator line for the lock a player is under: first, unless an earlier counted incident
@@ -172,6 +178,9 @@ func (s *Service) signalLock(ctx context.Context, q db.Querier, me *MeView, sett
 		return err
 	}
 	me.SignalLockedUntil = state.LockedUntil
+	if me.SignalLockKind, err = store.LatestIncidentKind(ctx, q, me.ID); err != nil {
+		return err
+	}
 	me.SignalLockLine, err = s.lockLine(ctx, q, me.ID, settings, now)
 	return err
 }

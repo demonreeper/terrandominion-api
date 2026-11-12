@@ -215,7 +215,8 @@ time, RFC 3339) beside `lat`, `lon` and `accuracyM` (`accuracy` on `/nodes/nearb
 parameters. Old builds that send neither still work.
 
 - During a **signal lock** every one of them returns **1790** `SignalLocked` (403, data `until`, `incident`: `first` or
-  `repeat`). Sign-in and everything else still work. `/me` returns `signalLockedUntil` and `signalLockLine`.
+  `repeat`, `kind`: `teleport` or `mock_location`). Sign-in and everything else still work. `/me` returns `signalLockedUntil`,
+  `signalLockLine` and `signalLockKind`. The kind carries no numbers on purpose: the app says only what tripped the lock.
 - A fix older than `FixMaxAgeSeconds` or from the future: **1791** `FixStale`, noted (`stale_fix`), no lock.
 - A hard signal (the fake flag with `SpoofCheckMockFlag`, or a jump over `SpoofTeleportKmh` and `SpoofTeleportMinKm`
   after both fixes' accuracy) refuses the request, starts a lock (`SpoofLockMinutes1/2/3`, stepping up within
@@ -746,7 +747,7 @@ never reads as inside the range).
 | 1781 | No friend request from that player | |
 | 1782 | The name for friends can't be used | |
 | 1783 | Too many email searches today | |
-| 1790 | Signal lock: location actions refused | `until`, `incident` |
+| 1790 | Signal lock: location actions refused | `until`, `incident`, `kind` |
 | 1791 | The fix is too old or from the future | |
 | 1795 | No region near where the player stands | |
 | 1796 | The region where the player stands isn't live yet | `region` |

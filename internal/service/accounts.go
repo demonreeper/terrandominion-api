@@ -358,6 +358,8 @@ type MeView struct {
 	// SignalLockLine is the narrator line it carries: first or repeat.
 	SignalLockedUntil *time.Time `json:"signalLockedUntil,omitempty"`
 	SignalLockLine    string     `json:"signalLockLine,omitempty"`
+	// SignalLockKind is what tripped it: teleport or mock_location (no numbers).
+	SignalLockKind string `json:"signalLockKind,omitempty"`
 	// OpenReports is how many players have open reports (staff only), for the ADMIN button.
 	OpenReports int `json:"openReports,omitempty"`
 	// EmailSearchable: other players can find this one by their whole email (FR1). FriendRequestsWaiting:
