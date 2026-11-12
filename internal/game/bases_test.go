@@ -233,8 +233,14 @@ func TestBaseProjects(t *testing.T) {
 	if ModuleBill("lattice", 1, s) != [4]int{300, 200, 100, 50} || ModuleBill("lattice", 3, s) != [4]int{900, 600, 300, 150} {
 		t.Fatal("module bills")
 	}
-	if ModuleBill("collector", 1, s) != [4]int{} || ValidModule("collector") || !ValidModule("uplink") {
-		t.Fatal("only the first four modules in B2")
+	if ModuleBill("hangar", 1, s) != [4]int{} || ValidModule("hangar") || !ValidModule("uplink") || !ValidModule("collector") {
+		t.Fatal("the first five modules (Collector Array with B4)")
+	}
+	if ModuleMinTier("collector") != 2 || ModuleMinTier("vault") != 1 || CollectorLinks(1, s) != 2 || CollectorLinks(4, s) != 4 {
+		t.Fatal("collector from the Outpost, 2 to 4 nodes")
+	}
+	if CollectorAmount(10, "crystal", 1, s) != 13 || CollectorAmount(10, "alloy", 1, s) != 10 || CollectorAmount(10, "crystal", 2, s) != 10 {
+		t.Fatal("Lumen Collective gets more crystal")
 	}
 	if ModuleAssembly("vault", 2, s) != 60*time.Minute || ModuleHealth(3, s) != 900 {
 		t.Fatal("assembly and health by Mk")

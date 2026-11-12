@@ -382,6 +382,8 @@ type BaseCardView struct {
 	Vault *store.Resources4 `json:"vault,omitempty"`
 	// Growth (B3): the next tier and its ring, the room the border leaves, and who blocks it (the ghost ring).
 	Growth *BaseGrowthView `json:"growth,omitempty"`
+	// Collecting (B4): the free nodes inside the zone the base's Collector Arrays tether (everyone sees the lines).
+	Collecting []store.TetherLinkView `json:"collecting"`
 }
 
 // BaseGrowthView is the ghost of the next tier's ring: room when it fits, else the base it would come too close to.
@@ -415,6 +417,9 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 	}
 	// Slots are part of the base everyone sees (the holo table draws them); projects only members.
 	if out.Slots, err = store.BaseSlots(ctx, s.db, baseID); err != nil {
+		return out, err
+	}
+	if out.Collecting, err = store.CollectorNodes(ctx, s.db, baseID); err != nil {
 		return out, err
 	}
 	if base.Tier < game.BaseTopTierNonCapital {
@@ -456,6 +461,7 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 func (s *Service) baseTick(ctx context.Context) {
 	s.rankTick(ctx)
 	s.projectTick(ctx)
+	s.economyTick(ctx)
 	now := s.now()
 	due, err := store.DueFlags(ctx, s.db, now, 50)
 	if err != nil {

@@ -192,6 +192,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/bases/proposals-off", s.authed(s.setProposalsOff))
 	mux.HandleFunc("GET /v1/bases/{id}", s.authed(s.baseCard))
 	mux.HandleFunc("POST /v1/bases/{id}/projects", s.authed(s.startProject))
+	mux.HandleFunc("POST /v1/bases/{id}/deposit", s.authed(s.located(s.baseDeposit)))
+	mux.HandleFunc("POST /v1/bases/{id}/upload", s.authed(s.located(s.baseUpload)))
+	mux.HandleFunc("GET /v1/bases/{id}/vault", s.authed(s.baseVault))
 	mux.HandleFunc("POST /v1/bases/{id}/projects/{pid}/give", s.authed(s.located(s.giveToProject)))
 	mux.HandleFunc("POST /v1/bases/{id}/projects/{pid}/cancel", s.authed(s.cancelProject))
 	// Faction bases, B0 admin tools (base-building-plan.md).

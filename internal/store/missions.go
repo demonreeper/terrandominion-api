@@ -83,7 +83,7 @@ func MissionCandidates(ctx context.Context, q db.Querier, audience string, facti
 	rows, err := q.QueryContext(ctx, `
 		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
 		WHERE audience = $1 AND ($2::int = 0 OR faction_id = $2::int) AND $3::int BETWEEN min_level AND max_level
-		  AND NOT link_mission
+		  AND NOT link_mission AND NOT base_mission
 		ORDER BY id`, audience, factionID, level)
 	if err != nil {
 		return nil, err
@@ -291,6 +291,26 @@ func LinkMissionTypes(ctx context.Context, q db.Querier, audience string, factio
 		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
 		WHERE audience = $1 AND faction_id = $2 AND link_mission
 		ORDER BY id`, audience, factionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MissionTypeRow
+	for rows.Next() {
+		var t MissionTypeRow
+		if err := rows.Scan(&t.ID, &t.FactionID, &t.Weight, &t.Goal, &t.GoalKey, &t.Count, &t.Line); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// BaseMissionTypes lists a power's base missions (base-building-plan.md 10).
+func BaseMissionTypes(ctx context.Context, q db.Querier, factionID int) ([]MissionTypeRow, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
+		WHERE audience = 'member' AND faction_id = $1 AND base_mission ORDER BY id`, factionID)
 	if err != nil {
 		return nil, err
 	}

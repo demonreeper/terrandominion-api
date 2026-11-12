@@ -121,13 +121,58 @@ func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.
 			return err
 		}
 	}
-	if !link || own == 0 {
-		return give(game.AudienceMember, membership.FactionID, own, false)
-	}
-	if err := give(game.AudienceMember, membership.FactionID, own-1, false); err != nil {
+	// Base missions (base-building-plan.md 10): with a standing base in the region, one of the day's member missions is
+	// base work (give, stand at, repair).
+	base, err := store.HasStandingBase(ctx, q, membership.FactionID, membership.Region)
+	if err != nil {
 		return err
 	}
+	// The base mission takes a slot first (the plan: the day's mission becomes base work), then a link mission.
+	baseSwap := base && own > 0
+	linkSwap := link && own > btoi(baseSwap)
+	if err := give(game.AudienceMember, membership.FactionID, own-btoi(baseSwap)-btoi(linkSwap), false); err != nil {
+		return err
+	}
+	if baseSwap {
+		if err := giveBaseMission(ctx, q, playerID, day, membership.FactionID, player.Level, settings); err != nil {
+			return err
+		}
+	}
+	if !linkSwap {
+		return nil
+	}
 	return giveLinkMission(ctx, q, playerID, day, game.AudienceMember, membership.FactionID, player.Level, settings)
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// giveBaseMission gives one of the power's base missions: give at your base or stand at it (repairing a module is
+// offered while one is damaged, from B5).
+func giveBaseMission(ctx context.Context, q db.Querier, playerID int64, day time.Time, factionID, level int,
+	settings game.Settings) error {
+	rows, err := store.BaseMissionTypes(ctx, q, factionID)
+	if err != nil {
+		return err
+	}
+	var picks []store.MissionTypeRow
+	for _, r := range rows {
+		if r.Goal != game.GoalBaseRepair {
+			picks = append(picks, r)
+		}
+	}
+	if len(picks) == 0 {
+		return nil
+	}
+	picked := picks[rand.IntN(len(picks))]
+	reward := game.MissionRewardFor(settings, level, false, rand.Float64())
+	return store.GiveMission(ctx, q, playerID, day, game.AudienceMember, picked, store.MissionReward{
+		XP: reward.XP, Credits: reward.Credits, Item: reward.Item, ItemCount: reward.ItemCount,
+	})
 }
 
 // freeFaction is one of the six powers not in used (any, if all are), picked at random.

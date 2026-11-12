@@ -25,6 +25,10 @@ const (
 	GoalIntercept     = "intercept"      //
 	GoalShield        = "fit_shield"     //
 	GoalAppointWarden = "appoint_warden" //
+	// Base missions (base-building-plan.md 10).
+	GoalBaseGive   = "base_give"   // key: resource; count: amount
+	GoalBaseStand  = "base_stand"  // count: minutes on site
+	GoalBaseRepair = "base_repair" //
 	// Walk together link missions (walk-together-plan.md X3): bonus-active metres walked linked, and group nodes.
 	GoalWalkLinked       = "walk_linked"        // count: metres
 	GoalHarvestGroupNode = "harvest_group_node" //
@@ -159,6 +163,12 @@ func MissionTitle(goal, key string, count int) string {
 		return fmt.Sprintf("Walk %.1f km linked with a friend", float64(count)/1000)
 	case GoalHarvestGroupNode:
 		return times("Harvest a duo node", "Harvest %d group nodes")
+	case GoalBaseGive:
+		return fmt.Sprintf("Give %d %s at your base", count, key)
+	case GoalBaseStand:
+		return fmt.Sprintf("Stand at your base for %d minutes", count)
+	case GoalBaseRepair:
+		return times("Repair a module at your base", "Repair modules %d times")
 	case GoalBuildTether:
 		return times("Build a Tether Node", "Build %d Tether Nodes")
 	case GoalUpgradeTether:

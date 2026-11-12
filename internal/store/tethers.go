@@ -203,6 +203,7 @@ func FreeNodes(ctx context.Context, q db.Querier, lat, lon, radiusM, minReserve 
 		WHERE n.status = 'active' AND n.reserve >= $4
 		  AND ST_DWithin(n.location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
 		  AND NOT EXISTS (SELECT 1 FROM td.tether_links l WHERE l.node_id = n.id)
+		  AND NOT EXISTS (SELECT 1 FROM td.base_collector_links c WHERE c.node_id = n.id)
 		ORDER BY random()
 		LIMIT $5
 		FOR UPDATE OF n SKIP LOCKED`, lat, lon, radiusM, minReserve, freeNodeCandidates)

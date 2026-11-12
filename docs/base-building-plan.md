@@ -17,6 +17,11 @@ cancelled. Modules lock on but do nothing yet: their effects come with B4 and B5
 again when assembled (a finished tier waits until there is room), the ghost ring on the map (cyan with room, red
 `BORDER: TOO CLOSE TO <BASE>`; it stays 90 s after the card closes, since the card covers the map) and `BASES n / m` on
 FACTIONS. Core health is restored to the new tier's full health when it grows.
+**B4 built 2026-11-12** (migration 0067): the Collector Array (from the Outpost; 2, 3, 3 and 4 nodes at Mk I to IV, bill
+350/250/150/100 and 45 min, times the Mk), deposits on site (they earn points, like giving), Uplink uploads with no
+charge, the VAULT LOG for Wardens and up, and base missions: with a standing base in the region one of a member's daily
+missions becomes base work in their power's own words (give 200 alloy, stand 10 minutes; repair waits for B5). A member
+on site marks the base visited each minute (upkeep). Captain-posted base missions to a squad are not built yet.
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -305,7 +310,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B1 | **Propose and approve**: plant a flag, PROPOSALS for the Commander, 48 h expiry; **raise a Spire** on approval; zone on the map; base card; holo table with tower and empty pads | API + app, **built 2026-11-12** |
 | B2 | **Projects and giving**: fund on site, assembly timer, presence speed-up, contribution points; modules Lattice, Shield Matrix, Vault, Uplink; the lock-on animation | API + app, **built 2026-11-12** |
 | B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app, **built 2026-11-12** |
-| B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app |
+| B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app, **built 2026-11-12** |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app |
 | B6 | **Upkeep**: fading, tier drop, collapse | API |
 | B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio |

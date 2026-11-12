@@ -161,6 +161,8 @@ pass. `status` is `building` (the Spire's first project, the seed beacon), `acti
   is the Commander's switch.
 - `base_projects`: spire, tier, module or module upgrade, with a four-resource bill, what was given, the assembly
   time and progress. `base_contributions`: who gave what (points; vault payments earn none).
+- `base_collector_links` (0067): the free nodes inside a zone a base's Collector Arrays tether (one TN or base per
+  node), with the next harvest's time. `mission_types.base_mission` marks the base missions.
 - `base_vaults`: one per base. `base_vault_log`: every movement, signed, with its kind.
 
 ### notices and push

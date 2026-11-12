@@ -272,3 +272,52 @@ func (s *Server) cancelProject(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, map[string]any{"cancelled": pid})
 }
+
+// ---- economy (B4) ----
+
+func (s *Server) baseAt(w http.ResponseWriter, r *http.Request, act func(playerID, baseID int64, body service.AtBaseRequest) (any, error)) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("base id"))
+		return
+	}
+	var body service.AtBaseRequest
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	out, err := act(playerID, id, body)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) baseDeposit(w http.ResponseWriter, r *http.Request) {
+	s.baseAt(w, r, func(p, b int64, body service.AtBaseRequest) (any, error) {
+		return s.svc.Deposit(r.Context(), p, b, body)
+	})
+}
+
+func (s *Server) baseUpload(w http.ResponseWriter, r *http.Request) {
+	s.baseAt(w, r, func(p, b int64, body service.AtBaseRequest) (any, error) {
+		return s.svc.UploadAtBase(r.Context(), p, b, body)
+	})
+}
+
+func (s *Server) baseVault(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("base id"))
+		return
+	}
+	out, err := s.svc.Vault(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}

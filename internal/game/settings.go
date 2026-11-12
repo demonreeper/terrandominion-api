@@ -140,6 +140,8 @@ type Settings struct {
 	BaseProtectNewHours      float64
 	BasePerkForgeAssemblyPct float64
 	BasePerkVerdantCostPct   float64
+	BaseCollectorLinks       [MaxModuleMk + 1]int
+	BasePerkLumenCrystalPct  float64
 	BaseModuleCost           map[string][4]int
 	BaseModuleMin            map[string]float64
 	// BaseCost[tier] is the bill to reach that tier (alloy, crystal, data, credit); BaseAssemblyMin its assembly.
@@ -513,9 +515,11 @@ func DefaultSettings() Settings {
 		BasePerkVerdantCostPct:    15,
 		BaseModuleCost: map[string][4]int{
 			"lattice": {300, 200, 100, 50}, "shield": {250, 300, 150, 50},
-			"vault": {400, 100, 100, 100}, "uplink": {200, 150, 200, 50},
+			"vault": {400, 100, 100, 100}, "uplink": {200, 150, 200, 50}, "collector": {350, 250, 150, 100},
 		},
-		BaseModuleMin: map[string]float64{"lattice": 30, "shield": 30, "vault": 30, "uplink": 30},
+		BaseModuleMin:           map[string]float64{"lattice": 30, "shield": 30, "vault": 30, "uplink": 30, "collector": 45},
+		BaseCollectorLinks:      [MaxModuleMk + 1]int{0, 2, 3, 3, 4},
+		BasePerkLumenCrystalPct: 25,
 		BaseCost: [BaseTopTier + 1][4]int{{}, {400, 400, 150, 50}, {1200, 600, 400, 200}, {3000, 1500, 1000, 500},
 			{7000, 3500, 2500, 1200}, {15000, 8000, 6000, 3000}},
 		BaseAssemblyMin: [BaseTopTier + 1]float64{0, 15, 120, 480, 1440, 4320},
@@ -865,6 +869,10 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("BaseProtectNewHours", &s.BaseProtectNewHours)
 	f("BasePerkForgeAssemblyPct", &s.BasePerkForgeAssemblyPct)
 	f("BasePerkVerdantCostPct", &s.BasePerkVerdantCostPct)
+	f("BasePerkLumenCrystalPct", &s.BasePerkLumenCrystalPct)
+	for mk := 1; mk <= MaxModuleMk; mk++ {
+		i(fmt.Sprintf("BaseCollectorLinksMk%d", mk), &s.BaseCollectorLinks[mk])
+	}
 	// Copy the module maps: the defaults are shared by every Settings value.
 	cost := map[string][4]int{}
 	minutes := map[string]float64{}

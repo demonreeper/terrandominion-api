@@ -546,6 +546,9 @@ Every route that names a place is wrapped in the location checks. Everyone sees 
 | POST | `/bases/proposals/{id}/decline` | – | Takes the flag down; the proposer gets `base_declined` and the `BaseProposalCooldownHours` cooldown |
 | POST | `/bases/{id}/projects` | `kind` (`module`, `module_upgrade` or `tier`), `ring, index`, `module` (`lattice`, `shield`, `vault`, `uplink`) | B3: `tier` grows the base to its next tier (Outpost, Stronghold: Warden and up; Citadel: lead and up; the Capital waits for B8) with the tier's bill and assembly; one at a time; refused (1404 with `near`) when the new zone would come within `BaseZoneGapM` of another zone or flag. When it has assembled the border rule runs again: it waits, assembled, until there is room, then the zone, core health and slots grow. | B2: a Warden or above (power `start_projects`) of the base's faction and region starts a module on an empty pad, or the next Mk on a built one, from anywhere (the holo table). The Spire must stand; `BaseProjectsAtOnce` per base. Bill: the module's Mk I bill (`BaseMod*`) times the Mk, after the Verdant Exchange perk; assembly the Mk I time times the Mk. Returns the project. 1419 refused (says why) |
 | POST | `/bases/{id}/projects/{pid}/give` | `lat, lon, accuracyM, alloy, crystal, data, credit, fromVault` | Give to a funding project. From your own storage you must stand inside the zone (1420); what is given is capped to what the bill still needs and what you hold, earns `BasePointsPerUnit` contribution points and a little XP. `fromVault`: a Warden or above pays from the base's vault anywhere in the region (1837 outside it); a Captain only on site, up to `CaptainVaultDailyCap` a day (1423); vault payments earn no points. 1422 nothing to give. Returns `given, points, funded, project`. Funded projects assemble |
+| POST | `/bases/{id}/deposit` | `lat, lon, accuracyM, alloy, crystal, data, credit` | B4: a member on site puts resources from their storage into the base's vault (logged `deposit`); earns contribution points and counts toward the give-at-your-base mission. Returns `given, points, vault` |
+| POST | `/bases/{id}/upload` | `lat, lon, accuracyM` | B4: a member on site uploads what they carry through the base's online Uplink with no charge (counts as a TN upload). Returns `moved, carried, stored`; 1605 when there is nothing to move |
+| GET | `/bases/{id}/vault` | – | B4: the vault and the last 60 lines of the VAULT LOG `[{at, player?, kind, amounts}]` (`deposit, collector, cancel, spend, hack, packed, admin`; signed), for Wardens and up of the base's faction and region |
 | POST | `/bases/{id}/projects/{pid}/cancel` | – | Whoever started it, or a higher rank; what was given goes to the base's vault (logged). The Spire's project can't be cancelled. 1421 when gone |
 | PUT | `/bases/proposals-off` | `off` | The Commander turns proposals off (or on) for the region (1411 for proposers while off) |
 
@@ -554,6 +557,13 @@ last fix (within `BasePresenceSec`) is inside the zone, up to `BasePresenceMaxMu
 `BasePerkForgeAssemblyPct` faster. When it is done the Spire stands (`active`, protected for `BaseProtectNewHours`), a
 module locks on (Mk, full health `BaseModuleHealth` times Mk, online) or its Mk goes up. The base card's `vault` shows to
 members who may pay from it.
+
+B4: a base's online Collector Arrays (from the Outpost) tether `BaseCollectorLinksMk1..4` free nodes inside the zone
+each into the vault on the TN rules (the node's harvest; the cooldown grows like a TN's while no member has been on site,
+`last_visit_at`); Lumen Collective gets `BasePerkLumenCrystalPct` more crystal. A node is held by one TN or one base. Every
+minute a member stands on site the base counts as visited (upkeep) and their stand-at-your-base mission counts a minute.
+The base card's `collecting` lists the tethered nodes. With a standing base in the region, one of a member's daily
+missions is a base mission from their power (`base_give`, `base_stand`; `base_repair` from B5).
 
 Unanswered flags come down after `BaseProposalHours` (the server's tick; `base_expired` to the proposer, who goes on the cooldown).
 

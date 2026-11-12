@@ -8,9 +8,34 @@ import (
 // Faction bases, B2 (base-building-plan.md 4 and 5): projects with a bill and an assembly time, giving on site,
 // the presence speed-up, contribution points and the first four modules.
 
-// Modules buildable in B2 (section 5: Energy Lattice, Shield Matrix, Vault, Uplink, all from tier 1). The others come
-// with later milestones.
-var BaseModules = []string{"lattice", "shield", "vault", "uplink"}
+// Modules buildable now (section 5): Energy Lattice, Shield Matrix, Vault and Uplink from tier 1 (B2), the Collector
+// Array from tier 2 (B4). Sensor Net, Drone Hangar, Fabricator and Command Relay come with B8.
+var BaseModules = []string{"lattice", "shield", "vault", "uplink", "collector"}
+
+// ModuleMinTier is the tier a module can first be built at.
+func ModuleMinTier(kind string) int {
+	if kind == "collector" {
+		return 2
+	}
+	return 1
+}
+
+// CollectorLinks is how many free nodes inside the zone one Collector Array tethers at a Mk.
+func CollectorLinks(mk int, s Settings) int {
+	if mk < 1 || mk > MaxModuleMk {
+		return 0
+	}
+	return s.BaseCollectorLinks[mk]
+}
+
+// CollectorAmount is what one collector harvest puts into the vault: the node's TN harvest, more crystal for Lumen
+// Collective (faction 1).
+func CollectorAmount(amount int64, resource string, factionID int, s Settings) int64 {
+	if factionID == 1 && resource == "crystal" && s.BasePerkLumenCrystalPct > 0 {
+		return int64(math.Round(float64(amount) * (1 + s.BasePerkLumenCrystalPct/100)))
+	}
+	return amount
+}
 
 // ModuleName names a module for players.
 func ModuleName(kind string) string {
@@ -23,6 +48,8 @@ func ModuleName(kind string) string {
 		return "Vault"
 	case "uplink":
 		return "Uplink"
+	case "collector":
+		return "Collector Array"
 	}
 	return ""
 }

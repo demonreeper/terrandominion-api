@@ -125,6 +125,9 @@ func (s *Service) StartProject(ctx context.Context, playerID, baseID int64, req 
 			if !game.ValidModule(req.Module) {
 				return apperr.BadRequest.With("module")
 			}
+			if b.Tier < game.ModuleMinTier(req.Module) {
+				return apperr.ProjectRefused.Say("That module needs an Outpost or bigger.")
+			}
 			p = store.NewProject{Kind: "module", Module: req.Module, Mk: 1}
 		case "module_upgrade":
 			if module == "" {
@@ -293,6 +296,13 @@ func (s *Service) GiveToProject(ctx context.Context, playerID, baseID, projectID
 			for i, r := range resourceOrder {
 				if given[i] > 0 {
 					if err := store.AddUploaded(ctx, tx, playerID, r, -given[i]); err != nil {
+						return err
+					}
+				}
+			}
+			for i, r := range resourceOrder {
+				if given[i] > 0 {
+					if err := advanceMissions(ctx, tx, playerID, game.GoalBaseGive, r, int(given[i]), st, now); err != nil {
 						return err
 					}
 				}
