@@ -309,3 +309,11 @@ own rules above (cap by signal population; contribution points auto-promote with
 7. **Names:** Spire / Outpost / Stronghold / Citadel / Capital, and picked (not typed) base names.
 8. **Sensitive places** kept clear (worship, cemeteries, schools, hospitals, government): recommended yes.
 9. **Warden by contribution points:** recommended yes, at 2 000 points.
+
+### Values settled at build time (owner, 2026-11-12)
+- **Base cap:** 2 bases per faction per region, plus 1 each at 50, 150, 300 and 600 active players (all settings).
+- **Active players for the cap:** everyone seen in the region in the last 14 days, freelancers included (the
+  region's whole signal population).
+- **Capital:** its extra 6 slots go on ring 3.
+- **Admin flag release:** no proposal cooldown for the proposer (it fixes mistakes).
+- **Sensitive places** also include kindergarten, childcare, college and university, along with school.
