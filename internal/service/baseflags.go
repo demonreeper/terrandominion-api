@@ -380,6 +380,20 @@ type BaseCardView struct {
 	Projects []store.Project `json:"projects,omitempty"`
 	// Vault: what the base holds, for members who may pay from it (Captain and up).
 	Vault *store.Resources4 `json:"vault,omitempty"`
+	// Growth (B3): the next tier and its ring, the room the border leaves, and who blocks it (the ghost ring).
+	Growth *BaseGrowthView `json:"growth,omitempty"`
+}
+
+// BaseGrowthView is the ghost of the next tier's ring: room when it fits, else the base it would come too close to.
+type BaseGrowthView struct {
+	NextTier  int              `json:"nextTier"`
+	NextName  string           `json:"nextName"`
+	NextZoneM float64          `json:"nextZoneM"`
+	RoomM     float64          `json:"roomM"`
+	Fits      bool             `json:"fits"`
+	Near      string           `json:"near,omitempty"`
+	Bill      store.Resources4 `json:"bill"`
+	Hours     float64          `json:"hours"`
 }
 
 func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCardView, error) {
@@ -402,6 +416,25 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 	// Slots are part of the base everyone sees (the holo table draws them); projects only members.
 	if out.Slots, err = store.BaseSlots(ctx, s.db, baseID); err != nil {
 		return out, err
+	}
+	if base.Tier < game.BaseTopTierNonCapital {
+		st := s.Settings(ctx)
+		next := base.Tier + 1
+		sp, err := s.baseSpot(ctx, s.db, base.Lat, base.Lon, base.FactionID, base.Region, base.ID, 0, st)
+		if err != nil {
+			return out, err
+		}
+		g := &BaseGrowthView{NextTier: next, NextName: game.BaseTierName(next), NextZoneM: game.BaseZoneM(next, st), RoomM: -1,
+			Fits: true, Hours: game.BaseAssembly(next, st).Hours()}
+		if room := game.BaseZoneRoomM(sp, st); !math.IsInf(room, 1) {
+			g.RoomM = math.Floor(room)
+		}
+		if e := game.CheckBaseGrowth(sp, next, st); e != nil {
+			g.Fits, g.Near = false, e.Near
+		}
+		bill := game.ProjectBill(game.BaseBill(next, st), base.FactionID, st)
+		g.Bill = store.Resources4{Alloy: int64(bill[0]), Crystal: int64(bill[1]), Data: int64(bill[2]), Credit: int64(bill[3])}
+		out.Growth = g
 	}
 	if m != nil && m.FactionID == base.FactionID {
 		out.Member = true

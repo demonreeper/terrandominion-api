@@ -13,6 +13,10 @@ the plan left open: module Mk I bills (Lattice 300/200/100/50, Shield 250/300/15
 200/150/200/50) and 30 min assembly, both times the Mk; 300 health per Mk; 1 contribution point per resource given, 5 XP
 per 100; the Forge Meridian (25% faster) and Verdant Exchange (15% cheaper) perks apply. The Spire's own project can't be
 cancelled. Modules lock on but do nothing yet: their effects come with B4 and B5.
+**B3 built 2026-11-12**: tier projects (Outpost and Stronghold by Wardens, Citadel by leads), the border rule at start and
+again when assembled (a finished tier waits until there is room), the ghost ring on the map (cyan with room, red
+`BORDER: TOO CLOSE TO <BASE>`; it stays 90 s after the card closes, since the card covers the map) and `BASES n / m` on
+FACTIONS. Core health is restored to the new tier's full health when it grows.
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -300,7 +304,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B0 | Base data: bases, slots, zones, projects, vault tables; placement rules incl. sensitive places from OSM; admin tools (place, clear, set tier, settings) | API, **built 2026-11-12** |
 | B1 | **Propose and approve**: plant a flag, PROPOSALS for the Commander, 48 h expiry; **raise a Spire** on approval; zone on the map; base card; holo table with tower and empty pads | API + app, **built 2026-11-12** |
 | B2 | **Projects and giving**: fund on site, assembly timer, presence speed-up, contribution points; modules Lattice, Shield Matrix, Vault, Uplink; the lock-on animation | API + app, **built 2026-11-12** |
-| B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app |
+| B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app, **built 2026-11-12** |
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app |
 | B6 | **Upkeep**: fading, tier drop, collapse | API |

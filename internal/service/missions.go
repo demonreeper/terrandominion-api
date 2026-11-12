@@ -305,6 +305,9 @@ type BranchView struct {
 	Home       string               `json:"home"`
 	RegionName string               `json:"regionName"`
 	Visitors   []store.BranchMember `json:"visitors"`
+	// Bases: the faction's standing bases and open flags in the region against its cap (BASES n / m).
+	BasesHeld int `json:"basesHeld"`
+	BasesCap  int `json:"basesCap"`
 }
 
 func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error) {
@@ -343,6 +346,15 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	if regionName == "" {
 		regionName = game.RegionName(region)
 	}
+	settings := s.Settings(ctx)
+	held, err := store.BasesHeld(ctx, s.db, membership.FactionID, region, 0, s.now())
+	if err != nil {
+		return BranchView{}, err
+	}
+	active, err := store.ActivePlayersInRegion(ctx, s.db, region, settings.BaseCapActiveDays, settings.CountryAtMaxKm, s.now())
+	if err != nil {
+		return BranchView{}, err
+	}
 	ids := make([]int64, 0, len(members))
 	canAppoint := false
 	for i := range members {
@@ -378,5 +390,7 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 		Members: members, Visitors: visitors, Visiting: visiting, Home: membership.Region,
 		// No rank works away from home: the Commander appoints only in their own region.
 		CanAppoint: canAppoint,
+		BasesHeld:  held,
+		BasesCap:   game.BaseCap(active, settings),
 	}, nil
 }

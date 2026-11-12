@@ -43,7 +43,7 @@ func (s *Service) baseMember(ctx context.Context, tx *sql.Tx, playerID, baseID i
 
 // StartProjectRequest is POST /v1/bases/{id}/projects.
 type StartProjectRequest struct {
-	Kind   string `json:"kind"` // module or module_upgrade
+	Kind   string `json:"kind"` // module, module_upgrade or tier (B3: the next tier, up to the Citadel)
 	Ring   int    `json:"ring"`
 	Index  int    `json:"index"`
 	Module string `json:"module"`
@@ -57,7 +57,14 @@ func (s *Service) StartProject(ctx context.Context, playerID, baseID int64, req 
 		if err != nil {
 			return err
 		}
-		if !game.Can(m.Rank, m.Nomad, game.StartPower(req.Kind, 0)) {
+		toTier := 0
+		if req.Kind == "tier" {
+			toTier = b.Tier + 1
+		}
+		if !game.Can(m.Rank, m.Nomad, game.StartPower(req.Kind, toTier)) {
+			if toTier == game.BaseTopTierNonCapital {
+				return apperr.ProjectRefused.Say("Only an atoll/city lead or above grows a base to a Citadel.")
+			}
 			return apperr.ProjectRefused.Say("Only a Warden or above starts projects.")
 		}
 		if b.Status != "active" {
@@ -69,6 +76,33 @@ func (s *Service) StartProject(ctx context.Context, playerID, baseID int64, req 
 		}
 		if len(running) >= st.BaseProjectsAtOnce {
 			return apperr.ProjectRefused.Say("This base has as many projects running as it can.")
+		}
+		if req.Kind == "tier" {
+			for _, p := range running {
+				if p.Kind == "tier" {
+					return apperr.ProjectRefused.Say("This base is already growing.")
+				}
+			}
+			// The Capital is the regional Commander's seat (B8); every other base stops at the Citadel.
+			if toTier > game.BaseTopTierNonCapital {
+				return apperr.ProjectRefused.Say("A base grows no further than a Citadel for now.")
+			}
+			// The border rule (section 2): refused if the new zone would come within the gap of another zone.
+			sp, err := s.baseSpot(ctx, tx, b.Lat, b.Lon, b.FactionID, b.Region, b.ID, 0, st)
+			if err != nil {
+				return err
+			}
+			if e := game.CheckBaseGrowth(sp, toTier, st); e != nil {
+				return spotErr(e)
+			}
+			p := store.NewProject{BaseID: baseID, Kind: "tier", ToTier: toTier, StartedBy: playerID,
+				Bill:        game.ProjectBill(game.BaseBill(toTier, st), b.FactionID, st),
+				AssemblySec: int(game.BaseAssembly(toTier, st) / time.Second)}
+			id, err := store.InsertProject(ctx, tx, p)
+			if err != nil {
+				return err
+			}
+			return s.findProject(ctx, tx, baseID, id, &out)
 		}
 		for _, p := range running {
 			if p.Ring == req.Ring && p.Index == req.Index && (p.Kind == "module" || p.Kind == "module_upgrade") {
@@ -110,18 +144,45 @@ func (s *Service) StartProject(ctx context.Context, playerID, baseID int64, req 
 		if err != nil {
 			return err
 		}
-		projects, err := store.RunningProjects(ctx, tx, baseID)
-		if err != nil {
-			return err
-		}
-		for _, pr := range projects {
-			if pr.ID == id {
-				out = pr
-			}
-		}
-		return nil
+		return s.findProject(ctx, tx, baseID, id, &out)
 	})
 	return out, err
+}
+
+func (s *Service) findProject(ctx context.Context, tx *sql.Tx, baseID, id int64, out *store.Project) error {
+	projects, err := store.RunningProjects(ctx, tx, baseID)
+	if err != nil {
+		return err
+	}
+	for _, pr := range projects {
+		if pr.ID == id {
+			*out = pr
+		}
+	}
+	return nil
+}
+
+// growBase raises a base a tier: zone, core health and the new slots. The border rule runs again first (a neighbour
+// may have grown since); false when it holds the growth back.
+func (s *Service) growBase(ctx context.Context, tx *sql.Tx, b store.BaseRef, toTier int, st game.Settings) (bool, error) {
+	if err := store.LockBasePlacement(ctx, tx); err != nil {
+		return false, err
+	}
+	sp, err := s.baseSpot(ctx, tx, b.Lat, b.Lon, b.FactionID, b.Region, b.ID, 0, st)
+	if err != nil {
+		return false, err
+	}
+	if game.CheckBaseGrowth(sp, toTier, st) != nil {
+		return false, nil
+	}
+	if err := store.SetBaseTier(ctx, tx, b.ID, toTier, game.BaseCoreHealth(toTier, st)); err != nil {
+		return false, err
+	}
+	if err := store.SetBaseZone(ctx, tx, b.ID, game.BaseZoneM(toTier, st)); err != nil {
+		return false, err
+	}
+	_, err = store.SetBaseSlots(ctx, tx, b.ID, game.BaseSlotLayout(toTier, st))
+	return err == nil, err
 }
 
 // GiveRequest is POST /v1/bases/{id}/projects/{pid}/give: the fix, what to give, and whether from the vault.
@@ -351,6 +412,14 @@ func (s *Service) projectTick(ctx context.Context) {
 			}
 			assembled := p.Assembled + max(0, dt)*game.AssemblyRate(b.FactionID, present, st)
 			done := assembled >= float64(p.AssemblySec)
+			if done && p.Kind == "tier" {
+				// A tier waits, assembled, while the border holds it back; it grows as soon as there is room.
+				grown, err := s.growBase(ctx, tx, b, p.ToTier, st)
+				if err != nil {
+					return err
+				}
+				return store.AdvanceProject(ctx, tx, id, float64(p.AssemblySec), grown, now)
+			}
 			if err := store.AdvanceProject(ctx, tx, id, min(assembled, float64(p.AssemblySec)), done, now); err != nil {
 				return err
 			}
