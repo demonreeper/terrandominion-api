@@ -154,7 +154,11 @@ func (s *Service) signIn(ctx context.Context, provider, subject, email, name str
 			// Uploaded, so it doesn't fill the carry limit: building and crafting pay from there.
 			for resource, amount := range map[string]int{
 				"crystal": settings.WelcomeCrystal, "alloy": settings.WelcomeAlloy, "data": settings.WelcomeData,
+				"credit": settings.WelcomeCredit,
 			} {
+				if amount <= 0 {
+					continue
+				}
 				if err := store.AddUploaded(ctx, tx, playerID, resource, int64(amount)); err != nil {
 					return err
 				}

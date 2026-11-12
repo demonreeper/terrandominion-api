@@ -96,6 +96,7 @@ type Settings struct {
 	WelcomeCrystal int
 	WelcomeAlloy   int
 	WelcomeData    int
+	WelcomeCredit  int
 	WelcomeCells   int
 
 	BaseSpacingSameFactionM  float64
@@ -486,6 +487,7 @@ func DefaultSettings() Settings {
 		WelcomeCrystal: 800,
 		WelcomeAlloy:   600,
 		WelcomeData:    200,
+		WelcomeCredit:  100,
 		WelcomeCells:   5,
 
 		BaseSpacingSameFactionM:  3000,
@@ -866,6 +868,7 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("WelcomeCrystal", &s.WelcomeCrystal)
 	i("WelcomeAlloy", &s.WelcomeAlloy)
 	i("WelcomeData", &s.WelcomeData)
+	i("WelcomeCredit", &s.WelcomeCredit)
 	i("WelcomeCells", &s.WelcomeCells)
 
 	f("BaseSpacingSameFactionM", &s.BaseSpacingSameFactionM)
