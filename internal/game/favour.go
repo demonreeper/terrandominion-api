@@ -103,7 +103,7 @@ func MissionCounts(s Settings, member bool, rank int) (command, own int) {
 	if !member {
 		return 0, max(0, s.MissionsPerDay)
 	}
-	if rank >= RankWarden {
+	if Can(rank, false, PowerCommandOrders) {
 		command = 1
 	}
 	return command, max(0, s.MemberMissionsPerDay)

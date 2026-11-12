@@ -124,7 +124,7 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		ps := game.PlayerFactionState{Level: player.Level, InFaction: current != nil}
 		bs := game.BranchState{HasCommander: branch.LeaderID.Valid}
 
-		rank := game.RankMember
+		rank := game.RankProspect
 		if lead {
 			if ruleErr := game.CanClaimRegion(ps, bs, settings); ruleErr != nil {
 				return ruleErr
@@ -165,7 +165,7 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 		if err != nil {
 			return err
 		}
-		describeMembership(membership)
+		s.describeMembership(ctx, membership)
 		// The chosen power speaks once, its short line (freelancer-path-plan.md C3).
 		membership.PowerName, membership.PowerLine, err = store.FactionVoice(ctx, tx, faction.ID)
 		return err
@@ -177,9 +177,21 @@ func (s *Service) enterFaction(ctx context.Context, playerID int64, code string,
 }
 
 // describeMembership names the rank for the app ("Regional Commander").
-func describeMembership(m *store.Membership) {
-	if m != nil {
-		m.RankTitle = game.RankTitle(m.Rank)
+func (s *Service) describeMembership(ctx context.Context, m *store.Membership) {
+	if m == nil {
+		return
+	}
+	m.RankTitle = game.RankTitle(m.Rank)
+	if m.Nomad {
+		m.RankTitle = "Nomad"
+	}
+	m.RankKey = game.RankAt(m.Rank).Key
+	m.Powers = game.PowersOf(m.Rank, m.Nomad)
+	if m.Nomad && m.CooldownFrom != nil {
+		at := game.NomadMoveAt(*m.CooldownFrom, s.Settings(ctx))
+		if at.After(s.now()) {
+			m.NomadMoveAt = &at
+		}
 	}
 }
 

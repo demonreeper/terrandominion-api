@@ -25,6 +25,7 @@ var SettingGroups = []SettingGroup{
 	{"crafting", "Crafting and gear"},
 	{"missions", "Missions and calls"},
 	{"factions", "Factions and perks"},
+	{"ranks", "Ranks"},
 	{"bases", "Bases"},
 	{"progress", "Levels and welcome"},
 	{"profile", "Profile"},

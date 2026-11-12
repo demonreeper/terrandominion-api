@@ -46,7 +46,7 @@ func (s *Service) Jobs(ctx context.Context, playerID int64) (JobsView, error) {
 		return out, err
 	}
 	if membership != nil {
-		out.CanPost = membership.Rank >= game.RankWarden
+		out.CanPost = game.Can(membership.Rank, membership.Nomad, game.PowerPostJobs)
 		if out.CanPost {
 			out.Posted, err = store.PostedJobs(ctx, s.db, membership.FactionID, jobsListed)
 		}
@@ -76,7 +76,7 @@ type PostJob struct {
 func jobRefusal(reason string) error {
 	switch reason {
 	case game.JobNotWarden:
-		return apperr.JobNotYours.Say("Only Wardens and above post jobs.")
+		return apperr.JobNotYours.Say("Only Captains and above post jobs.")
 	case game.JobFactionFull:
 		return apperr.JobLimit.Say("Your faction has as many open jobs as it may.")
 	case game.JobPostedFull:
@@ -134,6 +134,13 @@ func (s *Service) PostJob(ctx context.Context, posterID int64, p PostJob) (store
 		if why := game.CheckJobPost(settings, game.JobPost{Kind: p.Kind, Slots: p.Slots, Hours: p.Hours, Reward: p.Reward},
 			rank, known, open, posted); why != game.JobOK {
 			return jobRefusal(why)
+		}
+		// Jobs are posted only while standing in the home region (faction-ranks-plan.md: a move never lets a player
+		// act in a country they aren't in).
+		if away, err := store.AwayFromHome(ctx, tx, posterID, settings.CountryAtMaxKm); err != nil {
+			return err
+		} else if away {
+			return apperr.AwayFromHome
 		}
 
 		job := store.NewJob{PosterID: posterID, FactionID: faction, Kind: p.Kind, Reward: p.Reward, Slots: p.Slots,

@@ -414,7 +414,7 @@ func (s *Service) meView(ctx context.Context, q db.Querier, playerID int64, sett
 	if err != nil {
 		return nil, err
 	}
-	describeMembership(membership)
+	s.describeMembership(ctx, membership)
 	badges, err := store.Badges(ctx, q, playerID)
 	if err != nil {
 		return nil, err

@@ -103,7 +103,7 @@ func TestFactionRules(t *testing.T) {
 }
 
 func TestRankTitles(t *testing.T) {
-	cases := map[int]string{1: "Member", RankWarden: "Warden", RankRegionalCommander: "Regional Commander", RankHead: "Commander"}
+	cases := map[int]string{1: "Prospect", RankProspect: "Prospect", RankMember: "Member", RankCaptain: "Captain", RankLead: "Atoll/City Lead", RankAssistantHead: "Assistant Global Head", RankWarden: "Warden", RankRegionalCommander: "Regional Commander", RankHead: "Commander"}
 	for rank, want := range cases {
 		if got := RankTitle(rank); got != want {
 			t.Errorf("rank %d: got %q, want %q", rank, got, want)

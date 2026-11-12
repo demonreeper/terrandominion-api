@@ -43,6 +43,11 @@ var pushRules = map[string]PushRule{
 	"base_declined": {Title: "Flag declined", Channel: PushChannelResults},
 	"base_expired":  {Title: "Flag expired", Channel: PushChannelResults},
 
+	"rank_up":        {Title: "New rank", Channel: PushChannelResults},
+	"nomad_ask":      {Title: "Nomad wants to move in", Channel: PushChannelResults},
+	"nomad_moved":    {Title: "Move approved", Channel: PushChannelResults},
+	"nomad_declined": {Title: "Move declined", Channel: PushChannelResults},
+
 	// A power's call the app did not pick up. The body is "Incoming call: <power>".
 	"call": {Title: "Tether Rise", Channel: PushChannelResults, Always: true},
 }

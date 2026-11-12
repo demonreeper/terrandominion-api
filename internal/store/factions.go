@@ -205,6 +205,16 @@ type Membership struct {
 	FactionColor string `json:"factionColor"`
 	Rank         int    `json:"rank"`
 	BranchID     *int64 `json:"branchId,omitempty"`
+	// RankKey and Powers come from the rank ladder (faction-ranks-plan.md); filled by the service.
+	RankKey string   `json:"rankKey,omitempty"`
+	Powers  []string `json:"powers,omitempty"`
+	// Nomad: the member can move home regions (no rank above Member, no vote or seat). NomadMoveAt is when they may
+	// next move (null: now). JoinedAt starts the Prospect timer.
+	Nomad        bool       `json:"nomad"`
+	NomadMoveAt  *time.Time `json:"nomadMoveAt,omitempty"`
+	CooldownFrom *time.Time `json:"-"`
+	JoinedAt     time.Time  `json:"joinedAt"`
+	Points       int64      `json:"points"`
 	// Region is the branch's country (MV); RankTitle names the rank. Filled by the service.
 	Region    string `json:"region,omitempty"`
 	RankTitle string `json:"rankTitle,omitempty"`
@@ -240,10 +250,12 @@ func MembershipOf(ctx context.Context, q db.Querier, playerID int64) (*Membershi
 	var m Membership
 	var branch sql.NullInt64
 	err := q.QueryRowContext(ctx, `
-		SELECT f.id, f.code, f.name, f.color, m.rank, m.branch_id, COALESCE(b.country_code, '')
+		SELECT f.id, f.code, f.name, f.color, m.rank, m.branch_id, COALESCE(b.country_code, ''), m.nomad,
+		       m.nomad_cooldown_from, m.joined_at, (SELECT contribution_points FROM td.players WHERE id = m.player_id)
 		FROM td.faction_members m JOIN td.factions f ON f.id = m.faction_id
 		LEFT JOIN td.faction_branches b ON b.id = m.branch_id
-		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.FactionColor, &m.Rank, &branch, &m.Region)
+		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.FactionColor, &m.Rank, &branch, &m.Region,
+		&m.Nomad, &m.CooldownFrom, &m.JoinedAt, &m.Points)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

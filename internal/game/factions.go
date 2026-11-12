@@ -2,15 +2,8 @@ package game
 
 import "github.com/demonreeper/terrandominion/api/internal/apperr"
 
-// Ranks are numbers (1 member up to 100). Rank 100 belongs to the shared lore AI (internal name
-// signal; players see six separate faction commanders): no player heads a whole faction.
-// Players command a region (owner, 2026-11-10).
-const (
-	RankMember            = 1
-	RankWarden            = 50
-	RankRegionalCommander = 90
-	RankHead              = 100
-)
+// Ranks are data: game/ranks.go (faction-ranks-plan.md). Rank 100 belongs to the shared lore AI (internal name
+// signal; players see six separate faction commanders): no player heads a whole faction yet.
 
 // LaunchRegion is the one region at launch. A region is a country (owner, 2026-11-10), so a
 // faction has at most one Regional Commander per country; MV is the Maldives.
@@ -22,20 +15,6 @@ func RegionName(code string) string {
 		return "Maldives"
 	}
 	return code
-}
-
-// RankTitle names a rank for players.
-func RankTitle(rank int) string {
-	switch {
-	case rank >= RankHead:
-		return "Commander"
-	case rank >= RankRegionalCommander:
-		return "Regional Commander"
-	case rank >= RankWarden:
-		return "Warden"
-	default:
-		return "Member"
-	}
 }
 
 // BranchState is a faction's branch in one region: whether anyone commands it yet.

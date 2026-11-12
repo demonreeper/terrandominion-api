@@ -450,6 +450,11 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `invitation` | info | freelancer | At `LeadFactionLevel`: "You were invited. The choice is yours. Open FACTIONS." Plain game text, no power speaking; the inviting faction is `invited` in `GET /factions` | null | null |
 | `call` | info | freelancer | "Incoming call: <power>": a power's call the app did not fetch within `CallPushDelaySeconds`. Always pushed, whatever the two push switches say | null | null |
 | `warden` | info | member | Their Regional Commander made them a Warden | commander | null |
+| `rank_up` | info | member | A rank given by someone (actor) or earned by contribution points (push) | appointer or null | null |
+| `nomad_ask` | warning | Commander, Wardens | A Nomad asks to move into the region (push) | the Nomad | null |
+| `nomad_moved` | info | Nomad | Their move was approved (push) | approver | null |
+| `nomad_declined` | warning | Nomad | Their move was declined (push) | approver | null |
+| `nomad_expired` | warning | Nomad | Their ask was not answered in time | null | null |
 | `base_proposal` | warning | Regional Commander | A Warden or lead planted a flag in the region (push) | proposer | null |
 | `base_approved` | info | proposer | Their flag was approved: the Spire project started (push) | commander | null |
 | `base_declined` | warning | proposer | Their flag was declined (push) | commander | null |
@@ -563,7 +568,19 @@ Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBas
 | GET | `/factions` | All factions in the player's region (a country; `MV` at launch): `status` (`locked` until any region is claimed), `leader {code, name}` (the Regional Commander here, null when nobody holds it), `perks [{key, line, tag}]` (what members get, with the numbers: `line` for the FACTIONS screen, `tag` for beside a number it changed, e.g. `+25% SIGNUM`), `mine` (the asking player's own faction: the perks are working on them now), `members` (here), `region`, and `invited`: true on the one faction that invited this freelancer at `LeadFactionLevel` (never for a player already in a faction) |
 | POST | `/factions/{code}/lead` | **Pledge** to a faction with no Regional Commander in your region, claiming its seat (one per faction per country; first to claim wins). Rank 90. Returns the membership with `powerName` and `powerLine` (the chosen power and its motto, shown once). A pledge is final: there is no leave (freelancer-path-plan.md) |
 | GET | `/factions/branch` | Your branch: `factionCode, factionName, region, members [{code, name, level, rank, rankTitle}], canAppoint` (Regional Commander). 1763 when you're in no branch |
-| POST | `/factions/branch/wardens` | `code` (the member's share code; 1003 if unknown): the Regional Commander makes a member of their branch a Warden (rank 50). 1762 if you aren't, 1763 if they aren't in your branch, 1764 if already Warden or above |
+| POST | `/factions/branch/wardens` | `code`: the older way to make a member a Warden; now the same as `/factions/branch/rank` with `rank: "warden"` |
+| GET | `/factions/ranks` | The rank ladder (faction-ranks-plan.md), top first: `ranks [{key, level, title, powers}]`. Keys: `global_head` (100, the faction's power), `assistant_global_head` (95, empty until the global election), `regional_commander` (90), `lead` (70), `warden` (50), `captain` (30), `member` (10), `prospect` (5). Powers: `give, upgrade, vote, hold_seat, nomad, squad_lead, post_jobs, base_missions, vault_on_site, vault_anywhere, propose_base, start_projects, start_t4, approve_base, approve_nomads, appoint_captain, appoint_warden, appoint_lead, command_orders, every_region` |
+| POST | `/factions/branch/rank` | `code, rank` (`captain`, `warden` or `lead`): a member with that appoint power (Warden: Captain; Lead: Warden and Captain; Commander: all three) gives a member of their branch the rank, below their own. Places per region are settings (`RankSlots*`). 1830 not allowed, 1831 places full, 1832 a Nomad, 1764 already that rank or higher. Pushes `warden` or `rank_up` |
+| GET | `/factions/squad` | `captain` (you lead a squad), `size`, `max` (`CaptainSquadSize`), `members` (your squad), `eligible` (Members and Prospects of your branch in no squad) and `myCaptain` (whose squad you are in) |
+| POST | `/factions/squad/members/{code}` | A Captain or above adds a Member or Prospect of their branch to their squad (1833: full, in another squad, or above Member) |
+| DELETE | `/factions/squad/members/{code}` | A Captain takes someone out of their squad; `me` leaves your own squad |
+| POST | `/factions/nomad` | Become a Nomad: gives up any rank above Member, a seat and a squad. Prospects can't (1834). After settling once, becoming one again restarts the move cooldown |
+| POST | `/factions/settle` | A Nomad becomes an ordinary Member of their home region again (an open ask is cancelled) |
+| GET | `/factions/nomads` | `mine` (your open ask), `canAnswer` (Warden and up) and `asks` (open asks to move into your region) |
+| POST | `/factions/nomads/ask` | `region`: a Nomad asks to move home to another unlocked region of their faction (1797 locked, 1835 cooldown with `until`, 1834 already asking). Pushes `nomad_ask` to that region's Commander and Wardens. Expires after `NomadAskHours` (`nomad_expired`) |
+| DELETE | `/factions/nomads/ask` | Cancels your open ask |
+| POST | `/factions/nomads/{id}/approve` | That region's Commander or a Warden there (or the Global Head) says yes: the Nomad's home region moves, Member there (still a Nomad), points, level and inventory kept, TNs where they stand; the `NomadMoveCooldownDays` cooldown starts. Pushes `nomad_moved` |
+| POST | `/factions/nomads/{id}/decline` | Says no (`nomad_declined`). 1836 when the ask is gone |
 | POST | `/factions/{code}/join` | **Pledge** to the faction's branch in your region, once it has a Regional Commander. Rank 1. Returns the membership with `powerName` and `powerLine`. Final, like `lead`. Players never see the word "join": the app says PLEDGE |
 
 ### The powers' calls and messages
@@ -595,7 +612,7 @@ a repeat call `CallRepeatHours` (24) later and a written message `CallMessageHou
 after it came due is pushed as "Incoming call: <power>" through the notices outbox. No power says its own name, and
 nothing here links the six.
 
-Memberships (here and `faction` on `/me`) carry `factionId, factionCode, factionName, factionColor (what their Tether Nodes glow in), rank, branchId,
+Memberships (here and `faction` on `/me`) carry `rankKey`, `powers` (the rank's powers; a Nomad's are cut to a Member's without vote or seat), `nomad`, `nomadMoveAt` (when a Nomad may next move; absent when now), `joinedAt`, `points` (contribution points) and `factionId, factionCode, factionName, factionColor (what their Tether Nodes glow in), rank, branchId,
 region, rankTitle`. `/me` also lists `badges`: `[{badge, factionCode, factionName, region}]`; `founder`
 goes to the first player ever to command a faction's branch in a country, and is permanent. Ranks: 1 Member, 50 Warden, 90 Regional Commander; 100 is the shared lore AI
 above every faction (internal name `signal`; players see a separate commander per faction), never a player.
@@ -612,6 +629,8 @@ above every faction (internal name `signal`; players see a separate commander pe
 | POST | `/admin/push/test` | – | Sends "Test push" to your own phones; returns `sent` |
 | GET | `/admin/seed` | `lat, lon` (query) | Seeding readout: `cell` `{osmLoaded, cellId, seeded, target, seedNodes, walkM, totalCells, totalNodes}` for the cell at that point, and `areas` `[{id, name}]` |
 | POST | `/admin/seed` | `areaId` | Pre-seeds every cell of an area in `td.seed_areas` (`male`, `hulhumale`, `villimale`) in the background, one transaction per cell; cells already seeded are left alone. Returns `started`. Command line: `tdapi seed <area or all>` |
+| PUT | `/admin/players/{code}/rank` | `rank` | Sets a member's rank: `prospect`, `member`, `captain`, `warden` or `lead` (a Commander's seat is claimed; the two top seats are elected later). Logged |
+| POST | `/admin/players/{code}/nomad-cooldown/clear` | – | Lets a Nomad move again at once. Logged |
 | POST | `/admin/seed/cell` | `lat, lon` | Retires the seed nodes in the cell at that point and seeds it again. Returns `cellId, target, created, retired` |
 | GET | `/admin/bases` | `region` (query, optional) | Standing bases `[{id, faction, region, name, tier, tierName, lat, lon, status, coreHealth, zoneM, slots, fadedAt, createdAt}]` and open flags `[{id, faction, region, proposerId, lat, lon, status, createdAt, expiresAt}]` |
 | GET | `/admin/bases/check` | `faction, lat, lon` (query) | Runs the placement rules for that faction at that spot without placing: `{region, faction, ok, code, message, near, map {onLand, nearWalkway, inBlocked, nearSensitive}, held, cap, basesNearby, flagsNearby, roomM}` (`roomM` -1 with no neighbour) |
@@ -675,6 +694,14 @@ never reads as inside the range).
 | 1796 | The region where the player stands isn't live yet | `region` |
 | 1797 | That region has no Regional Commander yet (can't be viewed) | |
 | 1798 | Only faction members have regions | |
+| 1830 | Your rank can't give that rank (or answer that ask) | |
+| 1831 | The region holds all of that rank it may (`RankSlots*`) | |
+| 1832 | A Nomad holds no rank above Member | |
+| 1833 | Squad change refused (full, in another squad, above Member) | |
+| 1834 | Nomad step refused (the message says which) | |
+| 1835 | Nomad moved recently | `until` (RFC 3339) |
+| 1836 | Nomad ask gone | |
+| 1837 | Stand in your own region to do that (jobs; member missions don't count away from home) | |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

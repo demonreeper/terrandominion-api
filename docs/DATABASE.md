@@ -176,6 +176,12 @@ a live session receive pushes. `players.push_attacks` and `push_results` are the
 ### regions
 `countries` holds Natural Earth admin-0 shapes (`code` ISO 3166 two letters, `main` false for a territory filed under its
 sovereign's code), loaded by `cmd/loadcountries`, plus admin test regions on dev (`test`, codes `XA`..`XZ`).
+Ranks v2 (0065, faction-ranks-plan.md): `faction_members.rank` levels are Prospect 5, Member 10, Captain 30, Warden 50,
+Lead 70, Regional Commander 90, Assistant Global Head 95, Global Head 100 (the ladder and its powers are data in
+`internal/game/ranks.go`). `nomad`, `nomad_cooldown_from` (the last move, or becoming a Nomad again) and `was_nomad` are
+the Nomad state; `players.contribution_points` follow the player across moves. `squad_members` is a Captain's squad (one
+squad per player). `nomad_asks` are asks to move home regions (open, approved, declined, expired, cancelled).
+
 `live_regions` is LiveRegions: the countries that can be claimed (MV first). `faction_members.viewing_branch_id` is the
 region a member views (null = home, `branch_id`); talk only.
 

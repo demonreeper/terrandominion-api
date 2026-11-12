@@ -154,6 +154,16 @@ var (
 	FlagGone             = def(1417, http.StatusNotFound, "That flag has come down.")
 	BaseNameTaken        = def(1418, http.StatusConflict, "That name was just taken. Pick another.")
 
+	// Faction ranks v2 and Nomads (faction-ranks-plan.md). The message says which rule refused it.
+	RankCantAppoint = def(1830, http.StatusForbidden, "Your rank can't give that rank.")
+	RankSlotsFull   = def(1831, http.StatusConflict, "Your region has all of that rank it may hold.")
+	RankNomad       = def(1832, http.StatusConflict, "A Nomad holds no rank above Member.")
+	SquadRefused    = def(1833, http.StatusConflict, "That squad change can't be made.")
+	NomadRefused    = def(1834, http.StatusConflict, "That can't be done as things stand.")
+	NomadCooldown   = def(1835, http.StatusConflict, "You moved recently. You can move again later.") // data: until
+	NomadAskGone    = def(1836, http.StatusNotFound, "That ask has been answered or has expired.")
+	AwayFromHome    = def(1837, http.StatusConflict, "Stand in your own region to do that.")
+
 	TetherCap      = def(1600, http.StatusConflict, "You already own the most Tether Nodes you can.") // data: max
 	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")
 	TetherCost     = def(1602, http.StatusConflict, "You don't have enough resources for that.") // data: short

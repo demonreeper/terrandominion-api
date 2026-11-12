@@ -11,9 +11,6 @@ import (
 // stand, how many a faction may hold, and the slot layout per tier. Pure functions; the service gathers the
 // nearby bases and flags and the map checks (land, walkway, buildings, sensitive places) and passes them in.
 
-// RankLead is the atoll/city lead (regional-command-plan.md: appointed by the regional Commander).
-const RankLead = 70
-
 // BaseTopTier is the Capital; BaseTopTierNonCapital is where every other base stops (section 2).
 const (
 	BaseTopTier           = 5
@@ -125,6 +122,7 @@ func BaseCap(activeMembers int, s Settings) int {
 type Proposer struct {
 	InFaction bool
 	Rank      int
+	Nomad     bool
 	// HomeRegion is their branch's region; HereRegion where their fix is.
 	HomeRegion, HereRegion string
 	AccuracyM              float64
@@ -143,7 +141,7 @@ func CanProposeBase(p Proposer, now time.Time, s Settings) *apperr.Error {
 		return apperr.BasesOff
 	case !p.InFaction:
 		return apperr.NotAMember
-	case p.Rank < RankWarden:
+	case !Can(p.Rank, p.Nomad, PowerProposeBase):
 		return apperr.BaseRankTooLow
 	case p.HomeRegion == "" || p.HomeRegion != p.HereRegion:
 		return apperr.BaseNotHomeRegion
@@ -160,7 +158,7 @@ func CanProposeBase(p Proposer, now time.Time, s Settings) *apperr.Error {
 }
 
 // BaseCanApprove: the regional Commander (or whoever holds the seat as acting Commander) approves.
-func BaseCanApprove(rank int) bool { return rank >= RankRegionalCommander }
+func BaseCanApprove(rank int) bool { return Can(rank, false, PowerApproveBase) }
 
 // BaseCooldownUntil is when a proposal decided at decidedAt stops blocking its proposer.
 func BaseCooldownUntil(decidedAt time.Time, s Settings) time.Time {

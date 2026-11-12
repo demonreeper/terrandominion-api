@@ -124,7 +124,7 @@ func (s *Service) playerInfo(ctx context.Context, q db.Querier, actor store.Play
 		return nil, err
 	}
 	if membership != nil {
-		describeMembership(membership)
+		s.describeMembership(ctx, membership)
 		info.Faction, info.RankTitle = membership.FactionName, membership.RankTitle
 		info.Region = membership.Region
 		if viewing, err := store.ViewingBranch(ctx, q, targetID); err != nil {

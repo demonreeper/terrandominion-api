@@ -79,7 +79,7 @@ func (s *Service) ProposeBase(ctx context.Context, playerID int64, req ProposeRe
 		}
 		p := game.Proposer{InFaction: m != nil, HereRegion: here.Code, AccuracyM: req.AccuracyM, BasesEnabled: st.BasesEnabled == 1}
 		if m != nil {
-			p.Rank, p.HomeRegion = m.Rank, m.Region
+			p.Rank, p.HomeRegion, p.Nomad = m.Rank, m.Region, m.Nomad
 			open, last, err := store.ProposerState(ctx, tx, playerID, now)
 			if err != nil {
 				return err
@@ -281,7 +281,7 @@ func (s *Service) Proposals(ctx context.Context, playerID int64) (ProposalsView,
 		return out, err
 	}
 	out.CanAnswer = game.BaseCanApprove(m.Rank)
-	out.CanPropose = m.Rank >= game.RankWarden && st.BasesEnabled == 1
+	out.CanPropose = game.Can(m.Rank, m.Nomad, game.PowerProposeBase) && st.BasesEnabled == 1
 	if out.ProposalsOff, err = store.BranchProposalsOff(ctx, s.db, m.FactionID, m.Region); err != nil {
 		return out, err
 	}
@@ -412,6 +412,7 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 
 // baseTick brings unanswered flags down and tells their proposers.
 func (s *Service) baseTick(ctx context.Context) {
+	s.rankTick(ctx)
 	now := s.now()
 	due, err := store.DueFlags(ctx, s.db, now, 50)
 	if err != nil {

@@ -175,6 +175,12 @@ func advanceMissions(ctx context.Context, tx *sql.Tx, playerID int64, goal, key 
 	if err := scorePlaystyle(ctx, tx, playerID, goal, key); err != nil {
 		return err
 	}
+	// A member's missions count only while they stand in their home region (faction-ranks-plan.md, Nomads).
+	if away, err := store.AwayFromHome(ctx, tx, playerID, settings.CountryAtMaxKm); err != nil {
+		return err
+	} else if away {
+		return nil
+	}
 	finished, err := store.AdvanceMissions(ctx, tx, playerID, day, goal, key, amount)
 	if err != nil {
 		return err
@@ -291,7 +297,7 @@ type BranchView struct {
 	FactionName string               `json:"factionName"`
 	Region      string               `json:"region"`
 	Members     []store.BranchMember `json:"members"`
-	// CanAppoint is true for the branch's Regional Commander (in their home region only).
+	// CanAppoint: the viewer may appoint someone here (members[].appoint says to what; home region only).
 	CanAppoint bool `json:"canAppoint"`
 	// Visiting: this is another unlocked region of the faction, viewed (R2): talk only. Home is the player's own
 	// region; Visitors are members from other regions viewing this one.
@@ -338,8 +344,23 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 		regionName = game.RegionName(region)
 	}
 	ids := make([]int64, 0, len(members))
+	canAppoint := false
 	for i := range members {
 		members[i].RankTitle = game.RankTitle(members[i].Rank)
+		if members[i].Nomad {
+			members[i].RankTitle = "Nomad"
+		}
+		members[i].RankKey = game.RankAt(members[i].Rank).Key
+		members[i].MySquad = members[i].CaptainID != nil && *members[i].CaptainID == playerID
+		// What the viewer may appoint them to: no rank works away from home, nor on a Nomad.
+		if !visiting && !members[i].Nomad && members[i].PlayerID != playerID {
+			for _, to := range []int{game.RankLead, game.RankWarden, game.RankCaptain} {
+				if game.CanAppoint(membership.Rank, membership.Nomad, members[i].Rank, to) {
+					members[i].Appoint = append(members[i].Appoint, game.RankAt(to).Key)
+					canAppoint = true
+				}
+			}
+		}
 		ids = append(ids, members[i].PlayerID)
 	}
 	states, err := store.FriendStates(ctx, s.db, playerID, ids)
@@ -356,58 +377,6 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: region, RegionName: regionName,
 		Members: members, Visitors: visitors, Visiting: visiting, Home: membership.Region,
 		// No rank works away from home: the Commander appoints only in their own region.
-		CanAppoint: !visiting && membership.Rank >= game.RankRegionalCommander,
+		CanAppoint: canAppoint,
 	}, nil
-}
-
-// AppointWarden lets a Regional Commander make a member of their branch a Warden. Both players are
-// locked, lowest id first.
-func (s *Service) AppointWarden(ctx context.Context, commanderID, targetID int64) error {
-	if commanderID == targetID {
-		return apperr.BadRequest.With("you can't appoint yourself")
-	}
-	settings := s.Settings(ctx)
-	return db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		first, second := min(commanderID, targetID), max(commanderID, targetID)
-		if _, err := store.GetPlayerForUpdate(ctx, tx, first); err != nil {
-			return err
-		}
-		if _, err := store.GetPlayerForUpdate(ctx, tx, second); err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				return apperr.NotInBranch
-			}
-			return err
-		}
-		commander, err := store.MembershipOf(ctx, tx, commanderID)
-		if err != nil {
-			return err
-		}
-		if commander == nil || commander.Rank < game.RankRegionalCommander || commander.BranchID == nil {
-			return apperr.NotRegionalCommander
-		}
-		target, err := store.MembershipOf(ctx, tx, targetID)
-		if err != nil {
-			return err
-		}
-		if target == nil || target.BranchID == nil || *target.BranchID != *commander.BranchID {
-			return apperr.NotInBranch
-		}
-		if target.Rank >= game.RankWarden {
-			return apperr.AlreadyWarden
-		}
-		if err := store.SetMemberRank(ctx, tx, targetID, game.RankWarden); err != nil {
-			return err
-		}
-		names, err := store.GetPlayer(ctx, tx, commanderID)
-		if err != nil {
-			return err
-		}
-		if err := notify(ctx, tx, store.NewNotice{
-			PlayerID: targetID, ActorID: commanderID, Kind: "warden",
-			Body: game.NoticeWarden(names.Name, commander.FactionName),
-		}); err != nil {
-			return err
-		}
-		return advanceMissions(ctx, tx, commanderID, game.GoalAppointWarden, "", 1, settings, s.now())
-	})
 }

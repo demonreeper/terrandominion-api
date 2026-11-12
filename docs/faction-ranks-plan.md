@@ -1,5 +1,10 @@
 # Faction ranks v2 and Nomads
 
+**R1 built 2026-11-12** (API migration 0065, `internal/game/ranks.go`; app RANKS screen). Starting values the plan left
+open: `ProspectPoints` 100, `RankPointsCaptain` 1000, `RankPointsWarden` 2000, `RankPointsLead` 5000, `RankSlotsCaptain`
+12, `RankSlotsWarden` 6, `RankSlotsLead` 3, `CaptainVaultDailyCap` 500 (all resources together), `NomadAskHours` 48.
+Rank places also apply to appointments. Points come from giving to base projects (B2).
+
 Decided by the owner on 2026-11-12 in the base building thread. This replaces the five-rank table in GAME_DESIGN
 ("Ranks", decided 2026-11-09). Every number here is a setting in `td.settings` with a range, in the settings group
 "Ranks".

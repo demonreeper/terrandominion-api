@@ -54,10 +54,39 @@ var noticeSeverity = map[string]string{
 	"base_approved": SeverityInfo,
 	"base_declined": SeverityWarning,
 	"base_expired":  SeverityWarning,
+
+	// Ranks and Nomads (faction-ranks-plan.md).
+	"rank_up":        SeverityInfo,
+	"nomad_ask":      SeverityWarning,
+	"nomad_moved":    SeverityInfo,
+	"nomad_declined": SeverityWarning,
+	"nomad_expired":  SeverityWarning,
 }
 
 // NoticeDropReclaimed tells an owner that what their ended Tether Node left on the map was never
 // picked up. Lore: the Undersignal takes back what is left unclaimed (docs/LORE.md).
+// NoticeRankUp: someone with the power gave the player a rank.
+func NoticeRankUp(by, title, faction string) string {
+	return by + " made you " + title + " of " + faction + " in your region."
+}
+
+// NoticeRankEarned: contribution points promoted the player.
+func NoticeRankEarned(title string) string {
+	return "Your contributions made you " + title + "."
+}
+
+func NoticeNomadAsk(name string) string {
+	return name + " asks to move to your region as a Nomad. Answer in FACTIONS."
+}
+
+func NoticeNomadMoved() string {
+	return "Your move was approved. Your new region is home now."
+}
+
+func NoticeNomadDeclined() string { return "Your ask to move was declined." }
+
+func NoticeNomadExpired() string { return "Your ask to move was not answered in time." }
+
 func NoticeDropReclaimed() string {
 	return "The Undersignal reclaimed what your Tether Node left behind."
 }

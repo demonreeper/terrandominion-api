@@ -21,7 +21,7 @@ var JobKinds = []string{JobHit, JobScout, JobGuard}
 // Why a job can't be posted or taken.
 const (
 	JobOK          = ""
-	JobNotWarden   = "not_warden"   // only Wardens and above post
+	JobNotWarden   = "not_warden"   // only Captains and above post (faction-ranks-plan.md)
 	JobBadKind     = "kind"         // not a job kind
 	JobBadSlots    = "slots"        // 1 to JobSlotsMax
 	JobBadHours    = "hours"        // JobHoursMin to JobHoursMax
@@ -57,7 +57,7 @@ func RewardTotal(reward map[string]int64) int64 {
 // CheckJobPost says why a job can't be posted, or JobOK. known lists the game's resources.
 func CheckJobPost(s Settings, p JobPost, rank int, known map[string]bool, openForFaction, postedToday int) string {
 	switch {
-	case rank < RankWarden:
+	case !Can(rank, false, PowerPostJobs):
 		return JobNotWarden
 	case p.Kind != JobHit && p.Kind != JobScout && p.Kind != JobGuard:
 		return JobBadKind

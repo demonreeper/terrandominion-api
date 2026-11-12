@@ -95,7 +95,7 @@ func (s *Service) Profile(ctx context.Context, viewerID int64, code string) (*Pr
 		return nil, err
 	}
 	if membership != nil {
-		describeMembership(membership)
+		s.describeMembership(ctx, membership)
 		color, err := store.FactionColor(ctx, s.db, membership.FactionID)
 		if err != nil {
 			return nil, err

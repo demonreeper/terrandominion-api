@@ -140,7 +140,7 @@ func (s *Service) ModReports(ctx context.Context, modID int64) (ModQueue, error)
 				return queue, err
 			}
 			if membership != nil {
-				describeMembership(membership)
+				s.describeMembership(ctx, membership)
 				entry.Faction, entry.RankTitle = membership.FactionName, membership.RankTitle
 			}
 			if entry.Sanctions, err = store.SanctionsOf(ctx, s.db, report.TargetID, now); err != nil {

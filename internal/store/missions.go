@@ -219,6 +219,14 @@ type BranchMember struct {
 	Level     int    `json:"level"`
 	Rank      int    `json:"rank"`
 	RankTitle string `json:"rankTitle"`
+	// RankKey and Nomad (faction-ranks-plan.md); Appoint lists the ranks the viewer may give them; CaptainID is the
+	// Captain whose squad they are in (MySquad: the viewer's; InSquad: anyone's).
+	RankKey   string   `json:"rankKey,omitempty"`
+	Nomad     bool     `json:"nomad,omitempty"`
+	Appoint   []string `json:"appoint,omitempty"`
+	CaptainID *int64   `json:"-"`
+	InSquad   bool     `json:"inSquad,omitempty"`
+	MySquad   bool     `json:"mySquad,omitempty"`
 	// FriendState is how the asker stands with them: "", friend, incoming or outgoing (FR1).
 	FriendState string `json:"friendState"`
 	// Visitor: a member of another region viewing this one (R2); From is their home region.
@@ -229,7 +237,8 @@ type BranchMember struct {
 // BranchMembers lists a branch, highest rank first.
 func BranchMembers(ctx context.Context, q db.Querier, branchID int64) ([]BranchMember, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT p.id, `+playerRefSQL("p")+`, p.level, m.rank
+		SELECT p.id, `+playerRefSQL("p")+`, p.level, m.rank, m.nomad,
+		       (SELECT s.captain_id FROM td.squad_members s WHERE s.player_id = p.id)
 		FROM td.faction_members m JOIN td.players p ON p.id = m.player_id
 		WHERE m.branch_id = $1 ORDER BY m.rank DESC, p.level DESC, p.id`, branchID)
 	if err != nil {
@@ -239,9 +248,10 @@ func BranchMembers(ctx context.Context, q db.Querier, branchID int64) ([]BranchM
 	out := make([]BranchMember, 0, 8)
 	for rows.Next() {
 		var m BranchMember
-		if err := rows.Scan(&m.PlayerID, &m.Code, &m.Name, &m.Level, &m.Rank); err != nil {
+		if err := rows.Scan(&m.PlayerID, &m.Code, &m.Name, &m.Level, &m.Rank, &m.Nomad, &m.CaptainID); err != nil {
 			return nil, err
 		}
+		m.InSquad = m.CaptainID != nil
 		out = append(out, m)
 	}
 	return out, rows.Err()
