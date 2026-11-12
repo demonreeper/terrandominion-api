@@ -241,7 +241,7 @@ Start with **free assets only**; paid packs come later, after funding.
   Station Kit / Modular Space Kit** (CC0) for placeholders. Kitbash the Spire tower, modules and turrets from them.
 - Shield: **Free Force Field Shader for URP** (Void1 Gaming, itch.io), tinted to the faction's colour.
 - Textures: CC0 sci-fi panels (ambientCG / Poly Haven) or the procedural panel set from the mock-up renders.
-- Look reference: the Blender mock-up renders (`video/base-mockup/v3-blender/` in the project files), one glow colour per faction.
+- **Models (owner, 2026-11-12):** the Blender mock-ups are exported as game models (mobile `Assets/Art/Models/`, TN and base parts with baked textures and separate glow parts); the game uses these, not shapes built in code. Reference renders and sources: API `docs/art-reference/`. One glow colour per faction.
 - Check every asset for cross shapes before it goes in the game.
 - Later, after funding: a heavier paid kit (for example Sci-Fi Heavy Station Kit) and a hit-effect shield.
 
