@@ -245,6 +245,28 @@ Start with **free assets only**; paid packs come later, after funding.
 - Check every asset for cross shapes before it goes in the game.
 - Later, after funding: a heavier paid kit (for example Sci-Fi Heavy Station Kit) and a hit-effect shield.
 
+## 9c. Tether Node restyle (owner, 2026-11-12)
+
+The TN gets the same solid, panelled look as the bases, so the two read as one family. Look reference: the
+renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `source/tn.py`, model
+`tether-node-t2.glb`).
+- **Model:** a dark panelled, tapered hex pylon on a stepped hex plate (hex-cell glow inset, rim lights,
+  corner blocks, survey ticks), glowing bands and slits on each segment, three leaning fins, a crown of three
+  prongs holding a floating cut core in a glass halo, hex orbit rings around the core (one at tier 1, more at
+  tier 2), a thin sky beam, perimeter posts with lit tips (3 at tier 1; 6 with a two-line energy lattice at
+  tier 2) and a dashed health ring on the ground that turns red for the lost part.
+- **Colour:** the glow takes the owner's colour. A faction member's TN (your own included) glows in the
+  faction colour; a freelancer's TN (your own included) glows **freelancer blue `#3a8cff`**, because Lumen's
+  cyan looked too alike. The HUD stays cyan.
+- **Banners:** faction TNs carry their faction's banners on the posts; freelancer TNs have none.
+- **Links and nodes** keep the resource colours (crystal, alloy, data, credit), with hex packets on the lines in AR.
+- **Shield:** the hex-cell dome in the owner's colour (the same shield shader as bases).
+- **Holo table** uses the same model, plainer (static lines, no packets, no idle motion), as now.
+- **No flat rings around the sky beam**: seen at eye level they make a cross. Tilted orbit rings around the core
+  are fine. Check the result from eye level.
+- **Assets:** the same free kits and textures as bases (9b); keep it light enough for mid-range phones.
+- Built as milestone **T1**, before B0, because bases reuse its materials and colour code.
+
 ## 10. Missions and story
 
 - Members' daily mission from their power becomes base work when the faction has a base: *give 200
