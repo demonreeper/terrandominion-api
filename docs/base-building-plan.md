@@ -28,8 +28,9 @@ without a Lattice none is online); module at 0 offline until repaired; core at 0
 away at 50% of their cost to the vault, 12 h protection) or destroys a Spire (half the vault dropped on the map, 48 h);
 hacks (75 m, 50 data, 5-15% above the 20% safe floor, Bastion Order 35%, 30 min per player per base; the puzzle is on
 the phone); intercept, defuse and repair on site; the push once per base per 30 min; a freelancer attacker loses
-neutral standing; the attacker's walk link with a member ends. Guard jobs on a base use the existing guard job at the
-base's spot; no base-specific guard job was added.
+neutral standing; the attacker's walk link with a member ends. Guard jobs on a base: built 2026-11-12 (migration 0071):
+POST GUARD JOB on the base card posts a guard job with `baseId` (the core is the spot, the zone or `JobGuardRadiusM` the
+radius, whichever is larger); a base that falls ends its guard jobs and refunds the unpaid slots.
 **B6 built 2026-11-12** (migration 0069): fading after 7 days without a member on site (no new projects, shield halved,
 dimmed, members told "<Base> is fading. Walk to it."), a tier lost each further week, a faded Spire collapsing after 14
 days. A collapse is treated like a destruction (half the vault drops on the map): the plan doesn't say what a collapse

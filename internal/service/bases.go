@@ -248,6 +248,9 @@ func (s *Service) AdminClearBase(ctx context.Context, adminID, baseID int64) err
 		if err != nil {
 			return err
 		}
+		if err := endBaseJobs(ctx, tx, b.ID, b.Name); err != nil {
+			return err
+		}
 		if err := store.DeleteBase(ctx, tx, b.ID); err != nil {
 			return err
 		}

@@ -60,12 +60,13 @@ func (s *Service) Jobs(ctx context.Context, playerID int64) (JobsView, error) {
 	return out, err
 }
 
-// PostJob is what a Warden asks for: a kind, a target (a Tether Node for a hit, a node for a guard,
-// the poster's position for a scout), the reward per slot, slots and hours.
+// PostJob is what a Warden asks for: a kind, a target (a Tether Node for a hit, a node or one of the
+// faction's bases for a guard, the poster's position for a scout), the reward per slot, slots and hours.
 type PostJob struct {
 	Kind      string
 	TetherID  int64
 	NodeID    int64
+	BaseID    int64
 	Lat, Lon  float64
 	AccuracyM float64
 	Reward    map[string]int64
@@ -95,6 +96,8 @@ func jobRefusal(reason string) error {
 		return apperr.JobNotYours.Say("You can't take a job posted from your own phone.")
 	case game.JobFarmed:
 		return apperr.JobNotYours.Say("You have hit that player's Tether Nodes enough for one day.")
+	case game.JobBadTarget:
+		return apperr.JobBad.Say("A guard job guards one node or one base.")
 	}
 	return apperr.JobBad
 }
@@ -111,9 +114,9 @@ func (s *Service) PostJob(ctx context.Context, posterID int64, p PostJob) (store
 		if err != nil {
 			return err
 		}
-		rank, faction := 0, 0
+		rank, faction, region := 0, 0, ""
 		if membership != nil {
-			rank, faction = membership.Rank, membership.FactionID
+			rank, faction, region = membership.Rank, membership.FactionID, membership.Region
 		}
 		stored, err := store.Uploaded(ctx, tx, posterID)
 		if err != nil {
@@ -133,6 +136,9 @@ func (s *Service) PostJob(ctx context.Context, posterID int64, p PostJob) (store
 		}
 		if why := game.CheckJobPost(settings, game.JobPost{Kind: p.Kind, Slots: p.Slots, Hours: p.Hours, Reward: p.Reward},
 			rank, known, open, posted); why != game.JobOK {
+			return jobRefusal(why)
+		}
+		if why := game.CheckGuardTarget(p.Kind, p.NodeID, p.BaseID); why != game.JobOK {
 			return jobRefusal(why)
 		}
 		// Jobs are posted only while standing in the home region (faction-ranks-plan.md: a move never lets a player
@@ -167,6 +173,22 @@ func (s *Service) PostJob(ctx context.Context, posterID int64, p PostJob) (store
 			}
 			job.TetherID, job.Lat, job.Lon, job.RadiusM = p.TetherID, target.Lat, target.Lon, 0
 		case game.JobGuard:
+			if p.BaseID != 0 {
+				// GUARD THIS BASE (base-building-plan.md, Defence): one of the faction's standing bases in the poster's
+				// region. The guard spot is the core; the radius is the zone or JobGuardRadiusM, whichever is larger.
+				b, err := store.BaseRefForUpdate(ctx, tx, p.BaseID)
+				if errors.Is(err, store.ErrNotFound) {
+					return apperr.BaseGone
+				}
+				if err != nil {
+					return err
+				}
+				if b.FactionID != faction || b.Region != region || b.Status != "active" {
+					return apperr.JobBaseRefused
+				}
+				job.BaseID, job.Lat, job.Lon, job.RadiusM = b.ID, b.Lat, b.Lon, game.GuardRadiusM(settings, b.ZoneM)
+				break
+			}
 			lat, lon, active, err := store.NodeBrief(ctx, tx, p.NodeID)
 			if errors.Is(err, store.ErrNotFound) || (err == nil && !active) {
 				return apperr.NodeInactive
@@ -332,7 +354,7 @@ func (s *Service) JobFix(ctx context.Context, playerID int64, lat, lon, accuracy
 			return err
 		}
 		for _, job := range guards {
-			seconds, counts := game.GuardTime(settings, job.LastFixAt, now, game.DistanceM(lat, lon, job.Lat, job.Lon), accuracyM)
+			seconds, counts := game.GuardTime(settings, job.LastFixAt, now, game.DistanceM(lat, lon, job.Lat, job.Lon), accuracyM, job.RadiusM)
 			if !counts {
 				continue
 			}
@@ -361,18 +383,7 @@ func (s *Service) expireJobs(ctx context.Context) {
 			return err
 		}
 		for _, job := range due {
-			refund := game.RefundOf(job.Reward, job.Slots, job.Done)
-			if job.PosterID != 0 {
-				for _, resource := range game.SortedResources(refund) {
-					if err := store.AddUploaded(ctx, tx, job.PosterID, resource, refund[resource]); err != nil {
-						return err
-					}
-				}
-				if err := notify(ctx, tx, store.NewNotice{PlayerID: job.PosterID, Kind: "job_ended", Body: game.NoticeJobEnded(job.Kind)}); err != nil {
-					return err
-				}
-			}
-			if err := store.EndJob(ctx, tx, job.ID, refund); err != nil {
+			if err := endJob(ctx, tx, job, game.NoticeJobEnded(job.Kind)); err != nil {
 				return err
 			}
 		}
@@ -381,4 +392,46 @@ func (s *Service) expireJobs(ctx context.Context) {
 	if err != nil && ctx.Err() == nil {
 		slog.Error("E1900 job expiry failed", "err", err)
 	}
+}
+
+// endJob ends an open job before every slot is paid: unfinished takes fail, and the poster gets back the reward
+// for every slot not paid, with the notice body given.
+func endJob(ctx context.Context, tx *sql.Tx, job store.Job, body string) error {
+	refund := game.RefundOf(job.Reward, job.Slots, job.Done)
+	if job.PosterID != 0 {
+		for _, resource := range game.SortedResources(refund) {
+			if err := store.AddUploaded(ctx, tx, job.PosterID, resource, refund[resource]); err != nil {
+				return err
+			}
+		}
+		if err := notify(ctx, tx, store.NewNotice{PlayerID: job.PosterID, Kind: "job_ended", Body: body}); err != nil {
+			return err
+		}
+	}
+	return store.EndJob(ctx, tx, job.ID, refund)
+}
+
+// endBaseJobs ends the open guard jobs at a base that has fallen (collapsed in upkeep, destroyed in a fight, or
+// cleared by an admin), at once and as an expired job is: the poster gets the unpaid slots back, and the freelancers
+// who had taken one hear it ended. Call it inside the transaction that holds the base.
+func endBaseJobs(ctx context.Context, tx *sql.Tx, baseID int64, baseName string) error {
+	jobs, err := store.OpenJobsAtBase(ctx, tx, baseID)
+	if err != nil {
+		return err
+	}
+	for _, job := range jobs {
+		takers, err := store.OpenTakers(ctx, tx, job.ID)
+		if err != nil {
+			return err
+		}
+		if err := endJob(ctx, tx, job, game.NoticeBaseGuardEnded(baseName)); err != nil {
+			return err
+		}
+		for _, id := range takers {
+			if err := notify(ctx, tx, store.NewNotice{PlayerID: id, Kind: "job_ended", Body: game.NoticeBaseGuardLost(baseName)}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

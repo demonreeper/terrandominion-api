@@ -198,6 +198,7 @@ func (s *Server) postJob(w http.ResponseWriter, r *http.Request) {
 		Kind      string           `json:"kind"`
 		TetherID  int64            `json:"tetherId"`
 		NodeID    int64            `json:"nodeId"`
+		BaseID    int64            `json:"baseId"`
 		Lat       float64          `json:"lat"`
 		Lon       float64          `json:"lon"`
 		AccuracyM float64          `json:"accuracyM"`
@@ -210,7 +211,7 @@ func (s *Server) postJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job, err := s.svc.PostJob(r.Context(), playerID, service.PostJob{
-		Kind: body.Kind, TetherID: body.TetherID, NodeID: body.NodeID, Lat: body.Lat, Lon: body.Lon,
+		Kind: body.Kind, TetherID: body.TetherID, NodeID: body.NodeID, BaseID: body.BaseID, Lat: body.Lat, Lon: body.Lon,
 		AccuracyM: body.AccuracyM, Reward: body.Reward, Slots: body.Slots, Hours: body.Hours,
 	})
 	if err != nil {

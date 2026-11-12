@@ -15,24 +15,27 @@ import (
 // Job is one posted job, as the board shows it. Target names what to hit, scout or guard; the
 // poster is named by faction only, never by player.
 type Job struct {
-	ID           int64            `json:"id"`
-	Kind         string           `json:"kind"`
-	FactionCode  string           `json:"factionCode"`
-	FactionName  string           `json:"factionName"`
-	FactionColor string           `json:"factionColor"`
-	Target       string           `json:"target"`
-	TetherID     int64            `json:"tetherId,omitempty"`
-	NodeID       int64            `json:"nodeId,omitempty"`
-	Lat          float64          `json:"lat"`
-	Lon          float64          `json:"lon"`
-	RadiusM      float64          `json:"radiusM"`
-	Reward       map[string]int64 `json:"reward"`
-	Slots        int              `json:"slots"`
-	Taken        int              `json:"taken"`
-	Done         int              `json:"done"`
-	Status       string           `json:"status"`
-	Deadline     time.Time        `json:"deadline"`
-	CreatedAt    time.Time        `json:"createdAt"`
+	ID           int64  `json:"id"`
+	Kind         string `json:"kind"`
+	FactionCode  string `json:"factionCode"`
+	FactionName  string `json:"factionName"`
+	FactionColor string `json:"factionColor"`
+	Target       string `json:"target"`
+	TetherID     int64  `json:"tetherId,omitempty"`
+	NodeID       int64  `json:"nodeId,omitempty"`
+	// BaseID: a guard job at one of the faction's bases (Target is then the base's name, Lat/Lon its core,
+	// RadiusM its zone or JobGuardRadiusM, whichever is larger).
+	BaseID    int64            `json:"baseId,omitempty"`
+	Lat       float64          `json:"lat"`
+	Lon       float64          `json:"lon"`
+	RadiusM   float64          `json:"radiusM"`
+	Reward    map[string]int64 `json:"reward"`
+	Slots     int              `json:"slots"`
+	Taken     int              `json:"taken"`
+	Done      int              `json:"done"`
+	Status    string           `json:"status"`
+	Deadline  time.Time        `json:"deadline"`
+	CreatedAt time.Time        `json:"createdAt"`
 	// Mine: the asking freelancer's take on it (taken, done, failed), with guard progress.
 	MyStatus     string `json:"myStatus,omitempty"`
 	GuardSeconds int    `json:"guardSeconds,omitempty"`
@@ -49,9 +52,10 @@ const jobColumns = `
 	CASE j.kind
 	    WHEN 'hit' THEN COALESCE((SELECT td.player_name(p.callsign, p.public_code, p.status) || '''s Tether Node'
 	                              FROM td.tether_nodes t JOIN td.players p ON p.id = t.owner_id WHERE t.id = j.tn_id), 'A Tether Node')
-	    WHEN 'guard' THEN COALESCE((SELECT n.name FROM td.nodes n WHERE n.id = j.node_id), 'A node')
+	    WHEN 'guard' THEN COALESCE((SELECT b.name FROM td.bases b WHERE b.id = j.base_id),
+	                               (SELECT n.name FROM td.nodes n WHERE n.id = j.node_id), 'A node')
 	    ELSE 'An area' END,
-	COALESCE(j.tn_id, 0), COALESCE(j.node_id, 0), j.lat, j.lon, j.radius_m, j.reward, j.slots,
+	COALESCE(j.tn_id, 0), COALESCE(j.node_id, 0), COALESCE(j.base_id, 0), j.lat, j.lon, j.radius_m, j.reward, j.slots,
 	(SELECT count(*) FROM td.job_takes k WHERE k.job_id = j.id AND k.status <> 'failed'),
 	j.done, j.status, j.deadline, j.created_at, COALESCE(j.poster_id, 0), j.faction_id,
 	COALESCE((SELECT t.owner_id FROM td.tether_nodes t WHERE t.id = j.tn_id), 0)`
@@ -60,7 +64,7 @@ func scanJob(row interface{ Scan(...any) error }, extra ...any) (Job, error) {
 	var j Job
 	var reward []byte
 	dest := []any{&j.ID, &j.Kind, &j.FactionCode, &j.FactionName, &j.FactionColor, &j.Target, &j.TetherID, &j.NodeID,
-		&j.Lat, &j.Lon, &j.RadiusM, &reward, &j.Slots, &j.Taken, &j.Done, &j.Status, &j.Deadline, &j.CreatedAt,
+		&j.BaseID, &j.Lat, &j.Lon, &j.RadiusM, &reward, &j.Slots, &j.Taken, &j.Done, &j.Status, &j.Deadline, &j.CreatedAt,
 		&j.PosterID, &j.FactionID, &j.TetherOwn}
 	if err := row.Scan(append(dest, extra...)...); err != nil {
 		return j, err
@@ -75,6 +79,7 @@ type NewJob struct {
 	Kind      string
 	TetherID  int64
 	NodeID    int64
+	BaseID    int64
 	Lat, Lon  float64
 	RadiusM   float64
 	Reward    map[string]int64
@@ -89,9 +94,11 @@ func InsertJob(ctx context.Context, q db.Querier, j NewJob) (int64, error) {
 	}
 	var id int64
 	err = q.QueryRowContext(ctx, `
-		INSERT INTO td.jobs (poster_id, faction_id, kind, tn_id, node_id, lat, lon, radius_m, reward, slots, deadline)
-		VALUES ($1, $2, $3, NULLIF($4::bigint, 0), NULLIF($5::bigint, 0), $6, $7, $8, $9::jsonb, $10, $11) RETURNING id`,
-		j.PosterID, j.FactionID, j.Kind, j.TetherID, j.NodeID, j.Lat, j.Lon, j.RadiusM, string(reward), j.Slots, j.Deadline).Scan(&id)
+		INSERT INTO td.jobs (poster_id, faction_id, kind, tn_id, node_id, base_id, lat, lon, radius_m, reward, slots, deadline)
+		VALUES ($1, $2, $3, NULLIF($4::bigint, 0), NULLIF($5::bigint, 0), NULLIF($6::bigint, 0), $7, $8, $9, $10::jsonb, $11, $12)
+		RETURNING id`,
+		j.PosterID, j.FactionID, j.Kind, j.TetherID, j.NodeID, j.BaseID, j.Lat, j.Lon, j.RadiusM, string(reward), j.Slots,
+		j.Deadline).Scan(&id)
 	return id, err
 }
 
@@ -257,6 +264,44 @@ func DueJobs(ctx context.Context, q db.Querier, now time.Time, limit int) ([]Job
 			return nil, err
 		}
 		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
+// OpenJobsAtBase lists a base's open guard jobs, locked, to end them when the base falls.
+func OpenJobsAtBase(ctx context.Context, q db.Querier, baseID int64) ([]Job, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT `+jobColumns+` FROM td.jobs j JOIN td.factions f ON f.id = j.faction_id
+		WHERE j.base_id = $1 AND j.status = 'open' ORDER BY j.id FOR UPDATE OF j`, baseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Job{}
+	for rows.Next() {
+		j, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
+// OpenTakers lists the freelancers who have taken a job and not finished it.
+func OpenTakers(ctx context.Context, q db.Querier, jobID int64) ([]int64, error) {
+	rows, err := q.QueryContext(ctx, `SELECT taker_id FROM td.job_takes WHERE job_id = $1 AND status = 'taken' ORDER BY taker_id`, jobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
 	}
 	return out, rows.Err()
 }

@@ -35,7 +35,32 @@ const (
 	JobAgainstSelf = "self"         // a hit on the taker's own Tether Node
 	JobSamePhone   = "same_phone"   // the poster and the taker sign in on the same phone
 	JobFarmed      = "farmed"       // the taker reached the day's attack limit on that owner
+	JobBadTarget   = "target"       // a guard job names a node or a base, never both or neither
 )
+
+// CheckGuardTarget says whether a guard job names exactly one thing to guard: a node or a base
+// (base-building-plan.md, Defence). Other kinds name neither.
+func CheckGuardTarget(kind string, nodeID, baseID int64) string {
+	if kind != JobGuard {
+		if baseID != 0 {
+			return JobBadTarget
+		}
+		return JobOK
+	}
+	if (nodeID != 0) == (baseID != 0) {
+		return JobBadTarget
+	}
+	return JobOK
+}
+
+// GuardRadiusM is how near a guard has to be: a base's zone (0 for a node) or JobGuardRadiusM,
+// whichever is larger. A base's guard spot is its core.
+func GuardRadiusM(s Settings, zoneM float64) float64 {
+	if r := float64(s.JobGuardRadiusM); r > zoneM {
+		return r
+	}
+	return zoneM
+}
 
 // JobPost is what a poster asks for.
 type JobPost struct {
@@ -128,9 +153,10 @@ func CheckJobTake(s Settings, kind string, t JobTaker) string {
 
 // GuardTime is how many seconds one fix adds to a guard job: the time since the last fix that counted,
 // up to JobGuardGapSeconds, and only when this fix is near enough and good enough. A gap means the
-// phone stopped reporting, so it counts only up to the limit.
-func GuardTime(s Settings, last *time.Time, now time.Time, distanceM, accuracyM float64) (seconds int, counts bool) {
-	if accuracyM <= 0 || accuracyM > s.HarvestMaxAccuracyM || distanceM > float64(s.JobGuardRadiusM)+accuracyM {
+// phone stopped reporting, so it counts only up to the limit. radiusM is the job's own radius (a base's
+// zone); never less than JobGuardRadiusM.
+func GuardTime(s Settings, last *time.Time, now time.Time, distanceM, accuracyM, radiusM float64) (seconds int, counts bool) {
+	if accuracyM <= 0 || accuracyM > s.HarvestMaxAccuracyM || distanceM > GuardRadiusM(s, radiusM)+accuracyM {
 		return 0, false
 	}
 	if last == nil {
@@ -178,6 +204,15 @@ func NoticeJobDone(kind string) string {
 func NoticeJobPaid(kind string) string { return "Job done: " + JobTitle(kind) + ". You were paid." }
 func NoticeJobEnded(kind string) string {
 	return "Your " + JobTitle(kind) + " job ended. What wasn't paid out went back to your storage."
+}
+
+// NoticeBaseGuardEnded tells the poster their guard job at a base ended because the base fell;
+// NoticeBaseGuardLost tells a freelancer who had taken it.
+func NoticeBaseGuardEnded(base string) string {
+	return "Your guard job at " + base + " ended: the base fell. What wasn't paid out went back to your storage."
+}
+func NoticeBaseGuardLost(base string) string {
+	return "The guard job at " + base + " ended: the base fell."
 }
 
 // JobTitle is a job kind in a sentence.

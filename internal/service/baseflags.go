@@ -387,6 +387,10 @@ type BaseCardView struct {
 	// B5: protected until (no attacks), and for members the drones flying at it and spikes armed on it.
 	ProtectedUntil *time.Time         `json:"protectedUntil,omitempty"`
 	Threats        []store.BaseStrike `json:"threats,omitempty"`
+	// CanPostGuard: the caller may post GUARD THIS BASE on the JOBS board (power post_jobs, a standing base of their
+	// faction in their home region); GuardRadiusM is how near a guard has to stand (the zone or JobGuardRadiusM).
+	CanPostGuard bool    `json:"canPostGuard"`
+	GuardRadiusM float64 `json:"guardRadiusM,omitempty"`
 }
 
 // BaseGrowthView is the ghost of the next tier's ring: room when it fits, else the base it would come too close to.
@@ -454,6 +458,9 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 	}
 	if m != nil && m.FactionID == base.FactionID {
 		out.Member = true
+		if base.Status == "active" && base.Region == m.Region && game.Can(m.Rank, m.Nomad, game.PowerPostJobs) {
+			out.CanPostGuard, out.GuardRadiusM = true, game.GuardRadiusM(st, base.ZoneM)
+		}
 		if out.Projects, err = store.RunningProjects(ctx, s.db, baseID); err != nil {
 			return out, err
 		}

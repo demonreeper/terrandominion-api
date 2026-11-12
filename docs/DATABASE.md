@@ -37,7 +37,7 @@ callsign_blocked words a callsign may not contain
 player_reports   a player reported for griefing: what happened, a note, and what the server knows about the two
 player_sanctions warnings, suspensions and bans, with who gave them and who lifted them
 infringements    failed location checks per player (GPS too weak, travel speed), for admins
-jobs             the JOBS board: a faction's paid job (hit, scout, guard), its reward per slot held in escrow (0051)
+jobs             the JOBS board: a faction's paid job (hit, scout, guard a node or a base), its reward per slot held in escrow (0051, 0071)
 job_takes        a freelancer's slot on a job, with guard time
 device_marks     salted hashes of phones and sign-ins with the faction pledged or a ban; outlives accounts (0047)
 admin_actions    who changed what, and when (a change to a player has the player's id as target)
@@ -198,6 +198,13 @@ mission_type_id)` is now a unique index for drawn missions only (`captain_missio
 `mission_types.captain_mission` marks each power's words for the three kinds (`cap_give_n`, `cap_stand_n`,
 `cap_repair_n`; never drawn). Settings (group `ranks`): `CaptainMissionsPerDay` 2, `CaptainMissionGiveMax` 500,
 `CaptainMissionStandMaxMin` 30. The reward is the base mission's (`MissionXpBase` and the rest), no more.
+
+Guard jobs at a base (0071, base-building-plan.md Defence): `jobs.base_id` (null, `ON DELETE SET NULL`) names one of the
+poster's faction's standing bases. CHECK `jobs_guard_one_target`: a row with `base_id` is a `guard` job with no
+`node_id` (a guard job has a node or a base, never both). `lat, lon` are the base's core and `radius_m` its zone or
+`JobGuardRadiusM`, whichever is larger, both set when posted. Partial index `jobs_base_open_idx` finds a base's open
+jobs. A base that collapses (upkeep), is destroyed or is cleared by an admin ends them at once: status `expired`,
+`refunded` the unpaid slots, open takes `failed`. No new settings.
 
 `live_regions` is LiveRegions: the countries that can be claimed (MV first). `faction_members.viewing_branch_id` is the
 region a member views (null = home, `branch_id`); talk only.

@@ -256,6 +256,8 @@ var (
 	JobGone     = def(1772, http.StatusConflict, "That job has no slot left, or it has ended.")
 	JobNotYours = def(1773, http.StatusForbidden, "You can't take that job.")
 	JobFunds    = def(1774, http.StatusConflict, "You don't have enough in storage to pay that job.") // data: short
+	// A guard job at a base names one of the poster's faction's standing bases in their home region.
+	JobBaseRefused = def(1775, http.StatusConflict, "Pick one of your faction's standing bases in your region.")
 
 	// Friends. The message says which rule refused it.
 	FriendRefused   = def(1780, http.StatusConflict, "That friend request can't be sent.")

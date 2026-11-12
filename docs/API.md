@@ -162,16 +162,19 @@ level 18 call (`/me` `jobsUnlocked`) take them. Members can't take jobs.
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `/jobs` | – | A freelancer with the board: `board` (open jobs with free slots, soonest deadline first, their own takes first, with `myStatus` and `guardSeconds`), `canTake: true`. A Warden or above: `posted` (their faction's jobs lately), `canPost: true`. Also `kinds`, `slotsMax`, `hoursMin`, `hoursMax`, `rewardMin`, `rewardMax`, `guardMinutes` |
-| POST | `/jobs` | `kind, tetherId?, nodeId?, lat?, lon?, reward {resource: amount}, slots, hours` | `hit` (`tetherId`: not your own nor your faction's), `scout` (`lat, lon`: an area of `JobScoutRadiusM` around it) or `guard` (`nodeId`). `reward` is per slot, all resources together from `JobRewardMin` to `JobRewardMax`; the reward for every slot leaves your storage now (escrow, 1774 when short). Limits: `JobSlotsMax`, `JobHoursMin`..`JobHoursMax`, `JobsOpenPerFaction`, `JobsPostedPerDay` (1771) |
+| POST | `/jobs` | `kind, tetherId?, nodeId?, baseId?, lat?, lon?, reward {resource: amount}, slots, hours` | `hit` (`tetherId`: not your own nor your faction's), `scout` (`lat, lon`: an area of `JobScoutRadiusM` around it) or `guard` (`nodeId`, or `baseId`: GUARD THIS BASE, never both, 1770). A base must be one of your faction's standing (`active`) bases in your home region (1775; 1416 when gone); the guard spot is its core and `radiusM` its zone or `JobGuardRadiusM`, whichever is larger. `reward` is per slot, all resources together from `JobRewardMin` to `JobRewardMax`; the reward for every slot leaves your storage now (escrow, 1774 when short). Limits: `JobSlotsMax`, `JobHoursMin`..`JobHoursMax`, `JobsOpenPerFaction`, `JobsPostedPerDay` (1771) |
 | POST | `/jobs/{id}/take` | – | A freelancer takes a slot. Refused (1773) against their own Tether Node, for a poster who signs in on the same phone, and for a hit job when they already hit that owner `XpAttackPerTargetDay` times today; 1771 past `JobsTakenMax`; 1772 no slot or ended |
 
-A job is a **job** (`id, kind, factionCode, factionName, factionColor, target, tetherId, nodeId, lat, lon, radiusM, reward,
-slots, taken, done, status, deadline, createdAt`); the poster is shown by faction only. **The server checks completion:**
+A job is a **job** (`id, kind, factionCode, factionName, factionColor, target, tetherId, nodeId, baseId, lat, lon, radiusM,
+reward, slots, taken, done, status, deadline, createdAt`); the poster is shown by faction only. A guard job at a base has
+`baseId`, `target` is the base's name and `lat, lon` its core. **The server checks completion:**
 a weapon hit or a landed drone on the target Tether Node finishes a hit job; a scan (`GET /nodes/nearby` with
-`accuracy`) inside the area finishes a scout job; scans near the node add up time for a guard job (`JobGuardRadiusM`, each
-gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`. A finished job pays the taker into storage at once
+`accuracy`) inside the area finishes a scout job; scans near the node add up time for a guard job (within the job's `radiusM`, never less than `JobGuardRadiusM`, each
+gap counted up to `JobGuardGapSeconds`) until `JobGuardMinutes`; at a base, scans within its zone count. A finished job pays the taker into storage at once
 (notice `job_paid`; the poster gets `job_done`). Past the deadline unfinished takes fail and the reward for every unpaid
-slot goes back to the poster (`job_ended`). Errors 1770 to 1774.
+slot goes back to the poster (`job_ended`). A base that collapses, is destroyed or is cleared by an admin ends its guard
+jobs at once the same way: the poster gets the unpaid slots back (`job_ended`, "the base fell"), and each freelancer
+who had taken one gets `job_ended` too. Errors 1770 to 1775.
 
 ### Regions from GPS (social-signal-plan.md Part B, R1)
 
@@ -545,7 +548,7 @@ Every route that names a place is wrapped in the location checks. Everyone sees 
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `/bases/nearby` | `lat, lon, accuracy` (query), `radius?` (m, at most 3000) | `bases`: standing bases whose zone reaches the area `[{id, faction, factionName, color, region, name, tier, tierName, lat, lon, status, faded, coreHealth, coreMax, zoneM}]` (`status` `building` while the Spire's project runs: the seed beacon; `active`), and `flags`: open flags `[{id, faction, color, region, name, proposer {code, name}, lat, lon, status, createdAt, expiresAt}]` |
-| GET | `/bases/{id}` | – | The base card: `base` (as above), `growth` (below the Citadel: `nextTier, nextName, nextZoneM, roomM` (-1: no neighbour), `fits`, `near` (the base or flag it would come too close to), `bill, hours`: the ghost ring), `member` (you are in its faction), `slots [{ring, index, module?, mk?, health?, maxHealth?, online}]` (everyone: the holo table draws them) and, for members only, `projects [{id, kind, toTier?, ring?, index?, module?, mk?, bill {alloy, crystal, data, credit}, given {...}, assemblySec, assembledSec, status, startedAt, fundedAt?}]`. 1416 when gone |
+| GET | `/bases/{id}` | – | The base card: `base` (as above), `growth` (below the Citadel: `nextTier, nextName, nextZoneM, roomM` (-1: no neighbour), `fits`, `near` (the base or flag it would come too close to), `bill, hours`: the ghost ring), `member` (you are in its faction), `slots [{ring, index, module?, mk?, health?, maxHealth?, online}]` (everyone: the holo table draws them) and, for members only, `projects [{id, kind, toTier?, ring?, index?, module?, mk?, bill {alloy, crystal, data, credit}, given {...}, assemblySec, assembledSec, status, startedAt, fundedAt?}]`. `canPostGuard` (power `post_jobs`, a standing base of your faction in your home region: POST GUARD JOB, `POST /jobs` with `baseId`) with `guardRadiusM`. 1416 when gone |
 | GET | `/bases/flights` | – | B7: what the map (and the sky over AR) shows of strikes on bases, by the TN rule: your own drones going out, and drones flying at and strikes on your faction's bases; pending drones and hits from the last 10 minutes. `flights [{id, baseId, kind, fromLat?, fromLon?, toLat, toLon, launchedAt, dueAt, landed, mine, shielded}]` |
 | GET | `/bases/names` | – | `names`: six base names your faction can still take (two words from its own word list; call again for six more). 1798 for a freelancer |
 | POST | `/bases/propose` | `lat, lon, accuracyM, name` | **PROPOSE BASE**, standing on the spot: a Warden (rank 50), atoll/city lead (70) or the Regional Commander, in their home region. `name` must be one of the offered kind (1000 otherwise; 1418 if just taken). Runs every placement rule (1402-1415). Plants the flag (`flag`) and pushes `base_proposal` to the region's Commander; the Commander's own proposal counts as approved and returns `base` (a Spire, status `building`, with its `spire` project) |
@@ -730,6 +733,7 @@ never reads as inside the range).
 | 1772 | That job has no slot left, or it ended | |
 | 1773 | You can't take that job (the message says why) | |
 | 1774 | Not enough in storage to pay every slot | `short` |
+| 1775 | A guard job at a base needs one of your faction's standing bases in your region | |
 | 1780 | Friend request refused (message says why) | |
 | 1781 | No friend request from that player | |
 | 1782 | The name for friends can't be used | |

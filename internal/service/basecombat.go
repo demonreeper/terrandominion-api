@@ -276,6 +276,10 @@ func (s *Service) destroyBase(ctx context.Context, tx *sql.Tx, b store.BaseComba
 	if err := store.DestroyBase(ctx, tx, b.ID, now); err != nil {
 		return err
 	}
+	// Guard jobs at the base end with it; the posters get the unpaid slots back.
+	if err := endBaseJobs(ctx, tx, b.ID, b.Name); err != nil {
+		return err
+	}
 	members, err := store.FactionMembersInRegion(ctx, tx, b.FactionID, b.Region)
 	if err != nil {
 		return err

@@ -80,22 +80,59 @@ func TestCheckJobTake(t *testing.T) {
 func TestGuardTime(t *testing.T) {
 	s := DefaultSettings() // 40 m, 90 s gap
 	now := time.Date(2026, 11, 12, 9, 0, 0, 0, time.UTC)
-	if secs, counts := GuardTime(s, nil, now, 10, 8); !counts || secs != 0 {
+	if secs, counts := GuardTime(s, nil, now, 10, 8, 40); !counts || secs != 0 {
 		t.Errorf("first fix starts the clock: %d %v", secs, counts)
 	}
 	last := now.Add(-30 * time.Second)
-	if secs, _ := GuardTime(s, &last, now, 10, 8); secs != 30 {
+	if secs, _ := GuardTime(s, &last, now, 10, 8, 40); secs != 30 {
 		t.Errorf("30 s near the node: %d", secs)
 	}
 	long := now.Add(-10 * time.Minute)
-	if secs, _ := GuardTime(s, &long, now, 10, 8); secs != s.JobGuardGapSeconds {
+	if secs, _ := GuardTime(s, &long, now, 10, 8, 40); secs != s.JobGuardGapSeconds {
 		t.Errorf("a long gap counts only up to the limit: %d", secs)
 	}
-	if _, counts := GuardTime(s, &last, now, 200, 8); counts {
+	if _, counts := GuardTime(s, &last, now, 200, 8, 40); counts {
 		t.Error("too far away counts nothing")
 	}
-	if _, counts := GuardTime(s, &last, now, 10, s.HarvestMaxAccuracyM+1); counts {
+	if _, counts := GuardTime(s, &last, now, 10, s.HarvestMaxAccuracyM+1, 40); counts {
 		t.Error("a poor fix counts nothing")
+	}
+	// A base's zone is the radius when it is larger: 150 m away counts inside a 180 m zone.
+	if _, counts := GuardTime(s, &last, now, 150, 8, 180); !counts {
+		t.Error("inside a base's zone counts")
+	}
+	// A node job (or a small base zone) never shrinks below JobGuardRadiusM.
+	if _, counts := GuardTime(s, &last, now, 35, 4, 0); !counts {
+		t.Error("JobGuardRadiusM is the least radius")
+	}
+}
+
+func TestGuardRadius(t *testing.T) {
+	s := DefaultSettings()
+	s.JobGuardRadiusM = 40
+	for zone, want := range map[float64]float64{0: 40, 25: 40, 40: 40, 120: 120} {
+		if got := GuardRadiusM(s, zone); got != want {
+			t.Errorf("zone %v: got %v, want %v", zone, got, want)
+		}
+	}
+}
+
+func TestCheckGuardTarget(t *testing.T) {
+	for name, c := range map[string]struct {
+		kind       string
+		node, base int64
+		want       string
+	}{
+		"node":          {JobGuard, 5, 0, JobOK},
+		"base":          {JobGuard, 0, 7, JobOK},
+		"both":          {JobGuard, 5, 7, JobBadTarget},
+		"neither":       {JobGuard, 0, 0, JobBadTarget},
+		"hit with base": {JobHit, 0, 7, JobBadTarget},
+		"scout no base": {JobScout, 0, 0, JobOK},
+	} {
+		if got := CheckGuardTarget(c.kind, c.node, c.base); got != c.want {
+			t.Errorf("%s: got %q, want %q", name, got, c.want)
+		}
 	}
 }
 
