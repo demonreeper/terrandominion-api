@@ -14,15 +14,13 @@ Build milestone **T1** on a branch `tn-restyle` in the mobile repo (and the API 
 commit per repo. Run the edit-mode tests, install on my phone, then go straight on to the base build
 (`docs/base-build-prompt.md`) without waiting for me.
 
-1. **New TN model** replacing the thin wireframe pylon in `BaseHologram` (AR and holo table share it): a dark
-   panelled, tapered hex pylon on a stepped hex plate (hex-cell glow inset, rim lights, corner blocks, survey
-   ticks), glowing bands and slits per segment, three leaning fins, three prongs holding the floating cut core in
-   a glass halo, hex orbit rings round the core (one at tier 1, more at tier 2), a thin sky beam, perimeter posts
-   with lit tips (3 at tier 1; 6 with a two-line energy lattice at tier 2), and the dashed health ring on the
-   ground that shows the lost part in red. Match the renders in the project files
-   `video/base-mockup/v3-blender/tether-node/` (`tn-tier1.png`, `tn-tier2.png`, `tn-shield.png`,
-   `tn-six-factions.png`, `tn-freelancer-vs-lumen.png`; `tether-node-t2.glb` and `source/tn.py` show the shapes
-   and sizes).
+1. **Use the ready-made models, don't build them in code.** Replace the thin wireframe pylon in `BaseHologram`
+   (AR and holo table share it) with `Assets/Art/Models/TetherNode/tn_t1.fbx` (tier 1) and `tn_t2.fbx` (tier 2).
+   Set the materials as `Assets/Art/Models/README.md` says (Hull is URP Lit with the baked maps; Glow, GlowSoft,
+   Beam, Glass and PlateGrid use the holo shaders tinted to the owner colour; Banner_n children carry the faction
+   banner). Keep links, packets and the health ring drawn in code. The result must look like the reference renders
+   in the API repo `docs/art-reference/tether-node/` (`tn-tier1.jpg`, `tn-tier2.jpg`, `tn-shield.jpg`,
+   `tn-six-factions.jpg`, `tn-freelancer-vs-lumen.jpg`).
 2. **Colour by owner:** a faction member's TN (your own too) glows in the faction colour; a freelancer's TN (your
    own too) glows **freelancer blue `#3a8cff`**. Add it as one shared colour constant that bases reuse later. The
    HUD stays cyan. Faction TNs carry their faction's banners on the posts; freelancer TNs have none.
@@ -31,8 +29,8 @@ commit per repo. Run the edit-mode tests, install on my phone, then go straight 
    the shield dome takes the owner's colour.
 4. **No flat rings around the sky beam** (they read as a cross at eye level); tilted orbit rings round the core
    are fine. Look at it from eye level in AR and check every asset for cross shapes.
-5. **Art:** free assets only (the kits and CC0 textures listed in section 9b), or build it in code like now. Keep
-   it light enough for mid-range phones.
+5. **Art:** use the models as they are; don't rebuild them in code. Set texture max size 1024 for mobile. If something
+   is missing, use the free assets in section 9b, never a code-built stand-in.
 
 Player-facing text is country-neutral, names no power except in perk tags, and never hints at a seventh persona.
 

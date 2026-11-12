@@ -56,11 +56,16 @@ for me.
    banners, zone and shield; living base in AR only (packets on Collector lines, patrol drones, mist, idle turrets),
    the holo table plainer; signal echoes also near bases; PHOTO on bases; sky battles over bases.
 
-**Art: free assets only for now.** Quaternius Modular Sci-Fi MegaKit and Sci-Fi Essentials Kit (CC0), Kenney Space
-Station Kit / Modular Space Kit for placeholders, the Free Force Field Shader for URP (Void1 Gaming, itch.io) for the
-shield, tinted to the faction colour, CC0 textures. Match the look of the Blender renders in the project files
-(`video/base-mockup/v3-blender/`): dark panelled tower, glowing modules on arms and beams, hex platform with rings,
-banners on poles. Check every asset for cross shapes before using it. Keep it light enough for mid-range phones.
+**Art: use the ready-made models in `TerranDominion-Mobile\Assets\Art\Models\Base\`, don't build them in code.**
+`base_platform_t1`..`t5` and `base_tower_t1`..`t5` (Spire to Capital, same pivot), `base_module`, `base_module_pad`,
+`base_arm`, `base_turret`, `base_banner_pole`; materials and sizes are in `Assets\Art\Models\README.md`. Place them on
+the server's hex-slot layout: platform and tower at the base origin, a pad and module per slot, an arm from the tower to
+each inner-ring module, turrets and banner poles round the rim. Owner colour on every glow part, faction banner on the
+banners. Match the reference renders in `TerranDominion-API\docs\art-reference\base\` (hero, lineup, assemble, shield,
+six-factions). For anything the models don't cover, use free assets only: Quaternius Modular Sci-Fi MegaKit and
+Sci-Fi Essentials Kit (CC0), Kenney Space Station Kit / Modular Space Kit, the Free Force Field Shader for URP (Void1
+Gaming, itch.io) for the shield, tinted to the faction colour. Check every asset for cross shapes. Set texture max
+size 1024 so it stays light on mid-range phones.
 
 Player-facing text is country-neutral, names no power except in perk tags, and never hints at a seventh persona.
 
