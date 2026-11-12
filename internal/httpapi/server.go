@@ -185,6 +185,7 @@ func (s *Server) Handler() http.Handler {
 	// Faction bases (base-building-plan.md): flags, the Commander's answer, the map, the base card.
 	mux.HandleFunc("GET /v1/bases/nearby", s.authed(s.located(s.basesNearby)))
 	mux.HandleFunc("GET /v1/bases/names", s.authed(s.baseNames))
+	mux.HandleFunc("GET /v1/bases/flights", s.authed(s.baseFlights))
 	mux.HandleFunc("POST /v1/bases/propose", s.authed(s.located(s.proposeBase)))
 	mux.HandleFunc("GET /v1/bases/proposals", s.authed(s.baseProposals))
 	mux.HandleFunc("POST /v1/bases/proposals/{id}/approve", s.authed(s.approveFlag))

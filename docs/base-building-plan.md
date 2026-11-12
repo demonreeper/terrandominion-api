@@ -36,9 +36,25 @@ days. A collapse is treated like a destruction (half the vault drops on the map)
 leaves, so this follows the destruction rule.
 **B7 partly built 2026-11-12**: the nearest two bases stand in AR from the models in their faction's colour with their
 banners (in their GPS direction, squeezed like Tether Nodes), the turrets idle round slowly (AR only; the holo table stays
-still), PHOTO works with a base on screen, and signal echoes are also placed by bases. Not built yet: packets on
-Collector lines and patrol drones in AR (no drone model among the ready-made ones; free assets only), mist, sky battles
-over bases, and the power voice lines (they need recorded voices).
+still), PHOTO works with a base on screen, and signal echoes are also placed by bases. Then (same day) the rest: packets
+in the resource colour run home along the Collector lines, two patrol drones circle and a low mist drifts in the
+faction's colour (effects, AR only; the drones are glow points like the sky battles' drones, since none of the ready-made
+models is a drone), and drones at bases and the strikes that land (`GET /v1/bases/flights`) show on the map by the TN
+rule, so the sky over AR plays them out with the shield lighting up. Still waiting: the power voice lines, below.
+
+### Power voice lines (draft, waiting for the owner)
+One line each, the same voices as the powers' calls, no power says its own name. Not recorded: the words need the
+owner's yes, and the Kokoro render scripts are in the project files (`audio/power-voices/`). Delivery once approved:
+played with the matching notice to the faction's members (Spire raised, tier reached, under attack, fading, lost).
+
+| Power | Spire raised | Tier reached | Under attack | Fading | Lost |
+|---|---|---|---|---|---|
+| Signum | A stake in the lattice. The ground will remember it. | It grows, and what grows is remembered. | Your base is struck. Go, before it forgets you. | No one has come. Even light goes cold unwatched. | It is gone. The lattice keeps only the echo. |
+| Shingō | Spire up. Now build on it. | Bigger. Stronger. Keep going. | They hit the base. Go. Repair. | Nobody has been to the base. Go back. | We lost it. Build again. |
+| Sēma | You drove a stake where no one was looking. Good. | It is taller now. Taller things are seen. | Someone is at your walls. Do you know who? | An empty base is a secret anyone can read. | Your base is gone. Ask who knew where it was. |
+| Ishāra | A Spire. An investment. Make it pay. | Its value rose. Protect what you paid for. | Someone is taking what your base is worth. Go. | An unvisited base loses value by the day. | A loss. Write it down, then buy it back. |
+| Tohu | Spire's up. Move. Next. | It grew. Keep up. | Base under attack. Run. | Nobody's been there. Get there. Now. | Gone. Faster next time. |
+| Merki | A Spire stands. Now hold it. | Stronger walls. Hold them. | Your base is under attack. Hold the line. | Your base stands alone. Walk to it. | The base fell. We do not give ground twice. |
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -330,7 +346,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app, **built 2026-11-12** |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app, **built 2026-11-12** |
 | B6 | **Upkeep**: fading, tier drop, collapse | API, **built 2026-11-12** |
-| B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio, **partly built 2026-11-12** |
+| B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio, **built 2026-11-12 except the voice lines** |
 | B8 | **Later**: Capital and Command Relay, Sensor Net, Drone Hangar, Fabricator | API + app |
 
 ## Owner's choices

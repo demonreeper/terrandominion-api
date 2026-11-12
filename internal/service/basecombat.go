@@ -660,3 +660,17 @@ func (s *Service) HackBase(ctx context.Context, playerID, baseID int64, req Base
 func (s *Service) baseThreats(ctx context.Context, q db.Querier, baseID int64) ([]store.BaseStrike, error) {
 	return store.PendingStrikes(ctx, q, baseID)
 }
+
+// BaseFlights is GET /v1/bases/flights (B7): drones flying at bases and strikes that just landed, as the map draws them
+// (and so the sky over AR): only the viewer's own drones and those at their faction's bases.
+func (s *Service) BaseFlights(ctx context.Context, playerID int64) ([]store.BaseFlight, error) {
+	m, err := store.MembershipOf(ctx, s.db, playerID)
+	if err != nil {
+		return nil, err
+	}
+	faction := 0
+	if m != nil {
+		faction = m.FactionID
+	}
+	return store.BaseFlights(ctx, s.db, playerID, faction, s.now().Add(-10*time.Minute))
+}

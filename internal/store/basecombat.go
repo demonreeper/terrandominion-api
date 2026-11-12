@@ -385,3 +385,47 @@ func BaseFaded(ctx context.Context, q db.Querier, baseID int64) (bool, error) {
 	err := q.QueryRowContext(ctx, `SELECT faded_at IS NOT NULL FROM td.bases WHERE id = $1`, baseID).Scan(&faded)
 	return faded, err
 }
+
+// BaseFlight is a strike on a base as the map draws it: a drone in flight, or a hit that just landed (drone or spike).
+type BaseFlight struct {
+	ID         int64     `json:"id"`
+	BaseID     int64     `json:"baseId"`
+	Kind       string    `json:"kind"`
+	FromLat    *float64  `json:"fromLat,omitempty"`
+	FromLon    *float64  `json:"fromLon,omitempty"`
+	ToLat      float64   `json:"toLat"`
+	ToLon      float64   `json:"toLon"`
+	LaunchedAt time.Time `json:"launchedAt"`
+	DueAt      time.Time `json:"dueAt"`
+	Landed     bool      `json:"landed"`
+	// Mine: the viewer launched it (outgoing); otherwise it flies at the viewer's faction's base (incoming).
+	Mine     bool `json:"mine"`
+	Shielded bool `json:"shielded"`
+}
+
+// BaseFlights lists what the map may show a player about strikes on bases (the same rule as for Tether Nodes): their own
+// drones going out, and drones and spikes at their faction's bases; pending ones, and hits from the last minutes.
+func BaseFlights(ctx context.Context, q db.Querier, playerID int64, factionID int, since time.Time) ([]BaseFlight, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT s.id, s.base_id, s.kind, s.from_lat, s.from_lon, ST_Y(b.location::geometry), ST_X(b.location::geometry),
+		       s.created_at, s.due_at, s.status = 'hit', s.launched_by = $1,
+		       EXISTS (SELECT 1 FROM td.base_slots sl WHERE sl.base_id = b.id AND sl.module = 'shield' AND sl.online)
+		FROM td.base_strikes s JOIN td.bases b ON b.id = s.base_id
+		WHERE (s.launched_by = $1 OR b.faction_id = $2)
+		  AND ((s.status = 'pending' AND s.kind = 'drone') OR (s.status = 'hit' AND s.due_at > $3))
+		ORDER BY s.due_at`, playerID, factionID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []BaseFlight{}
+	for rows.Next() {
+		var f BaseFlight
+		if err := rows.Scan(&f.ID, &f.BaseID, &f.Kind, &f.FromLat, &f.FromLon, &f.ToLat, &f.ToLon, &f.LaunchedAt, &f.DueAt,
+			&f.Landed, &f.Mine, &f.Shielded); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}

@@ -370,3 +370,13 @@ func (s *Server) routeBaseCombat(mux *http.ServeMux) {
 		return s.svc.RepairBase(r.Context(), p, b, defendOf(body))
 	}))))
 }
+
+func (s *Server) baseFlights(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	out, err := s.svc.BaseFlights(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"flights": out})
+}
