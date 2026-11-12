@@ -22,6 +22,14 @@ FACTIONS. Core health is restored to the new tier's full health when it grows.
 charge, the VAULT LOG for Wardens and up, and base missions: with a standing base in the region one of a member's daily
 missions becomes base work in their power's own words (give 200 alloy, stand 10 minutes; repair waits for B5). A member
 on site marks the base visited each minute (upkeep). Captain-posted base missions to a squad are not built yet.
+**B5 built 2026-11-12** (migration 0068): EM Pulse, Overload Spike and drones aim at a module or the core; the Shield
+Matrix cuts every hit and covers members' TNs inside the zone; Energy Lattices power 4 modules each (modules need power:
+without a Lattice none is online); module at 0 offline until repaired; core at 0 drops a tier (outer modules packed
+away at 50% of their cost to the vault, 12 h protection) or destroys a Spire (half the vault dropped on the map, 48 h);
+hacks (75 m, 50 data, 5-15% above the 20% safe floor, Bastion Order 35%, 30 min per player per base; the puzzle is on
+the phone); intercept, defuse and repair on site; the push once per base per 30 min; a freelancer attacker loses
+neutral standing; the attacker's walk link with a member ends. Guard jobs on a base use the existing guard job at the
+base's spot; no base-specific guard job was added.
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -311,7 +319,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B2 | **Projects and giving**: fund on site, assembly timer, presence speed-up, contribution points; modules Lattice, Shield Matrix, Vault, Uplink; the lock-on animation | API + app, **built 2026-11-12** |
 | B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app, **built 2026-11-12** |
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app, **built 2026-11-12** |
-| B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app |
+| B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app, **built 2026-11-12** |
 | B6 | **Upkeep**: fading, tier drop, collapse | API |
 | B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio |
 | B8 | **Later**: Capital and Command Relay, Sensor Net, Drone Hangar, Fabricator | API + app |

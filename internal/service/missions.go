@@ -159,9 +159,13 @@ func giveBaseMission(ctx context.Context, q db.Querier, playerID int64, day time
 	if err != nil {
 		return err
 	}
+	damaged, err := store.FactionHasDamagedModule(ctx, q, factionID)
+	if err != nil {
+		return err
+	}
 	var picks []store.MissionTypeRow
 	for _, r := range rows {
-		if r.Goal != game.GoalBaseRepair {
+		if r.Goal != game.GoalBaseRepair || damaged {
 			picks = append(picks, r)
 		}
 	}

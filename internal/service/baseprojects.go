@@ -440,7 +440,11 @@ func (s *Service) projectTick(ctx context.Context) {
 			case "spire":
 				return store.SetBaseActive(ctx, tx, b.ID, now.Add(time.Duration(st.BaseProtectNewHours*float64(time.Hour))))
 			case "module", "module_upgrade":
-				return store.SetSlotModule(ctx, tx, b.ID, p.Ring, p.Index, p.Module, p.Mk, game.ModuleHealth(p.Mk, st))
+				if err := store.SetSlotModule(ctx, tx, b.ID, p.Ring, p.Index, p.Module, p.Mk, game.ModuleHealth(p.Mk, st)); err != nil {
+					return err
+				}
+				// Modules need power: the Energy Lattices decide which are online (B5).
+				return recomputePower(ctx, tx, b.ID, st)
 			}
 			return nil
 		})

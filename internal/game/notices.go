@@ -55,6 +55,11 @@ var noticeSeverity = map[string]string{
 	"base_declined": SeverityWarning,
 	"base_expired":  SeverityWarning,
 
+	// Base combat (base-building-plan.md 8).
+	"base_attacked":  SeverityDanger,
+	"base_tier_lost": SeverityDanger,
+	"base_destroyed": SeverityDanger,
+
 	// Ranks and Nomads (faction-ranks-plan.md).
 	"rank_up":        SeverityInfo,
 	"nomad_ask":      SeverityWarning,

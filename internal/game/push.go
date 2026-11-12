@@ -43,6 +43,10 @@ var pushRules = map[string]PushRule{
 	"base_declined": {Title: "Flag declined", Channel: PushChannelResults},
 	"base_expired":  {Title: "Flag expired", Channel: PushChannelResults},
 
+	"base_attacked":  {Title: "Base under attack", Channel: PushChannelAlerts},
+	"base_tier_lost": {Title: "Base lost a tier", Channel: PushChannelAlerts},
+	"base_destroyed": {Title: "Base destroyed", Channel: PushChannelAlerts},
+
 	"rank_up":        {Title: "New rank", Channel: PushChannelResults},
 	"nomad_ask":      {Title: "Nomad wants to move in", Channel: PushChannelResults},
 	"nomad_moved":    {Title: "Move approved", Channel: PushChannelResults},

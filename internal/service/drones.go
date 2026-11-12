@@ -202,7 +202,7 @@ func (s *Service) landDrone(ctx context.Context, drone store.DueDrone, settings 
 		if err := lockPlayerPair(ctx, tx, drone.OwnerID, drone.LaunchedBy); err != nil {
 			return err
 		}
-		tether, err := store.TetherForUpdate(ctx, tx, drone.TetherID)
+		tether, err := shieldedTether(ctx, tx, drone.TetherID)
 		if err != nil {
 			return err
 		}

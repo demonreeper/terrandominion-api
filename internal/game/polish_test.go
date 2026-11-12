@@ -171,8 +171,9 @@ func TestNoticeSeverity(t *testing.T) {
 		"job_done": SeverityInfo, "job_paid": SeverityInfo, "job_ended": SeverityInfo,
 		"friend_request": SeverityInfo, "friend_accepted": SeverityInfo,
 		"base_proposal": SeverityWarning, "base_approved": SeverityInfo, "base_declined": SeverityWarning,
-		"base_expired": SeverityWarning,
-		"rank_up":      SeverityInfo, "nomad_ask": SeverityWarning, "nomad_moved": SeverityInfo,
+		"base_expired":  SeverityWarning,
+		"base_attacked": SeverityDanger, "base_tier_lost": SeverityDanger, "base_destroyed": SeverityDanger,
+		"rank_up": SeverityInfo, "nomad_ask": SeverityWarning, "nomad_moved": SeverityInfo,
 		"nomad_declined": SeverityWarning, "nomad_expired": SeverityWarning,
 	}
 	kinds := NoticeKinds()

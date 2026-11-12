@@ -455,6 +455,9 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `nomad_moved` | info | Nomad | Their move was approved (push) | approver | null |
 | `nomad_declined` | warning | Nomad | Their move was declined (push) | approver | null |
 | `nomad_expired` | warning | Nomad | Their ask was not answered in time | null | null |
+| `base_attacked` | danger | faction members in the region | Their base was hit (push, once per base per `BaseAttackPushMin`) | null | null |
+| `base_tier_lost` | danger | faction members in the region | Their base dropped a tier (push) | null | null |
+| `base_destroyed` | danger | faction members in the region | Their Spire was destroyed (push) | null | null |
 | `base_proposal` | warning | Regional Commander | A Warden or lead planted a flag in the region (push) | proposer | null |
 | `base_approved` | info | proposer | Their flag was approved: the Spire project started (push) | commander | null |
 | `base_declined` | warning | proposer | Their flag was declined (push) | commander | null |
@@ -549,6 +552,12 @@ Every route that names a place is wrapped in the location checks. Everyone sees 
 | POST | `/bases/{id}/deposit` | `lat, lon, accuracyM, alloy, crystal, data, credit` | B4: a member on site puts resources from their storage into the base's vault (logged `deposit`); earns contribution points and counts toward the give-at-your-base mission. Returns `given, points, vault` |
 | POST | `/bases/{id}/upload` | `lat, lon, accuracyM` | B4: a member on site uploads what they carry through the base's online Uplink with no charge (counts as a TN upload). Returns `moved, carried, stored`; 1605 when there is nothing to move |
 | GET | `/bases/{id}/vault` | – | B4: the vault and the last 60 lines of the VAULT LOG `[{at, player?, kind, amounts}]` (`deposit, collector, cancel, spend, hack, packed, admin`; signed), for Wardens and up of the base's faction and region |
+| POST | `/bases/{id}/attack` | `lat, lon, accuracyM, weapon` (`em_pulse` or `overload_spike`), `core` or `ring, index` | B5: from within the zone plus `WeaponRangeM`. Not your own faction's base (1425), not while protected (1424 with `until`). An EM Pulse hits at once; a spike is armed and fires after its fuse (members on site defuse it). The best online Shield Matrix cuts every hit (by Mk, the TN shield's rule; Bastion Order's stops `BasePerkBastionShieldPct` more). A module at 0 goes offline until repaired; the Energy Lattices power `BaseModulesPerLattice` modules each, nearest first. The core at 0 drops a tier (zone, core and slots shrink; outer modules packed away for `BasePackedRefundPct` of their cost into the vault; protected `BaseProtectDropHours`), or destroys a Spire (half its vault, `BaseDestroyDropPct`, drops on the map; the rest is lost). Ends a walk link with a member of that faction; a freelancer loses neutral standing. Pushes `base_attacked` to the faction's members in the region once per `BaseAttackPushMin`. Returns `damage, health, coreHealth, tierLost, destroyed, firesAt?` |
+| POST | `/bases/{id}/drone` | `lat, lon, accuracyM`, `core` or `ring, index` | B5: from the attacker's Drone Bay range (its drones in flight count TN and base strikes together). Lands on the tick; returns `arrivesAt` |
+| POST | `/bases/{id}/hack` | `lat, lon, accuracyM` | B5: within `BaseHackRangeM`, costs `BaseHackData` data from storage, once per `BaseHackCooldownMin` per player per base: steals `BaseHackMinPct` to `BaseHackMaxPct` of each resource above the vault's safe floor (`BaseSafeFloorPct`, Bastion Order `BasePerkBastionFloorPct`) into the hacker's storage. The hex-path puzzle is played on the phone. Returns `stolen, pct` |
+| POST | `/bases/{id}/intercept` | `lat, lon, accuracyM` | B5: a member on site spends `CellsIntercept` to stop part of the soonest drone flying at the base (the TN intercept shares) |
+| POST | `/bases/{id}/defuse` | `lat, lon, accuracyM` | B5: a member on site disarms the soonest armed spike (1715 none) |
+| POST | `/bases/{id}/repair` | `lat, lon, accuracyM`, `core` or `ring, index` | B5: a member (Member and up) on site mends with alloy from storage at `RepairAlloyPerPoint` (the TN repair rule), as far as the alloy goes; a mended module comes back online, power permitting. Returns `points, alloy, health` |
 | POST | `/bases/{id}/projects/{pid}/cancel` | – | Whoever started it, or a higher rank; what was given goes to the base's vault (logged). The Spire's project can't be cancelled. 1421 when gone |
 | PUT | `/bases/proposals-off` | `off` | The Commander turns proposals off (or on) for the region (1411 for proposers while off) |
 
@@ -757,6 +766,8 @@ never reads as inside the range).
 | 1421 | Project done, cancelled or gone | |
 | 1422 | Nothing the project still needs | |
 | 1423 | Captain's vault limit for the day reached | |
+| 1424 | The base is protected (new, or just dropped a tier) | `until` |
+| 1425 | Base attack refused (own faction, no module there, hack cooldown) | |
 | 1600 | Tether Node limit reached | `max` |
 | 1601 | No free resource node in range of the build | |
 | 1602 | Not enough resources (TN build and upgrade, crafting, gear craft, upgrade and repair) | `short`: `{resource: amount still missing}` |

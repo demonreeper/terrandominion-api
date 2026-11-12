@@ -321,3 +321,52 @@ func (s *Server) baseVault(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, out)
 }
+
+// ---- combat (B5) ----
+
+func (s *Server) baseCombat(act func(r *http.Request, playerID, baseID int64, body service.BaseAttackRequest) (any, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		playerID, _ := playerFrom(r.Context())
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			fail(w, r, apperr.BadRequest.With("base id"))
+			return
+		}
+		var body service.BaseAttackRequest
+		if err := decode(w, r, &body); err != nil {
+			fail(w, r, err)
+			return
+		}
+		out, err := act(r, playerID, id, body)
+		if err != nil {
+			fail(w, r, err)
+			return
+		}
+		ok(w, out)
+	}
+}
+
+func defendOf(b service.BaseAttackRequest) service.DefendRequest {
+	return service.DefendRequest{Lat: b.Lat, Lon: b.Lon, AccuracyM: b.AccuracyM, BaseTarget: b.BaseTarget}
+}
+
+func (s *Server) routeBaseCombat(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/bases/{id}/attack", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+		return s.svc.AttackBase(r.Context(), p, b, body)
+	}))))
+	mux.HandleFunc("POST /v1/bases/{id}/drone", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+		return s.svc.LaunchBaseDrone(r.Context(), p, b, body)
+	}))))
+	mux.HandleFunc("POST /v1/bases/{id}/hack", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+		return s.svc.HackBase(r.Context(), p, b, body)
+	}))))
+	mux.HandleFunc("POST /v1/bases/{id}/intercept", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+		return s.svc.InterceptBaseDrone(r.Context(), p, b, defendOf(body))
+	}))))
+	mux.HandleFunc("POST /v1/bases/{id}/defuse", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+		return map[string]any{"defused": true}, s.svc.DefuseBaseSpike(r.Context(), p, b, defendOf(body))
+	}))))
+	mux.HandleFunc("POST /v1/bases/{id}/repair", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+		return s.svc.RepairBase(r.Context(), p, b, defendOf(body))
+	}))))
+}

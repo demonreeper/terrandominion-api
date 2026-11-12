@@ -27,6 +27,23 @@ type AttackTetherOutcome struct {
 }
 
 // lastFix reads the player's previous position for the travel-speed check.
+// shieldedTether locks a Tether Node for an attack: a member's TN inside a base zone of their faction uses the better
+// of its own shield and the base's Shield Matrix (base-building-plan.md 5).
+func shieldedTether(ctx context.Context, tx *sql.Tx, tetherID int64) (store.TetherState, error) {
+	tether, err := store.TetherForUpdate(ctx, tx, tetherID)
+	if err != nil {
+		return tether, err
+	}
+	base, err := store.ShieldOverTether(ctx, tx, tetherID)
+	if err != nil {
+		return tether, err
+	}
+	if base > tether.ShieldTier {
+		tether.ShieldTier = base
+	}
+	return tether, nil
+}
+
 func lastFix(ctx context.Context, q db.Querier, playerID int64) (*game.Fix, error) {
 	fix, err := store.LastHarvestFix(ctx, q, playerID)
 	if err != nil || fix == nil {
@@ -102,7 +119,7 @@ func (s *Service) prepareAttack(ctx context.Context, tx *sql.Tx, attackerID, tet
 		attacker, owner = secondPlayer, firstPlayer
 	}
 
-	tether, err := store.TetherForUpdate(ctx, tx, tetherID)
+	tether, err := shieldedTether(ctx, tx, tetherID)
 	if err != nil {
 		return out, err
 	}
@@ -393,7 +410,7 @@ func (s *Service) fireSpike(ctx context.Context, spike store.DueSpike, settings 
 		if err := lockPlayerPair(ctx, tx, spike.OwnerID, spike.PlantedBy); err != nil {
 			return err
 		}
-		tether, err := store.TetherForUpdate(ctx, tx, spike.TetherID)
+		tether, err := shieldedTether(ctx, tx, spike.TetherID)
 		if err != nil {
 			return err
 		}

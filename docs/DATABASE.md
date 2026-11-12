@@ -163,6 +163,9 @@ pass. `status` is `building` (the Spire's first project, the seed beacon), `acti
   time and progress. `base_contributions`: who gave what (points; vault payments earn none).
 - `base_collector_links` (0067): the free nodes inside a zone a base's Collector Arrays tether (one TN or base per
   node), with the next harvest's time. `mission_types.base_mission` marks the base missions.
+- `base_strikes` (0068): drones flying at a base and Overload Spikes armed on it (target: a slot, or the core when
+  null), resolved on the tick. `base_hacks`: each hack, for the cooldown. `bases.attack_pushed_at` throttles the push;
+  `map_drops.base_id` marks what a destroyed Spire left.
 - `base_vaults`: one per base. `base_vault_log`: every movement, signed, with its kind.
 
 ### notices and push

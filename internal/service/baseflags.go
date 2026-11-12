@@ -384,6 +384,9 @@ type BaseCardView struct {
 	Growth *BaseGrowthView `json:"growth,omitempty"`
 	// Collecting (B4): the free nodes inside the zone the base's Collector Arrays tether (everyone sees the lines).
 	Collecting []store.TetherLinkView `json:"collecting"`
+	// B5: protected until (no attacks), and for members the drones flying at it and spikes armed on it.
+	ProtectedUntil *time.Time         `json:"protectedUntil,omitempty"`
+	Threats        []store.BaseStrike `json:"threats,omitempty"`
 }
 
 // BaseGrowthView is the ghost of the next tier's ring: room when it fits, else the base it would come too close to.
@@ -421,6 +424,14 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 	}
 	if out.Collecting, err = store.CollectorNodes(ctx, s.db, baseID); err != nil {
 		return out, err
+	}
+	if c, err := store.BaseCombatForUpdate(ctx, s.db, baseID); err == nil && c.ProtectedUntil != nil && c.ProtectedUntil.After(s.now()) {
+		out.ProtectedUntil = c.ProtectedUntil
+	}
+	if m != nil && m.FactionID == base.FactionID {
+		if out.Threats, err = s.baseThreats(ctx, s.db, baseID); err != nil {
+			return out, err
+		}
 	}
 	if base.Tier < game.BaseTopTierNonCapital {
 		st := s.Settings(ctx)
@@ -462,6 +473,7 @@ func (s *Service) baseTick(ctx context.Context) {
 	s.rankTick(ctx)
 	s.projectTick(ctx)
 	s.economyTick(ctx)
+	s.strikeTick(ctx)
 	now := s.now()
 	due, err := store.DueFlags(ctx, s.db, now, 50)
 	if err != nil {

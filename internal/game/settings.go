@@ -141,6 +141,20 @@ type Settings struct {
 	BasePerkForgeAssemblyPct float64
 	BasePerkVerdantCostPct   float64
 	BaseCollectorLinks       [MaxModuleMk + 1]int
+	// Base combat (B5).
+	BaseProtectDropHours     float64
+	BaseModulesPerLattice    int
+	BaseHackRangeM           float64
+	BaseHackData             int
+	BaseHackMinPct           float64
+	BaseHackMaxPct           float64
+	BaseHackCooldownMin      float64
+	BaseSafeFloorPct         float64
+	BasePerkBastionFloorPct  float64
+	BasePerkBastionShieldPct float64
+	BaseAttackPushMin        float64
+	BaseDestroyDropPct       float64
+	BasePackedRefundPct      float64
 	BasePerkLumenCrystalPct  float64
 	BaseModuleCost           map[string][4]int
 	BaseModuleMin            map[string]float64
@@ -517,9 +531,22 @@ func DefaultSettings() Settings {
 			"lattice": {300, 200, 100, 50}, "shield": {250, 300, 150, 50},
 			"vault": {400, 100, 100, 100}, "uplink": {200, 150, 200, 50}, "collector": {350, 250, 150, 100},
 		},
-		BaseModuleMin:           map[string]float64{"lattice": 30, "shield": 30, "vault": 30, "uplink": 30, "collector": 45},
-		BaseCollectorLinks:      [MaxModuleMk + 1]int{0, 2, 3, 3, 4},
-		BasePerkLumenCrystalPct: 25,
+		BaseModuleMin:            map[string]float64{"lattice": 30, "shield": 30, "vault": 30, "uplink": 30, "collector": 45},
+		BaseCollectorLinks:       [MaxModuleMk + 1]int{0, 2, 3, 3, 4},
+		BasePerkLumenCrystalPct:  25,
+		BaseProtectDropHours:     12,
+		BaseModulesPerLattice:    4,
+		BaseHackRangeM:           75,
+		BaseHackData:             50,
+		BaseHackMinPct:           5,
+		BaseHackMaxPct:           15,
+		BaseHackCooldownMin:      30,
+		BaseSafeFloorPct:         20,
+		BasePerkBastionFloorPct:  35,
+		BasePerkBastionShieldPct: 10,
+		BaseAttackPushMin:        30,
+		BaseDestroyDropPct:       50,
+		BasePackedRefundPct:      50,
 		BaseCost: [BaseTopTier + 1][4]int{{}, {400, 400, 150, 50}, {1200, 600, 400, 200}, {3000, 1500, 1000, 500},
 			{7000, 3500, 2500, 1200}, {15000, 8000, 6000, 3000}},
 		BaseAssemblyMin: [BaseTopTier + 1]float64{0, 15, 120, 480, 1440, 4320},
@@ -870,6 +897,19 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("BasePerkForgeAssemblyPct", &s.BasePerkForgeAssemblyPct)
 	f("BasePerkVerdantCostPct", &s.BasePerkVerdantCostPct)
 	f("BasePerkLumenCrystalPct", &s.BasePerkLumenCrystalPct)
+	f("BaseProtectDropHours", &s.BaseProtectDropHours)
+	i("BaseModulesPerLattice", &s.BaseModulesPerLattice)
+	f("BaseHackRangeM", &s.BaseHackRangeM)
+	i("BaseHackData", &s.BaseHackData)
+	f("BaseHackMinPct", &s.BaseHackMinPct)
+	f("BaseHackMaxPct", &s.BaseHackMaxPct)
+	f("BaseHackCooldownMin", &s.BaseHackCooldownMin)
+	f("BaseSafeFloorPct", &s.BaseSafeFloorPct)
+	f("BasePerkBastionFloorPct", &s.BasePerkBastionFloorPct)
+	f("BasePerkBastionShieldPct", &s.BasePerkBastionShieldPct)
+	f("BaseAttackPushMin", &s.BaseAttackPushMin)
+	f("BaseDestroyDropPct", &s.BaseDestroyDropPct)
+	f("BasePackedRefundPct", &s.BasePackedRefundPct)
 	for mk := 1; mk <= MaxModuleMk; mk++ {
 		i(fmt.Sprintf("BaseCollectorLinksMk%d", mk), &s.BaseCollectorLinks[mk])
 	}

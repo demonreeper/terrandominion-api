@@ -159,6 +159,9 @@ var (
 	ProjectGone    = def(1421, http.StatusNotFound, "That project is done, cancelled or gone.")
 	NothingToGive  = def(1422, http.StatusConflict, "You have nothing this project still needs.")
 	VaultDailyCap  = def(1423, http.StatusConflict, "You have paid all you may from the vault today.")
+	// Base combat (B5).
+	BaseProtected     = def(1424, http.StatusConflict, "That base is protected for now.") // data: until
+	BaseCombatRefused = def(1425, http.StatusConflict, "That attack can't be made.")
 
 	// Faction ranks v2 and Nomads (faction-ranks-plan.md). The message says which rule refused it.
 	RankCantAppoint = def(1830, http.StatusForbidden, "Your rank can't give that rank.")
