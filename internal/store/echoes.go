@@ -39,7 +39,7 @@ func ClearMovedEchoes(ctx context.Context, q db.Querier, cell string, now time.T
 	return n, err
 }
 
-// EchoAnchor is a place an echo may stand beside: an active node or Tether Node.
+// EchoAnchor is a place an echo may stand beside: an active node, Tether Node or faction base.
 type EchoAnchor struct{ Lat, Lon float64 }
 
 // EchoAnchors picks up to limit active nodes and Tether Nodes inside a cell's box, in random order.
@@ -53,6 +53,11 @@ func EchoAnchors(ctx context.Context, q db.Querier, box Box, limit int) ([]EchoA
 		    SELECT ST_Y(t.location::geometry), ST_X(t.location::geometry)
 		    FROM td.tether_nodes t
 		    WHERE t.status = 'active' AND t.location::geometry && `+cellEnvelope+`
+		    UNION ALL
+		    -- Faction bases too (base-building-plan.md 9, B7): same placement and CODEX rules.
+		    SELECT ST_Y(b.location::geometry), ST_X(b.location::geometry)
+		    FROM td.bases b
+		    WHERE b.status <> 'destroyed' AND b.location::geometry && `+cellEnvelope+`
 		) a
 		ORDER BY random()
 		LIMIT $5`, box.MinLat, box.MinLon, box.MaxLat, box.MaxLon, limit)

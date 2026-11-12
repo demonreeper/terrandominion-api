@@ -34,6 +34,11 @@ base's spot; no base-specific guard job was added.
 dimmed, members told "<Base> is fading. Walk to it."), a tier lost each further week, a faded Spire collapsing after 14
 days. A collapse is treated like a destruction (half the vault drops on the map): the plan doesn't say what a collapse
 leaves, so this follows the destruction rule.
+**B7 partly built 2026-11-12**: the nearest two bases stand in AR from the models in their faction's colour with their
+banners (in their GPS direction, squeezed like Tether Nodes), the turrets idle round slowly (AR only; the holo table stays
+still), PHOTO works with a base on screen, and signal echoes are also placed by bases. Not built yet: packets on
+Collector lines and patrol drones in AR (no drone model among the ready-made ones; free assets only), mist, sky battles
+over bases, and the power voice lines (they need recorded voices).
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -325,7 +330,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app, **built 2026-11-12** |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app, **built 2026-11-12** |
 | B6 | **Upkeep**: fading, tier drop, collapse | API, **built 2026-11-12** |
-| B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio |
+| B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio, **partly built 2026-11-12** |
 | B8 | **Later**: Capital and Command Relay, Sensor Net, Drone Hangar, Fabricator | API + app |
 
 ## Owner's choices
