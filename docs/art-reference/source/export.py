@@ -705,5 +705,31 @@ elif ASSET == 'base_banner_pole':
     b.build(ASSET)
     M['banner'] = M['banner@lumen'] if 'banner@lumen' in M else img_mat('banner', 'banner.png')
     fo = flag('banner', (0, 0, ph - 1.55), math.pi / 2, 1.1, 2.8); fo.data.materials.clear(); fo.data.materials.append(img_mat('banner_x', 'banner.png'))
+elif ASSET in ('base_drone', 'base_drone_quad'):
+    NR = 4 if ASSET.endswith('quad') else 3
+    # patrol drone: base_drone has three rotors (in the game), base_drone_quad four, ~1.3 m wide, pivot at body centre
+    b = B()
+    b.cyl('dark', (0, 0, 0), .26, .2, .16, seg=6, rz=math.pi / 6)
+    b.cyl('mid', (0, 0, .11), .18, .1, .08, seg=6, rz=math.pi / 6)
+    b.cyl('dark', (0, 0, -.12), .16, .1, .1, seg=6, rz=math.pi / 6)
+    hex_ring(b, 'emit', (0, 0, .0), .265, .02, .03, rz=math.pi / 6)
+    b.cyl('emit', (0, 0, -.18), .07, .05, .03, seg=12)
+    for i in range(NR):
+        a = i * math.tau / NR + (math.pi / 2 if NR == 3 else math.pi / 4)
+        ca, sa = math.cos(a), math.sin(a)
+        b.box('mid', (ca * .36, sa * .36, .01), (.34, .07, .05), rz=a)
+        b.box('emit', (ca * .36, sa * .36, .04), (.28, .015, .012), rz=a)
+        px, py = ca * .58, sa * .58
+        b.cyl('dark', (px, py, .02), .2, .2, .07, seg=16)
+        b.cyl('mid', (px, py, .02), .17, .17, .072, seg=16)
+        b.ring('emit', (px, py, .06), .185, .02, .012, seg=32)
+        b.cyl('light', (px, py, .03), .03, .03, .05, seg=8)
+        for k in range(3):  # three blades, each from the hub outward (no crossing bars)
+            ak = a + k * math.tau / 3 + .3
+            b.box('emit_soft', (px + math.cos(ak) * .08, py + math.sin(ak) * .08, .035), (.15, .035, .006), rz=ak)
+        b.box('emit', (ca * .26, sa * .26, -.05), (.04, .05, .02), rz=a)
+    b.cyl('dark', (0, -.05, .2), .012, .006, .2, seg=6)
+    b.sphere('emit', (0, -.05, .3), .018)
+    b.build(ASSET)
 finish()
 print('DONE', ASSET)
