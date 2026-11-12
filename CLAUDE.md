@@ -29,8 +29,8 @@ Schema: `docs/DATABASE.md`. Endpoints and error codes: `docs/API.md`. Running an
   DB URL and secrets). Deploy to dev: `.\scripts\deploy-dev.ps1` (builds linux/**arm64**, copies
   as `tdapi.new`, renames over the running binary, restarts the service).
 - `go test ./...` before committing. `go.sum` is committed.
-- The local `.env` points at the **live** database (`terran_dominion`); dev is `terran_dominion_dev` (the dev
-  server's `.env`). Never write test data to live. `.\scripts\dev2live-sync.ps1` (README, Dev2LiveSync) resets live
+- The local `.env` points at the **dev** database (`terran_dominion_dev`, as the dev server's `.env`); live is
+  `terran_dominion`, reached only through the scripts on the server. Never write test data to live. `.\scripts\dev2live-sync.ps1` (README, Dev2LiveSync) resets live
   and carries dev's test players over before launch; a new table must go into its keep or wipe list.
 - Test players: `POST /v1/auth/dev` (dev only). Make another admin by hand in the DB:
   `UPDATE td.players SET is_admin = true WHERE id = …`; the player signs in again to pick it up.
