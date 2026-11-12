@@ -365,6 +365,8 @@ type BranchView struct {
 	// Bases: the faction's standing bases and open flags in the region against its cap (BASES n / m).
 	BasesHeld int `json:"basesHeld"`
 	BasesCap  int `json:"basesCap"`
+	// Seat is the Commander's seat at home (leader succession): acting, the vote, STEP DOWN. Null while visiting.
+	Seat *SeatView `json:"seat,omitempty"`
 }
 
 func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error) {
@@ -412,14 +414,14 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	if err != nil {
 		return BranchView{}, err
 	}
+	seat, err := store.SeatOf(ctx, s.db, shown)
+	if err != nil {
+		return BranchView{}, err
+	}
 	ids := make([]int64, 0, len(members))
 	canAppoint := false
 	for i := range members {
-		members[i].RankTitle = game.RankTitle(members[i].Rank)
-		if members[i].Nomad {
-			members[i].RankTitle = "Nomad"
-		}
-		members[i].RankKey = game.RankAt(members[i].Rank).Key
+		describeBranchMember(&members[i], seat)
 		members[i].MySquad = members[i].CaptainID != nil && *members[i].CaptainID == playerID
 		// What the viewer may appoint them to: no rank works away from home, nor on a Nomad.
 		if !visiting && !members[i].Nomad && members[i].PlayerID != playerID {
@@ -442,7 +444,16 @@ func (s *Service) Branch(ctx context.Context, playerID int64) (BranchView, error
 	for i := range visitors {
 		visitors[i].RankTitle = game.RankTitle(visitors[i].Rank)
 	}
+	var seatView *SeatView
+	if !visiting {
+		v, err := s.seatView(ctx, s.db, playerID, membership, false)
+		if err != nil {
+			return BranchView{}, err
+		}
+		seatView = &v
+	}
 	return BranchView{
+		Seat:        seatView,
 		FactionCode: membership.FactionCode, FactionName: membership.FactionName, Region: region, RegionName: regionName,
 		Members: members, Visitors: visitors, Visiting: visiting, Home: membership.Region,
 		// No rank works away from home: the Commander appoints only in their own region.

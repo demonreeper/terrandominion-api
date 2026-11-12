@@ -219,6 +219,8 @@ type Membership struct {
 	// Region is the branch's country (MV); RankTitle names the rank. Filled by the service.
 	Region    string `json:"region,omitempty"`
 	RankTitle string `json:"rankTitle,omitempty"`
+	// Acting: the member holds the seat as acting Commander (leader succession) until a vote or the window ends.
+	Acting bool `json:"acting,omitempty"`
 	// PowerName and PowerLine are only on a pledge's answer: the chosen power and its short line
 	// (its motto), shown once after HOLD TO PLEDGE.
 	PowerName string `json:"powerName,omitempty"`
@@ -254,11 +256,12 @@ func MembershipOf(ctx context.Context, q db.Querier, playerID int64) (*Membershi
 	var branch sql.NullInt64
 	err := q.QueryRowContext(ctx, `
 		SELECT f.id, f.code, f.name, f.color, m.rank, m.branch_id, COALESCE(b.country_code, ''), m.nomad,
-		       m.nomad_cooldown_from, m.joined_at, (SELECT contribution_points FROM td.players WHERE id = m.player_id)
+		       m.nomad_cooldown_from, m.joined_at, (SELECT contribution_points FROM td.players WHERE id = m.player_id),
+		       COALESCE(b.leader_player_id = m.player_id AND b.leader_acting, false)
 		FROM td.faction_members m JOIN td.factions f ON f.id = m.faction_id
 		LEFT JOIN td.faction_branches b ON b.id = m.branch_id
 		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.FactionColor, &m.Rank, &branch, &m.Region,
-		&m.Nomad, &m.CooldownFrom, &m.JoinedAt, &m.Points)
+		&m.Nomad, &m.CooldownFrom, &m.JoinedAt, &m.Points, &m.Acting)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -279,12 +282,23 @@ type FactionBranch struct {
 	Name      string         `json:"name"`
 	Commander *PlayerRef     `json:"commander"`
 	Members   []BranchMember `json:"members"`
+	// Acting: the Commander holds the seat as acting Commander. Vote is the open vote for the seat, for END VOTE.
+	Acting bool       `json:"acting"`
+	Vote   *AdminVote `json:"vote,omitempty"`
+}
+
+// AdminVote is an open vote as the admin faction view shows it.
+type AdminVote struct {
+	ID       int64     `json:"id"`
+	OpenedAt time.Time `json:"openedAt"`
+	ClosesAt time.Time `json:"closesAt"`
+	Ballots  int       `json:"ballots"`
 }
 
 // FactionBranches lists a faction's branches (members are filled by the caller).
 func FactionBranches(ctx context.Context, q db.Querier, factionID int) ([]FactionBranch, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT b.id, b.region_code, b.name, p.id, `+playerRefSQL("p")+`
+		SELECT b.id, b.region_code, b.name, p.id, `+playerRefSQL("p")+`, b.leader_acting
 		FROM td.faction_branches b LEFT JOIN td.players p ON p.id = b.leader_player_id
 		WHERE b.faction_id = $1 ORDER BY b.id`, factionID)
 	if err != nil {
@@ -296,7 +310,7 @@ func FactionBranches(ctx context.Context, q db.Querier, factionID int) ([]Factio
 		var b FactionBranch
 		var leaderID sql.NullInt64
 		var code, name sql.NullString
-		if err := rows.Scan(&b.ID, &b.Region, &b.Name, &leaderID, &code, &name); err != nil {
+		if err := rows.Scan(&b.ID, &b.Region, &b.Name, &leaderID, &code, &name, &b.Acting); err != nil {
 			return nil, err
 		}
 		if leaderID.Valid {

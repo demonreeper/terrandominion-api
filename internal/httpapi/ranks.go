@@ -190,3 +190,71 @@ func (s *Server) adminClearNomadCooldown(w http.ResponseWriter, r *http.Request)
 	}
 	ok(w, map[string]any{"cleared": true})
 }
+
+// ---- leader succession: the Commander's seat, STEP DOWN and the vote ----------------------------------------------
+
+func (s *Server) seat(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	out, err := s.svc.Seat(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) stepDown(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	if err := s.svc.StepDown(r.Context(), playerID); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"steppedDown": true})
+}
+
+func (s *Server) startVote(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	out, err := s.svc.StartVote(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) castVote(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Code string `json:"code"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	candidateID, err := s.svc.PlayerIDByCode(r.Context(), body.Code)
+	if err != nil {
+		fail(w, r, apperr.VoteCandidateBad)
+		return
+	}
+	out, err := s.svc.CastVote(r.Context(), playerID, candidateID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+// adminEndVote closes a stuck vote now, counting the ballots cast so far.
+func (s *Server) adminEndVote(w http.ResponseWriter, r *http.Request) {
+	adminID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.VoteGone)
+		return
+	}
+	if err := s.svc.AdminEndVote(r.Context(), adminID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"ended": id})
+}

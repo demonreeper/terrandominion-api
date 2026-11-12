@@ -175,6 +175,13 @@ var (
 	// Captain squad missions. CaptainMissionRefused's message says which rule refused it.
 	CaptainMissionRefused = def(1838, http.StatusConflict, "That squad mission can't be posted.")
 	CaptainMissionLimit   = def(1839, http.StatusConflict, "You have posted all the squad missions you may today.") // data: perDay
+	// Leader succession: STEP DOWN, and the vote for Commander. VoteRefused's message says which rule refused it.
+	NotSeatHolder    = def(1840, http.StatusForbidden, "You don't hold the Commander's seat.")
+	VoteRefused      = def(1841, http.StatusConflict, "A vote for Commander can't be started now.") // data: until
+	VoteGone         = def(1842, http.StatusNotFound, "That vote has ended.")
+	VoteAlreadyCast  = def(1843, http.StatusConflict, "You have voted in this vote already.")
+	VoteCandidateBad = def(1844, http.StatusConflict, "That member can't stand for the seat.")
+	VoteNotAllowed   = def(1845, http.StatusForbidden, "Only Members and above in your country can vote.")
 
 	TetherCap      = def(1600, http.StatusConflict, "You already own the most Tether Nodes you can.") // data: max
 	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")

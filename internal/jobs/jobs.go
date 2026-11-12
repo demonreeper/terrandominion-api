@@ -58,8 +58,9 @@ func sessionPrune(ctx context.Context, conn *sql.DB) error {
 }
 
 // accountCleanup schedules long-inactive accounts for deletion, then erases accounts whose grace
-// period has ended. Faction heads are skipped and reported: what happens to a faction when its
-// head leaves (next rank or a vote) is not decided yet, so a person decides for now.
+// period has ended. A regional Commander waiting to be deleted loses the seat to an acting Commander
+// (the API's succession sweep, service/succession.go, within a minute); one still holding a seat is
+// skipped this run and deleted on a later one.
 func accountCleanup(ctx context.Context, conn *sql.DB) error {
 	values, err := store.LoadSettings(ctx, conn)
 	if err != nil {
@@ -87,7 +88,7 @@ func accountCleanup(ctx context.Context, conn *sql.DB) error {
 				return err
 			}
 			if leads {
-				slog.Warn("E1305 deletion skipped: player heads a faction; decide succession by hand", "player", id)
+				slog.Warn("E1305 deletion skipped: player still holds a Commander's seat; the API's succession sweep frees it", "player", id)
 				return nil
 			}
 			deleted++

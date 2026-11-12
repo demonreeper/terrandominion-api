@@ -103,6 +103,9 @@ func RankByKey(key string) (RankDef, bool) {
 	return RankDef{}, false
 }
 
+// ActingCommanderTitle is the rank title of a member holding the seat as acting Commander (leader succession).
+const ActingCommanderTitle = "Acting Commander"
+
 // RankTitle names a rank for players. The faction's power holds the Global Head seat for now; players see it as the
 // faction's Commander (the hidden lore power, never a player).
 func RankTitle(level int) string {

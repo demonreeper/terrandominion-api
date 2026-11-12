@@ -185,6 +185,9 @@ func (s *Service) describeMembership(ctx context.Context, m *store.Membership) {
 	if m.Nomad {
 		m.RankTitle = "Nomad"
 	}
+	if m.Acting {
+		m.RankTitle = game.ActingCommanderTitle
+	}
 	m.RankKey = game.RankAt(m.Rank).Key
 	m.Powers = game.PowersOf(m.Rank, m.Nomad)
 	if m.Nomad && m.CooldownFrom != nil {
@@ -234,9 +237,20 @@ func (s *Service) AdminFaction(ctx context.Context, adminID int64, code string) 
 			}
 			for j := range members {
 				members[j].RankTitle = game.RankTitle(members[j].Rank)
+				if out.Branches[i].Acting && out.Branches[i].Commander != nil && members[j].Code == out.Branches[i].Commander.Code {
+					members[j].RankTitle = game.ActingCommanderTitle
+				}
 			}
 			out.Branches[i].Members = members
 			out.Members += len(members)
+			// END VOTE for a stuck vote (leader succession).
+			vote, err := store.OpenVote(ctx, tx, out.Branches[i].ID)
+			if err != nil {
+				return err
+			}
+			if vote != nil {
+				out.Branches[i].Vote = &store.AdminVote{ID: vote.ID, OpenedAt: vote.OpenedAt, ClosesAt: vote.ClosesAt, Ballots: vote.Ballots}
+			}
 		}
 		return store.LogAdminAction(ctx, tx, adminID, "faction.inspect", faction.Code, "{}")
 	})

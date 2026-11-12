@@ -229,6 +229,10 @@ func (s *Service) AdminMoveRegion(ctx context.Context, adminID int64, code, regi
 		if m == nil {
 			return apperr.NotAMember
 		}
+		// A Commander's old seat goes to the next in line as acting Commander (leader succession).
+		if err := s.leaveSeat(ctx, tx, targetID, 0, "admin moved region"); err != nil {
+			return err
+		}
 		branch, err := store.BranchForUpdate(ctx, tx, m.FactionID, region, m.FactionName+" "+name)
 		if err != nil {
 			return err

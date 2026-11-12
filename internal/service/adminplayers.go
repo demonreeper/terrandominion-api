@@ -388,7 +388,7 @@ func (s *Service) AdminStats(ctx context.Context) (GameStatsView, error) {
 
 // AdminReleasePledge returns a member to freelancer: the fix for a mistaken pledge, since a pledge
 // can't be undone by the player (freelancer-path-plan.md C5). A reason is required and it is logged.
-// A Regional Commander's seat is left empty.
+// A Regional Commander's seat goes to the next in line as acting Commander.
 func (s *Service) AdminReleasePledge(ctx context.Context, adminID int64, code, reason string) (*PlayerInfo, error) {
 	reason = strings.TrimSpace(reason)
 	if game.CheckSanction(s.Settings(ctx), game.SanctionWarn, 0, reason) != game.SanctionOK {
@@ -401,6 +401,10 @@ func (s *Service) AdminReleasePledge(ctx context.Context, adminID int64, code, r
 			return err
 		}
 		if _, err := store.GetPlayerForUpdate(ctx, tx, targetID); err != nil {
+			return err
+		}
+		// A Commander's seat goes to the next in line as acting Commander (leader succession).
+		if err := s.leaveSeat(ctx, tx, targetID, 0, "pledge released"); err != nil {
 			return err
 		}
 		faction, err := store.ReleaseMember(ctx, tx, targetID)

@@ -57,6 +57,10 @@ var pushRules = map[string]PushRule{
 
 	"captain_mission": {Title: "Squad mission", Channel: PushChannelResults},
 
+	"seat_changed": {Title: "Commander's seat", Channel: PushChannelResults},
+	"vote_open":    {Title: "Vote for Commander", Channel: PushChannelResults},
+	"vote_ended":   {Title: "Vote ended", Channel: PushChannelResults},
+
 	// A power's call the app did not pick up. The body is "Incoming call: <power>".
 	"call": {Title: "Tether Rise", Channel: PushChannelResults, Always: true},
 }

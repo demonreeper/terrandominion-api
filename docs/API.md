@@ -303,7 +303,8 @@ a member (read-only), and must never list the admin as present, as a reader or a
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/admin/factions` | `factions`: the six, as `GET /factions` gives them (name, colour, status, commander, members) |
-| GET | `/admin/factions/{code}` | `code, name, color, status, members` and `branches [{region, name, commander {code, name}, members [{code, name, level, rank, rankTitle}]}]` |
+| GET | `/admin/factions/{code}` | `code, name, color, status, members` and `branches [{region, name, commander {code, name}, acting, vote {id, openedAt, closesAt, ballots}, members [{code, name, level, rank, rankTitle}]}]`. `acting`: the commander holds the seat as acting Commander (their `rankTitle` is "Acting Commander"); `vote`: the open vote for the seat, if any (END VOTE) |
+| POST | `/admin/votes/{id}/end` | END VOTE for a stuck vote: closes it now and counts the ballots cast so far, as the sweep would (a majority wins; otherwise the holder stays and the seat stops being acting). Pushes `vote_ended`. 1842 when it is already closed. Logged (`vote.end`) |
 
 ### Faction perksMembers of a faction get its perks; they stop the moment the player leaves. The server applies them
 (`game.FactionPerks`), and every number is a setting (`Perk…Pct`, group `factions`; 0 switches a perk off):
@@ -459,6 +460,9 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `nomad_declined` | warning | Nomad | Their move was declined (push) | approver | null |
 | `nomad_expired` | warning | Nomad | Their ask was not answered in time | null | null |
 | `captain_mission` | info | squad members | "<Captain> posted a squad mission: <title>. It is in ORDERS." (push; shows in ALERTS) | the Captain | null |
+| `seat_changed` | warning | the branch's players | The Commander's seat changed: someone is acting Commander ("You are acting Commander..." to them), no vote was started so the acting Commander is now Commander, or nobody is left and the seat is empty (push; ALERTS) | the new holder, or null | null |
+| `vote_open` | warning | the branch's players | A vote for Commander opened, for `CommanderVoteHours` (push; ALERTS) | who started it | null |
+| `vote_ended` | info | the branch's players | The vote ended: who is Commander, or no majority and who stays (push; ALERTS) | the holder, or null | null |
 | `base_attacked` | danger | faction members in the region | Their base was hit (push, once per base per `BaseAttackPushMin`) | null | null |
 | `base_tier_lost` | danger | faction members in the region | Their base dropped a tier (push) | null | null |
 | `base_destroyed` | danger | faction members in the region | Their Spire was destroyed (push) | null | null |
@@ -623,6 +627,10 @@ stands in for the day's drawn missions.
 | POST | `/factions/squad/members/{code}` | A Captain or above adds a Member or Prospect of their branch to their squad (1833: full, in another squad, or above Member) |
 | DELETE | `/factions/squad/members/{code}` | A Captain takes someone out of their squad; `me` leaves your own squad |
 | POST | `/factions/squad/missions` | `baseId, goal, resource, amount`: a Captain or above (power `base_missions`) posts a squad mission. `goal`: `base_give` (`resource` alloy, crystal, data or credit; `amount` 1 to `CaptainMissionGiveMax`), `base_stand` (`amount` minutes, 1 to `CaptainMissionStandMaxMin`) or `base_repair` (`amount` 1, only while a module at that base is below full health). The base must be one of the faction's standing (`active`) bases in the Captain's home region (1416 gone). At most `CaptainMissionsPerDay` a mission day (1839 with `perDay`); 1838 for every other refusal (not a Captain, wrong base, bad kind or amount (`giveMax, standMax`), nothing to repair, empty squad). Every member of the squad gets it at once as an extra mission and the push `captain_mission` (actor: the Captain). Returns `post {id, baseId, baseName, goal, goalKey, count, members, at, title}, members, left`. Not a located route: posting acts on no place; the missions count through the base routes, which are. The missions belong to the members: one who leaves the squad keeps theirs, one who joins later doesn't get it, and a Captain who loses the rank has nothing left open |
+| GET | `/factions/seat` | The Commander's seat of your home country (leader succession, GAME_DESIGN "Leader succession"): `commander {code, name}` (null when empty), `acting`, `changedAt` (when the seat last changed hands), `voteUntil` (acting only: the last moment to start a vote, `changedAt` + `CommanderVoteDays`), `mine` (you hold it), `canStepDown`, `canVote` (Member or higher, not a Nomad), `canStartVote`, and `vote` while one is open: `{id, openedAt, closesAt, ballots (cast so far; no tally while it runs), startedBy, myVote {code, name} (null until you vote), candidates [branch members who may hold a seat, next in line first, with rankTitle]}`. `GET /factions/branch` carries the same as `seat` without `candidates` (null while visiting), and the acting Commander's member row has `acting: true` and `rankTitle` "Acting Commander" (also `/me` `faction.acting`, `faction.rankTitle`) |
+| POST | `/factions/seat/step-down` | STEP DOWN: the Commander (acting or not) gives up the seat and becomes a Member. The highest rank in the country takes it at once as acting Commander (ties: most contribution points, then longest in the faction; Prospects, Nomads, banned, deleting and inactive accounts skipped), or the branch goes dormant and the seat can be claimed fresh. Pushes `seat_changed` to the branch. 1840 when you hold no seat |
+| POST | `/factions/seat/vote` | Starts a vote for the seat: a Member or higher (1845), while an acting Commander holds it, within `CommanderVoteDays` of the change, with none open (1841 with `until`, the message says which). It runs `CommanderVoteHours`. Pushes `vote_open` to the branch. Returns the seat as `GET /factions/seat` |
+| POST | `/factions/seat/vote/ballot` | `code`: your one ballot (1843 when cast) for a member of your branch who may hold a seat (1844), while the vote is open (1842). 1845 for Prospects and Nomads. Returns the seat. When `closesAt` passes, the sweep counts it: more than half of the ballots cast puts that member in the seat (an acting Commander they replace goes back to their old rank); otherwise the acting Commander stays. Either way the seat stops being acting. Pushes `vote_ended`. With no vote started in `CommanderVoteDays`, the acting Commander becomes the Commander (`seat_changed`) |
 | POST | `/factions/nomad` | Become a Nomad: gives up any rank above Member, a seat and a squad. Prospects can't (1834). After settling once, becoming one again restarts the move cooldown |
 | POST | `/factions/settle` | A Nomad becomes an ordinary Member of their home region again (an open ask is cancelled) |
 | GET | `/factions/nomads` | `mine` (your open ask), `canAnswer` (Warden and up) and `asks` (open asks to move into your region) |
@@ -678,7 +686,7 @@ above every faction (internal name `signal`; players see a separate commander pe
 | POST | `/admin/push/test` | – | Sends "Test push" to your own phones; returns `sent` |
 | GET | `/admin/seed` | `lat, lon` (query) | Seeding readout: `cell` `{osmLoaded, cellId, seeded, target, seedNodes, walkM, totalCells, totalNodes}` for the cell at that point, and `areas` `[{id, name}]` |
 | POST | `/admin/seed` | `areaId` | Pre-seeds every cell of an area in `td.seed_areas` (`male`, `hulhumale`, `villimale`) in the background, one transaction per cell; cells already seeded are left alone. Returns `started`. Command line: `tdapi seed <area or all>` |
-| PUT | `/admin/players/{code}/rank` | `rank` | Sets a member's rank: `prospect`, `member`, `captain`, `warden` or `lead` (a Commander's seat is claimed; the two top seats are elected later). Logged |
+| PUT | `/admin/players/{code}/rank` | `rank` | Sets a member's rank: `prospect`, `member`, `captain`, `warden` or `lead` (a Commander's seat is claimed; the two top seats are elected later). Taking a Commander's rank hands the seat to the next in line as acting Commander. Logged |
 | POST | `/admin/players/{code}/nomad-cooldown/clear` | – | Lets a Nomad move again at once. Logged |
 | POST | `/admin/seed/cell` | `lat, lon` | Retires the seed nodes in the cell at that point and seeds it again. Returns `cellId, target, created, retired` |
 | GET | `/admin/bases` | `region` (query, optional) | Standing bases `[{id, faction, region, name, tier, tierName, lat, lon, status, coreHealth, zoneM, slots, fadedAt, createdAt}]` and open flags `[{id, faction, region, proposerId, lat, lon, status, createdAt, expiresAt}]` |
@@ -754,6 +762,12 @@ never reads as inside the range).
 | 1837 | Stand in your own region to do that (jobs; member missions don't count away from home) | |
 | 1838 | Squad mission refused (the message says which rule) | `giveMax, standMax` for an amount out of range |
 | 1839 | All of today's squad missions are posted (`CaptainMissionsPerDay`) | `perDay` |
+| 1840 | STEP DOWN: you don't hold the Commander's seat | |
+| 1841 | A vote for Commander can't start now (one is open, the seat isn't acting, or the window has passed; the message says which) | `until` (RFC 3339, the window's end) when known |
+| 1842 | That vote has ended (or there is none) | |
+| 1843 | You have voted in this vote already | |
+| 1844 | That member can't stand for the seat (not in your branch, a Prospect or Nomad, banned or inactive) | |
+| 1845 | Only Members and above in your country can vote | |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

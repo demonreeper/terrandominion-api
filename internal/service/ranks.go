@@ -287,7 +287,8 @@ func (s *Service) BecomeNomad(ctx context.Context, playerID int64) error {
 		if was {
 			from = &now
 		}
-		if err := store.ClearSeat(ctx, tx, playerID); err != nil {
+		// A Commander who becomes a Nomad hands the seat to the next in line (leader succession).
+		if err := s.leaveSeat(ctx, tx, playerID, 0, "became a nomad"); err != nil {
 			return err
 		}
 		if err := store.SetNomad(ctx, tx, playerID, true, game.RankMember, from); err != nil {
@@ -476,6 +477,7 @@ func (s *Service) AnswerMove(ctx context.Context, playerID, askID int64, yes boo
 var lastRankTick time.Time
 
 func (s *Service) rankTick(ctx context.Context) {
+	s.successionTick(ctx)
 	if s.now().Sub(lastRankTick) < time.Minute {
 		return
 	}
@@ -566,7 +568,8 @@ func (s *Service) AdminSetRank(ctx context.Context, adminID int64, code, rankKey
 			return apperr.NotAMember
 		}
 		if m.Rank >= game.RankRegionalCommander {
-			if err := store.ClearSeat(ctx, tx, targetID); err != nil {
+			// The seat goes to the next in line as acting Commander (leader succession).
+			if err := s.leaveSeat(ctx, tx, targetID, 0, "admin set rank"); err != nil {
 				return err
 			}
 		}

@@ -28,6 +28,9 @@ Decided by the owner on 2026-11-12 in the base building thread. This replaces th
   when full, promotions queue by points.
 - **Succession** stays as decided: the next rank becomes acting regional Commander at once, and a vote within 7 days
   can replace them. For the global seat the Assistant Global Head acts.
+  **Built 2026-11-12** for regional seats (migration 0072, `internal/game/succession.go`): STEP DOWN, 14 days inactive
+  (`CommanderInactiveDays`), a ban or a deletion frees the seat; the highest rank takes it as acting Commander (ties:
+  points, then longest in the faction); a vote runs `CommanderVoteHours` (48) and needs a majority of the ballots cast.
 - **Votes and seats:** Prospects and Nomads don't vote and can't hold a seat.
 - **Squads:** a Captain picks their squad from Members and Prospects in the region, and a player is in at most one
   squad. Squads are a grouping only for now (a roster, the JOBS and base missions the Captain posts to them).

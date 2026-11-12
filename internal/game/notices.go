@@ -74,6 +74,11 @@ var noticeSeverity = map[string]string{
 
 	// A Captain's squad mission (faction-ranks-plan.md, Squads).
 	"captain_mission": SeverityInfo,
+
+	// Leader succession: the seat changed hands (acting, settled, or empty), a vote opened, a vote ended.
+	"seat_changed": SeverityWarning,
+	"vote_open":    SeverityWarning,
+	"vote_ended":   SeverityInfo,
 }
 
 // NoticeDropReclaimed tells an owner that what their ended Tether Node left on the map was never
@@ -99,6 +104,55 @@ func NoticeNomadMoved() string {
 func NoticeNomadDeclined() string { return "Your ask to move was declined." }
 
 func NoticeNomadExpired() string { return "Your ask to move was not answered in time." }
+
+// Leader succession notices. Country-neutral, and they name no faction or power.
+
+func dayWord(n float64) string {
+	if n == 1 {
+		return "1 day"
+	}
+	return fmt.Sprintf("%g days", n)
+}
+
+// NoticeSeatActing: to the branch, someone took the seat as acting Commander.
+func NoticeSeatActing(name string, voteDays float64) string {
+	return someone(name) + " is acting Commander in your country. For " + dayWord(voteDays) +
+		" any Member or higher can start a vote for the seat in FACTIONS."
+}
+
+// NoticeSeatActingYou: to the new acting Commander.
+func NoticeSeatActingYou(voteDays float64) string {
+	return "You are acting Commander in your country. For " + dayWord(voteDays) +
+		" any Member or higher can start a vote for the seat."
+}
+
+// NoticeSeatEmpty: nobody is left who can hold the seat; it can be claimed fresh.
+func NoticeSeatEmpty() string {
+	return "Your faction's seat in your country is empty. It can be claimed fresh."
+}
+
+// NoticeSeatSettled: no vote was started in time, so the acting Commander is the Commander.
+func NoticeSeatSettled(name string) string {
+	return "No vote was started. " + someone(name) + " is now Commander in your country."
+}
+
+// NoticeVoteOpen: a vote for Commander opened.
+func NoticeVoteOpen(hours float64) string {
+	return fmt.Sprintf("A vote for Commander in your country is open for %g h. Cast yours in FACTIONS.", hours)
+}
+
+// NoticeVoteWon: the vote ended with a majority.
+func NoticeVoteWon(name string) string {
+	return "The vote has ended. " + someone(name) + " is Commander in your country."
+}
+
+// NoticeVoteNoMajority: the vote ended with no majority; the holder stays (empty name: the seat stays empty).
+func NoticeVoteNoMajority(holder string) string {
+	if holder == "" {
+		return "The vote has ended with no majority. The seat stays empty."
+	}
+	return "The vote has ended with no majority. " + holder + " stays Commander in your country."
+}
 
 func NoticeDropReclaimed() string {
 	return "The Undersignal reclaimed what your Tether Node left behind."

@@ -327,6 +327,10 @@ func (s *Service) Sanction(ctx context.Context, actorID int64, code string, req 
 				if err := s.markBan(ctx, tx, targetID, id); err != nil {
 					return err
 				}
+				// A banned Commander loses the seat at once (leader succession).
+				if err := s.leaveSeat(ctx, tx, targetID, game.RankMember, "banned"); err != nil {
+					return err
+				}
 			}
 			if err := store.RevokeAllSessions(ctx, tx, targetID); err != nil {
 				return err

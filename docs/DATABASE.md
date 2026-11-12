@@ -22,7 +22,8 @@ players ─┬─ player_identities   sign-in links (google now; apple, nakama l
          ├─ player_gear ── gear_types        owned gear; the catalogue of gear
          ├─ harvests ── nodes                every harvest with the reported GPS fix
          ├─ xp_events                        XP ledger: every action that earned XP (target_player_id: the other player in a fight, for the daily cap)
-         └─ faction_members ── factions ─┬─ faction_branches   regional branch, sub-leader
+         └─ faction_members ── factions ─┬─ faction_branches   regional branch, its Commander's seat (acting, 0072)
+                                          │    └─ commander_votes ── commander_ballots   votes for the seat (0072)
                                           └─ bases              faction bases (0063): zone, slots, projects, vault
 devices          anti-farming: welcome grant once per phone (stored as a keyed hash)
 settings         every tunable number with its group, name, range, step and lock (0038); edited from the
@@ -205,6 +206,17 @@ poster's faction's standing bases. CHECK `jobs_guard_one_target`: a row with `ba
 `JobGuardRadiusM`, whichever is larger, both set when posted. Partial index `jobs_base_open_idx` finds a base's open
 jobs. A base that collapses (upkeep), is destroyed or is cleared by an admin ends them at once: status `expired`,
 `refunded` the unpaid slots, open takes `failed`. No new settings.
+
+Leader succession (0072, GAME_DESIGN "Leader succession"): `faction_branches.leader_acting` marks a seat held by an
+acting Commander, `acting_prev_rank` is the rank they go back to if a vote picks someone else, and `seat_changed_at`
+is when the seat last changed hands (the vote window starts there). The acting Commander holds the seat like any
+Commander (`leader_player_id`, `faction_members.rank` 90), so flag approval, the base rules and `RegionCommanders` need
+nothing new. The seat is freed by STEP DOWN, a ban, a deletion request, an admin's set rank, release pledge or move
+region, becoming a Nomad, or the succession sweep (the leader is banned, `pending_delete`, deleted, or has
+`last_seen_at` older than `CommanderInactiveDays`). `commander_votes` is one row per vote (`status` open, won or
+no_majority; unique open vote per branch; `ended_by` set by an admin's END VOTE; `ballots` the count at close).
+`commander_ballots` holds one ballot per voter per vote (`PRIMARY KEY (vote_id, voter_id)`). Settings (group `ranks`):
+`CommanderInactiveDays` 14 (0: never), `CommanderVoteDays` 7, `CommanderVoteHours` 48.
 
 `live_regions` is LiveRegions: the countries that can be claimed (MV first). `faction_members.viewing_branch_id` is the
 region a member views (null = home, `branch_id`); talk only.

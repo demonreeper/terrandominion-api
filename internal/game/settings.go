@@ -129,6 +129,11 @@ type Settings struct {
 	RankSlotsLead         int
 	NomadMoveCooldownDays float64
 	NomadAskHours         float64
+	// Leader succession: a Commander inactive this long loses the seat to an acting Commander; a vote may start this
+	// many days after the seat changes and runs this many hours.
+	CommanderInactiveDays float64
+	CommanderVoteDays     float64
+	CommanderVoteHours    float64
 	// Captain squad missions: posts a day, and the most a give or stand mission may ask.
 	CaptainMissionsPerDay     int
 	CaptainMissionGiveMax     int
@@ -529,6 +534,9 @@ func DefaultSettings() Settings {
 		RankSlotsLead:             3,
 		NomadMoveCooldownDays:     30,
 		NomadAskHours:             48,
+		CommanderInactiveDays:     14,
+		CommanderVoteDays:         7,
+		CommanderVoteHours:        48,
 		BaseProjectsAtOnce:        2,
 		BasePresenceStepPct:       10,
 		BasePresenceMaxMult:       2,
@@ -905,6 +913,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("RankSlotsLead", &s.RankSlotsLead)
 	f("NomadMoveCooldownDays", &s.NomadMoveCooldownDays)
 	f("NomadAskHours", &s.NomadAskHours)
+	f("CommanderInactiveDays", &s.CommanderInactiveDays)
+	f("CommanderVoteDays", &s.CommanderVoteDays)
+	f("CommanderVoteHours", &s.CommanderVoteHours)
 	i("BaseProjectsAtOnce", &s.BaseProjectsAtOnce)
 	f("BasePresenceStepPct", &s.BasePresenceStepPct)
 	f("BasePresenceMaxMult", &s.BasePresenceMaxMult)

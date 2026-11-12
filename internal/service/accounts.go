@@ -282,6 +282,10 @@ func (s *Service) RequestDeletion(ctx context.Context, playerID int64) (time.Tim
 		if err := store.ScheduleDeletion(ctx, tx, playerID, after); err != nil {
 			return err
 		}
+		// A Commander deleting the account gives up the seat at once (leader succession).
+		if err := s.leaveSeat(ctx, tx, playerID, game.RankMember, "deleting account"); err != nil {
+			return err
+		}
 		if err := store.DeletePlayerPushTokens(ctx, tx, playerID); err != nil {
 			return err
 		}
