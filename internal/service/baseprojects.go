@@ -308,7 +308,7 @@ func (s *Service) GiveToProject(ctx context.Context, playerID, baseID, projectID
 			}
 			for i, r := range resourceOrder {
 				if given[i] > 0 {
-					if err := advanceMissions(ctx, tx, playerID, game.GoalBaseGive, r, int(given[i]), st, now); err != nil {
+					if err := advanceMissionsAt(ctx, tx, playerID, baseID, game.GoalBaseGive, r, int(given[i]), st, now); err != nil {
 						return err
 					}
 				}

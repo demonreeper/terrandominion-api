@@ -61,7 +61,7 @@ func (s *Service) visitTick(ctx context.Context, st game.Settings, now time.Time
 	}
 	for _, o := range on {
 		err := db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-			return advanceMissions(ctx, tx, o.PlayerID, game.GoalBaseStand, "", minutes, st, now)
+			return advanceMissionsAt(ctx, tx, o.PlayerID, o.BaseID, game.GoalBaseStand, "", minutes, st, now)
 		})
 		if err != nil {
 			slog.Error("E1900 base stand mission failed", "player", o.PlayerID, "err", err)
@@ -224,7 +224,7 @@ func (s *Service) Deposit(ctx context.Context, playerID, baseID int64, req AtBas
 				if err := store.AddUploaded(ctx, tx, playerID, r, -given[i]); err != nil {
 					return err
 				}
-				if err := advanceMissions(ctx, tx, playerID, game.GoalBaseGive, r, int(given[i]), st, now); err != nil {
+				if err := advanceMissionsAt(ctx, tx, playerID, baseID, game.GoalBaseGive, r, int(given[i]), st, now); err != nil {
 					return err
 				}
 			}

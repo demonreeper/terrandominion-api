@@ -71,6 +71,9 @@ var noticeSeverity = map[string]string{
 	"nomad_moved":    SeverityInfo,
 	"nomad_declined": SeverityWarning,
 	"nomad_expired":  SeverityWarning,
+
+	// A Captain's squad mission (faction-ranks-plan.md, Squads).
+	"captain_mission": SeverityInfo,
 }
 
 // NoticeDropReclaimed tells an owner that what their ended Tether Node left on the map was never

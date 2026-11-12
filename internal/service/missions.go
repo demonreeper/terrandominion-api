@@ -44,7 +44,7 @@ func (s *Service) Missions(ctx context.Context, playerID int64) (MissionsView, e
 			return err
 		}
 		for i := range missions {
-			missions[i].Title = game.MissionTitle(missions[i].Goal, missions[i].GoalKey, missions[i].Count)
+			missions[i].Title = missionTitle(missions[i])
 		}
 		out.Missions = missions
 		return nil
@@ -56,8 +56,9 @@ func (s *Service) Missions(ctx context.Context, playerID int64) (MissionsView, e
 // different lore powers, members from their own faction, and Regional Commanders and Wardens one
 // command order among theirs. The player must be locked.
 func ensureMissions(ctx context.Context, q db.Querier, playerID int64, day time.Time, settings game.Settings) error {
-	existing, err := store.MissionsForDay(ctx, q, playerID, day)
-	if err != nil || len(existing) > 0 {
+	// A Captain's squad mission may arrive first; it is extra and doesn't stand in for the day's own.
+	given, err := store.DrawnMissionsGiven(ctx, q, playerID, day)
+	if err != nil || given {
 		return err
 	}
 	player, err := store.GetPlayer(ctx, q, playerID)
@@ -216,6 +217,13 @@ func giveLinkMission(ctx context.Context, q db.Querier, playerID int64, day time
 // the action's transaction, with the player locked.
 func advanceMissions(ctx context.Context, tx *sql.Tx, playerID int64, goal, key string, amount int,
 	settings game.Settings, now time.Time) error {
+	return advanceMissionsAt(ctx, tx, playerID, 0, goal, key, amount, settings, now)
+}
+
+// advanceMissionsAt is advanceMissions for an action at a base (baseID): a Captain's mission names a base and counts
+// only there; every other base mission counts at any of the faction's bases.
+func advanceMissionsAt(ctx context.Context, tx *sql.Tx, playerID, baseID int64, goal, key string, amount int,
+	settings game.Settings, now time.Time) error {
 	day, _ := game.MissionDay(settings, now)
 	if err := ensureMissions(ctx, tx, playerID, day, settings); err != nil {
 		return err
@@ -230,7 +238,7 @@ func advanceMissions(ctx context.Context, tx *sql.Tx, playerID int64, goal, key 
 	} else if away {
 		return nil
 	}
-	finished, err := store.AdvanceMissions(ctx, tx, playerID, day, goal, key, amount)
+	finished, err := store.AdvanceMissions(ctx, tx, playerID, day, goal, key, amount, baseID)
 	if err != nil {
 		return err
 	}

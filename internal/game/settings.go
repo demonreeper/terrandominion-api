@@ -129,6 +129,10 @@ type Settings struct {
 	RankSlotsLead         int
 	NomadMoveCooldownDays float64
 	NomadAskHours         float64
+	// Captain squad missions: posts a day, and the most a give or stand mission may ask.
+	CaptainMissionsPerDay     int
+	CaptainMissionGiveMax     int
+	CaptainMissionStandMaxMin int
 	// Base projects (B2).
 	BaseProjectsAtOnce       int
 	BasePresenceStepPct      float64
@@ -514,6 +518,9 @@ func DefaultSettings() Settings {
 		ProspectPoints:            100,
 		CaptainSquadSize:          10,
 		CaptainVaultDailyCap:      500,
+		CaptainMissionsPerDay:     2,
+		CaptainMissionGiveMax:     500,
+		CaptainMissionStandMaxMin: 30,
 		RankPointsCaptain:         1000,
 		RankPointsWarden:          2000,
 		RankPointsLead:            5000,
@@ -887,6 +894,9 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("ProspectPoints", &s.ProspectPoints)
 	i("CaptainSquadSize", &s.CaptainSquadSize)
 	i("CaptainVaultDailyCap", &s.CaptainVaultDailyCap)
+	i("CaptainMissionsPerDay", &s.CaptainMissionsPerDay)
+	i("CaptainMissionGiveMax", &s.CaptainMissionGiveMax)
+	i("CaptainMissionStandMaxMin", &s.CaptainMissionStandMaxMin)
 	i("RankPointsCaptain", &s.RankPointsCaptain)
 	i("RankPointsWarden", &s.RankPointsWarden)
 	i("RankPointsLead", &s.RankPointsLead)

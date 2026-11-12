@@ -145,6 +145,8 @@ type SquadView struct {
 	Eligible []store.BranchMember `json:"eligible"`
 	// For a member in someone's squad: their Captain.
 	MyCaptain *store.PlayerRef `json:"myCaptain,omitempty"`
+	// Missions: POST MISSION for a Captain (the base_missions power); null for anyone else.
+	Missions *SquadMissions `json:"missions,omitempty"`
 }
 
 func (s *Service) Squad(ctx context.Context, playerID int64) (SquadView, error) {
@@ -180,6 +182,11 @@ func (s *Service) Squad(ctx context.Context, playerID int64) (SquadView, error) 
 		}
 	}
 	out.Size = len(out.Members)
+	if game.Can(m.Rank, m.Nomad, game.PowerBaseMissions) {
+		if out.Missions, err = s.squadMissions(ctx, s.db, playerID, m, st); err != nil {
+			return out, err
+		}
+	}
 	captain, err := store.SquadCaptainOf(ctx, s.db, playerID)
 	if err != nil {
 		return out, err

@@ -6,6 +6,7 @@ import (
 
 	"github.com/demonreeper/terrandominion/api/internal/apperr"
 	"github.com/demonreeper/terrandominion/api/internal/game"
+	"github.com/demonreeper/terrandominion/api/internal/service"
 )
 
 // Faction ranks v2 and Nomads (docs/faction-ranks-plan.md, R1).
@@ -58,6 +59,23 @@ func (s *Server) squadAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, map[string]any{"added": r.PathValue("code")})
+}
+
+// postSquadMission: a Captain posts a base mission to their squad. Not wrapped in located: posting acts on no place;
+// the missions count on site through the base routes, which are.
+func (s *Server) postSquadMission(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body service.CaptainMissionRequest
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	out, err := s.svc.PostCaptainMission(r.Context(), playerID, body)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
 }
 
 func (s *Server) squadRemove(w http.ResponseWriter, r *http.Request) {

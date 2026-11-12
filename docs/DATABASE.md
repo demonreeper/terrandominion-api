@@ -189,6 +189,16 @@ Lead 70, Regional Commander 90, Assistant Global Head 95, Global Head 100 (the l
 the Nomad state; `players.contribution_points` follow the player across moves. `squad_members` is a Captain's squad (one
 squad per player). `nomad_asks` are asks to move home regions (open, approved, declined, expired, cancelled).
 
+Captain squad missions (0070): `captain_missions` is one row per post (Captain, faction, region, the named `base_id`,
+mission `day`, `goal`, `goal_key`, `count`, and `members` it went to); `captain_id` is set null when the account goes,
+and posts are never deleted. Each squad member's mission is a `player_missions` row with `captain_mission_id` and
+`base_id` (it counts only at that base; null on every other mission). The old unique `(player_id, day,
+mission_type_id)` is now a unique index for drawn missions only (`captain_mission_id IS NULL`), and
+`(player_id, captain_mission_id)` is unique for posts, so two posts of one kind on a day can both be given.
+`mission_types.captain_mission` marks each power's words for the three kinds (`cap_give_n`, `cap_stand_n`,
+`cap_repair_n`; never drawn). Settings (group `ranks`): `CaptainMissionsPerDay` 2, `CaptainMissionGiveMax` 500,
+`CaptainMissionStandMaxMin` 30. The reward is the base mission's (`MissionXpBase` and the rest), no more.
+
 `live_regions` is LiveRegions: the countries that can be claimed (MV first). `faction_members.viewing_branch_id` is the
 region a member views (null = home, `branch_id`); talk only.
 

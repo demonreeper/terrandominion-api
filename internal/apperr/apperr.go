@@ -172,6 +172,9 @@ var (
 	NomadCooldown   = def(1835, http.StatusConflict, "You moved recently. You can move again later.") // data: until
 	NomadAskGone    = def(1836, http.StatusNotFound, "That ask has been answered or has expired.")
 	AwayFromHome    = def(1837, http.StatusConflict, "Stand in your own region to do that.")
+	// Captain squad missions. CaptainMissionRefused's message says which rule refused it.
+	CaptainMissionRefused = def(1838, http.StatusConflict, "That squad mission can't be posted.")
+	CaptainMissionLimit   = def(1839, http.StatusConflict, "You have posted all the squad missions you may today.") // data: perDay
 
 	TetherCap      = def(1600, http.StatusConflict, "You already own the most Tether Nodes you can.") // data: max
 	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")

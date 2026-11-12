@@ -37,14 +37,25 @@ type PlayerMission struct {
 	// Title is filled by the service ("Harvest 3 crystal").
 	Title     string `json:"title"`
 	FactionID int    `json:"-"`
+	// A Captain's squad mission: FromCaptain, the Captain who posted it (null once their account is gone) and the base
+	// it counts at.
+	FromCaptain bool       `json:"fromCaptain,omitempty"`
+	Captain     *PlayerRef `json:"captain,omitempty"`
+	BaseID      *int64     `json:"baseId,omitempty"`
+	BaseName    string     `json:"baseName,omitempty"`
 }
 
 // MissionsForDay lists the player's missions for a day, in the order they were given.
 func MissionsForDay(ctx context.Context, q db.Querier, playerID int64, day time.Time) ([]PlayerMission, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT m.id, f.persona, f.code, f.color, m.audience, m.goal, COALESCE(m.goal_key, ''), m.count, m.progress,
-		       m.status, m.reward, m.line, m.faction_id
+		       m.status, m.reward, m.line, m.faction_id, m.captain_mission_id IS NOT NULL, m.base_id, COALESCE(b.name, ''),
+		       cp.id IS NOT NULL, COALESCE(td.player_code(cp.public_code, cp.status), ''),
+		       COALESCE(td.player_name(cp.callsign, cp.public_code, cp.status), '')
 		FROM td.player_missions m JOIN td.factions f ON f.id = m.faction_id
+		LEFT JOIN td.captain_missions c ON c.id = m.captain_mission_id
+		LEFT JOIN td.players cp ON cp.id = c.captain_id
+		LEFT JOIN td.bases b ON b.id = m.base_id
 		WHERE m.player_id = $1 AND m.day = $2::date
 		ORDER BY m.id`, playerID, day.Format("2006-01-02"))
 	if err != nil {
@@ -55,9 +66,15 @@ func MissionsForDay(ctx context.Context, q db.Querier, playerID int64, day time.
 	for rows.Next() {
 		var m PlayerMission
 		var reward []byte
+		var hasCaptain bool
+		var captain PlayerRef
 		if err := rows.Scan(&m.ID, &m.Persona, &m.FactionCode, &m.Color, &m.Audience, &m.Goal, &m.GoalKey, &m.Count,
-			&m.Progress, &m.Status, &reward, &m.Line, &m.FactionID); err != nil {
+			&m.Progress, &m.Status, &reward, &m.Line, &m.FactionID, &m.FromCaptain, &m.BaseID, &m.BaseName,
+			&hasCaptain, &captain.Code, &captain.Name); err != nil {
 			return nil, err
+		}
+		if hasCaptain {
+			m.Captain = &captain
 		}
 		if err := json.Unmarshal(reward, &m.Reward); err != nil {
 			return nil, err
@@ -83,7 +100,7 @@ func MissionCandidates(ctx context.Context, q db.Querier, audience string, facti
 	rows, err := q.QueryContext(ctx, `
 		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
 		WHERE audience = $1 AND ($2::int = 0 OR faction_id = $2::int) AND $3::int BETWEEN min_level AND max_level
-		  AND NOT link_mission AND NOT base_mission
+		  AND NOT link_mission AND NOT base_mission AND NOT captain_mission
 		ORDER BY id`, audience, factionID, level)
 	if err != nil {
 		return nil, err
@@ -110,7 +127,7 @@ func GiveMission(ctx context.Context, q db.Querier, playerID int64, day time.Tim
 	_, err = q.ExecContext(ctx, `
 		INSERT INTO td.player_missions (player_id, mission_type_id, faction_id, day, audience, goal, goal_key, count, reward, line)
 		VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9::jsonb, $10)
-		ON CONFLICT (player_id, day, mission_type_id) DO NOTHING`,
+		ON CONFLICT (player_id, day, mission_type_id) WHERE captain_mission_id IS NULL DO NOTHING`,
 		playerID, t.ID, t.FactionID, day.Format("2006-01-02"), audience, t.Goal, t.GoalKey, t.Count, string(encoded), t.Line)
 	return err
 }
@@ -125,9 +142,10 @@ type FinishedMission struct {
 }
 
 // AdvanceMissions counts an action toward the player's active missions for the day that match its
-// goal (and key, when the mission names one), and returns the ones it finished.
+// goal (and key, when the mission names one), and returns the ones it finished. baseID is the base the action happened
+// at (0 for none): a mission that names a base (a Captain's) counts only there.
 func AdvanceMissions(ctx context.Context, q db.Querier, playerID int64, day time.Time, goal, key string,
-	amount int) ([]FinishedMission, error) {
+	amount int, baseID int64) ([]FinishedMission, error) {
 	rows, err := q.QueryContext(ctx, `
 		WITH moved AS (
 		    UPDATE td.player_missions
@@ -135,11 +153,11 @@ func AdvanceMissions(ctx context.Context, q db.Querier, playerID int64, day time
 		        status = CASE WHEN progress + $5::int >= count THEN 'done' ELSE 'active' END,
 		        done_at = CASE WHEN progress + $5::int >= count THEN now() ELSE done_at END
 		    WHERE player_id = $1 AND day = $2::date AND status = 'active' AND goal = $3
-		      AND (goal_key IS NULL OR goal_key = $4)
+		      AND (goal_key IS NULL OR goal_key = $4) AND (base_id IS NULL OR base_id = $6)
 		    RETURNING id, faction_id, goal, COALESCE(goal_key, '') AS goal_key, count, status)
 		SELECT moved.id, f.persona, moved.goal, moved.goal_key, moved.count
 		FROM moved JOIN td.factions f ON f.id = moved.faction_id
-		WHERE moved.status = 'done'`, playerID, day.Format("2006-01-02"), goal, key, amount)
+		WHERE moved.status = 'done'`, playerID, day.Format("2006-01-02"), goal, key, amount, baseID)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +328,7 @@ func LinkMissionTypes(ctx context.Context, q db.Querier, audience string, factio
 func BaseMissionTypes(ctx context.Context, q db.Querier, factionID int) ([]MissionTypeRow, error) {
 	rows, err := q.QueryContext(ctx, `
 		SELECT id, faction_id, weight, goal, goal_key, count, line FROM td.mission_types
-		WHERE audience = 'member' AND faction_id = $1 AND base_mission ORDER BY id`, factionID)
+		WHERE audience = 'member' AND faction_id = $1 AND base_mission AND NOT captain_mission ORDER BY id`, factionID)
 	if err != nil {
 		return nil, err
 	}

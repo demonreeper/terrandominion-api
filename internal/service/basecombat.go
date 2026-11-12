@@ -582,7 +582,7 @@ func (s *Service) RepairBase(ctx context.Context, playerID, baseID int64, req De
 					return err
 				}
 			}
-			if err := advanceMissions(ctx, tx, playerID, game.GoalBaseRepair, "", 1, st, now); err != nil {
+			if err := advanceMissionsAt(ctx, tx, playerID, b.ID, game.GoalBaseRepair, "", 1, st, now); err != nil {
 				return err
 			}
 		}

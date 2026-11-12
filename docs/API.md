@@ -455,6 +455,7 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `nomad_moved` | info | Nomad | Their move was approved (push) | approver | null |
 | `nomad_declined` | warning | Nomad | Their move was declined (push) | approver | null |
 | `nomad_expired` | warning | Nomad | Their ask was not answered in time | null | null |
+| `captain_mission` | info | squad members | "<Captain> posted a squad mission: <title>. It is in ORDERS." (push; shows in ALERTS) | the Captain | null |
 | `base_attacked` | danger | faction members in the region | Their base was hit (push, once per base per `BaseAttackPushMin`) | null | null |
 | `base_tier_lost` | danger | faction members in the region | Their base dropped a tier (push) | null | null |
 | `base_destroyed` | danger | faction members in the region | Their Spire was destroyed (push) | null | null |
@@ -599,6 +600,13 @@ repair, attack, drone, intercept, shield, appoint a Warden). The same actions fe
 Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBase`, `MissionCreditPerLevel`),
 `MissionItemChance` of a low-level item, command orders `MissionCommandMult` times.
 
+A Captain's squad mission (below, `POST /factions/squad/missions`) is an extra mission for the day with `fromCaptain:
+true`, `captain {code, name}` (the Captain who posted it, a PlayerRef; missing once their account is gone), `baseId` and
+`baseName`; its `title` names the base ("Give 300 crystal at Coral Spire") and its `line` is the member's own power's
+words. It counts only at that base, on site (deposit, giving to a project from your own storage, the minute tick, and
+repairing a module there), and pays what a base mission pays the member (no command multiplier). It arriving first never
+stands in for the day's drawn missions.
+
 ## Factions
 | Method | Path | Notes |
 |---|---|---|
@@ -608,9 +616,10 @@ Rewards grow with level (`MissionXpBase`, `MissionXpPerLevel`, `MissionCreditBas
 | POST | `/factions/branch/wardens` | `code`: the older way to make a member a Warden; now the same as `/factions/branch/rank` with `rank: "warden"` |
 | GET | `/factions/ranks` | The rank ladder (faction-ranks-plan.md), top first: `ranks [{key, level, title, powers}]`. Keys: `global_head` (100, the faction's power), `assistant_global_head` (95, empty until the global election), `regional_commander` (90), `lead` (70), `warden` (50), `captain` (30), `member` (10), `prospect` (5). Powers: `give, upgrade, vote, hold_seat, nomad, squad_lead, post_jobs, base_missions, vault_on_site, vault_anywhere, propose_base, start_projects, start_t4, approve_base, approve_nomads, appoint_captain, appoint_warden, appoint_lead, command_orders, every_region` |
 | POST | `/factions/branch/rank` | `code, rank` (`captain`, `warden` or `lead`): a member with that appoint power (Warden: Captain; Lead: Warden and Captain; Commander: all three) gives a member of their branch the rank, below their own. Places per region are settings (`RankSlots*`). 1830 not allowed, 1831 places full, 1832 a Nomad, 1764 already that rank or higher. Pushes `warden` or `rank_up` |
-| GET | `/factions/squad` | `captain` (you lead a squad), `size`, `max` (`CaptainSquadSize`), `members` (your squad), `eligible` (Members and Prospects of your branch in no squad) and `myCaptain` (whose squad you are in) |
+| GET | `/factions/squad` | `captain` (you lead a squad), `size`, `max` (`CaptainSquadSize`), `members` (your squad), `eligible` (Members and Prospects of your branch in no squad) and `myCaptain` (whose squad you are in). For a Captain and up, `missions {perDay, left, giveMax, standMax, resources, bases [{id, name, tier, damaged}], today [post]}`: POST MISSION's choices (the faction's standing bases in the region; `damaged` offers repair) and today's posts |
 | POST | `/factions/squad/members/{code}` | A Captain or above adds a Member or Prospect of their branch to their squad (1833: full, in another squad, or above Member) |
 | DELETE | `/factions/squad/members/{code}` | A Captain takes someone out of their squad; `me` leaves your own squad |
+| POST | `/factions/squad/missions` | `baseId, goal, resource, amount`: a Captain or above (power `base_missions`) posts a squad mission. `goal`: `base_give` (`resource` alloy, crystal, data or credit; `amount` 1 to `CaptainMissionGiveMax`), `base_stand` (`amount` minutes, 1 to `CaptainMissionStandMaxMin`) or `base_repair` (`amount` 1, only while a module at that base is below full health). The base must be one of the faction's standing (`active`) bases in the Captain's home region (1416 gone). At most `CaptainMissionsPerDay` a mission day (1839 with `perDay`); 1838 for every other refusal (not a Captain, wrong base, bad kind or amount (`giveMax, standMax`), nothing to repair, empty squad). Every member of the squad gets it at once as an extra mission and the push `captain_mission` (actor: the Captain). Returns `post {id, baseId, baseName, goal, goalKey, count, members, at, title}, members, left`. Not a located route: posting acts on no place; the missions count through the base routes, which are. The missions belong to the members: one who leaves the squad keeps theirs, one who joins later doesn't get it, and a Captain who loses the rank has nothing left open |
 | POST | `/factions/nomad` | Become a Nomad: gives up any rank above Member, a seat and a squad. Prospects can't (1834). After settling once, becoming one again restarts the move cooldown |
 | POST | `/factions/settle` | A Nomad becomes an ordinary Member of their home region again (an open ask is cancelled) |
 | GET | `/factions/nomads` | `mine` (your open ask), `canAnswer` (Warden and up) and `asks` (open asks to move into your region) |
@@ -739,6 +748,8 @@ never reads as inside the range).
 | 1835 | Nomad moved recently | `until` (RFC 3339) |
 | 1836 | Nomad ask gone | |
 | 1837 | Stand in your own region to do that (jobs; member missions don't count away from home) | |
+| 1838 | Squad mission refused (the message says which rule) | `giveMax, standMax` for an amount out of range |
+| 1839 | All of today's squad missions are posted (`CaptainMissionsPerDay`) | `perDay` |
 | 1306 | Your pledge stands: a pledge made on this phone or sign-in binds the account to one faction | `faction, appealCode, appealUrl` |
 | 1200 | Too far from the node | `distanceM, rangeM` |
 | 1201 | GPS accuracy too poor (every action that takes a fix) | `accuracyM, maxAccuracyM` |

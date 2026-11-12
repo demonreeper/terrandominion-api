@@ -176,6 +176,7 @@ func TestNoticeSeverity(t *testing.T) {
 		"base_fading": SeverityWarning, "base_raised": SeverityInfo, "base_tier_up": SeverityInfo,
 		"rank_up": SeverityInfo, "nomad_ask": SeverityWarning, "nomad_moved": SeverityInfo,
 		"nomad_declined": SeverityWarning, "nomad_expired": SeverityWarning,
+		"captain_mission": SeverityInfo,
 	}
 	kinds := NoticeKinds()
 	sort.Strings(kinds)

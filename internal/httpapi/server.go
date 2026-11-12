@@ -141,6 +141,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/factions/squad", s.authed(s.squad))
 	mux.HandleFunc("POST /v1/factions/squad/members/{code}", s.authed(s.squadAdd))
 	mux.HandleFunc("DELETE /v1/factions/squad/members/{code}", s.authed(s.squadRemove))
+	mux.HandleFunc("POST /v1/factions/squad/missions", s.authed(s.postSquadMission))
 	mux.HandleFunc("POST /v1/factions/nomad", s.authed(s.becomeNomad))
 	mux.HandleFunc("POST /v1/factions/settle", s.authed(s.settle))
 	mux.HandleFunc("GET /v1/factions/nomads", s.authed(s.nomads))
