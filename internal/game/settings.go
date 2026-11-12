@@ -4,7 +4,10 @@
 // framework (such as Nakama) unchanged.
 package game
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Settings mirrors the td.settings table. Every field has a default, so a missing row never
 // breaks the game; the table only overrides.
@@ -126,6 +129,19 @@ type Settings struct {
 	RankSlotsLead         int
 	NomadMoveCooldownDays float64
 	NomadAskHours         float64
+	// Base projects (B2).
+	BaseProjectsAtOnce       int
+	BasePresenceStepPct      float64
+	BasePresenceMaxMult      float64
+	BasePresenceSec          float64
+	BasePointsPerUnit        float64
+	BaseGiveXpPer100         int
+	BaseModuleHealth         int
+	BaseProtectNewHours      float64
+	BasePerkForgeAssemblyPct float64
+	BasePerkVerdantCostPct   float64
+	BaseModuleCost           map[string][4]int
+	BaseModuleMin            map[string]float64
 	// BaseCost[tier] is the bill to reach that tier (alloy, crystal, data, credit); BaseAssemblyMin its assembly.
 	BaseCost        [BaseTopTier + 1][4]int
 	BaseAssemblyMin [BaseTopTier + 1]float64
@@ -485,6 +501,21 @@ func DefaultSettings() Settings {
 		RankSlotsLead:             3,
 		NomadMoveCooldownDays:     30,
 		NomadAskHours:             48,
+		BaseProjectsAtOnce:        2,
+		BasePresenceStepPct:       10,
+		BasePresenceMaxMult:       2,
+		BasePresenceSec:           90,
+		BasePointsPerUnit:         1,
+		BaseGiveXpPer100:          5,
+		BaseModuleHealth:          300,
+		BaseProtectNewHours:       24,
+		BasePerkForgeAssemblyPct:  25,
+		BasePerkVerdantCostPct:    15,
+		BaseModuleCost: map[string][4]int{
+			"lattice": {300, 200, 100, 50}, "shield": {250, 300, 150, 50},
+			"vault": {400, 100, 100, 100}, "uplink": {200, 150, 200, 50},
+		},
+		BaseModuleMin: map[string]float64{"lattice": 30, "shield": 30, "vault": 30, "uplink": 30},
 		BaseCost: [BaseTopTier + 1][4]int{{}, {400, 400, 150, 50}, {1200, 600, 400, 200}, {3000, 1500, 1000, 500},
 			{7000, 3500, 2500, 1200}, {15000, 8000, 6000, 3000}},
 		BaseAssemblyMin: [BaseTopTier + 1]float64{0, 15, 120, 480, 1440, 4320},
@@ -824,6 +855,37 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("RankSlotsLead", &s.RankSlotsLead)
 	f("NomadMoveCooldownDays", &s.NomadMoveCooldownDays)
 	f("NomadAskHours", &s.NomadAskHours)
+	i("BaseProjectsAtOnce", &s.BaseProjectsAtOnce)
+	f("BasePresenceStepPct", &s.BasePresenceStepPct)
+	f("BasePresenceMaxMult", &s.BasePresenceMaxMult)
+	f("BasePresenceSec", &s.BasePresenceSec)
+	f("BasePointsPerUnit", &s.BasePointsPerUnit)
+	i("BaseGiveXpPer100", &s.BaseGiveXpPer100)
+	i("BaseModuleHealth", &s.BaseModuleHealth)
+	f("BaseProtectNewHours", &s.BaseProtectNewHours)
+	f("BasePerkForgeAssemblyPct", &s.BasePerkForgeAssemblyPct)
+	f("BasePerkVerdantCostPct", &s.BasePerkVerdantCostPct)
+	// Copy the module maps: the defaults are shared by every Settings value.
+	cost := map[string][4]int{}
+	minutes := map[string]float64{}
+	for k, v := range s.BaseModuleCost {
+		cost[k] = v
+	}
+	for k, v := range s.BaseModuleMin {
+		minutes[k] = v
+	}
+	for _, m := range BaseModules {
+		key := "BaseMod" + strings.ToUpper(m[:1]) + m[1:]
+		c := cost[m]
+		for k, res := range []string{"Alloy", "Crystal", "Data", "Credit"} {
+			i(key+res, &c[k])
+		}
+		cost[m] = c
+		mm := minutes[m]
+		f(key+"Min", &mm)
+		minutes[m] = mm
+	}
+	s.BaseModuleCost, s.BaseModuleMin = cost, minutes
 	for t := 1; t <= BaseTopTier; t++ {
 		for k, res := range []string{"Alloy", "Crystal", "Data", "Credit"} {
 			i(fmt.Sprintf("BaseCostT%d%s", t, res), &s.BaseCost[t][k])

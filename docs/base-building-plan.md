@@ -7,6 +7,12 @@ holo table from the models. Choices in B1 the plan left open: the proposer picks
 (six offered, SHOW OTHERS), and the Spire takes it; flags show on the map to everyone with their time left; the cap
 counts every player seen in the region within `BaseCapActiveDays`, freelancers included (owner, 2026-11-12); sensitive
 places include kindergartens, childcare, colleges and universities with schools (owner, 2026-11-12).
+**B2 built 2026-11-12** (migration 0066) with the R1 ranks: Wardens and up start modules from anywhere; members give on
+site; Wardens and up pay from the vault anywhere in the region, Captains on site up to their daily cap. Starting values
+the plan left open: module Mk I bills (Lattice 300/200/100/50, Shield 250/300/150/50, Vault 400/100/100/100, Uplink
+200/150/200/50) and 30 min assembly, both times the Mk; 300 health per Mk; 1 contribution point per resource given, 5 XP
+per 100; the Forge Meridian (25% faster) and Verdant Exchange (15% cheaper) perks apply. The Spire's own project can't be
+cancelled. Modules lock on but do nothing yet: their effects come with B4 and B5.
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -293,7 +299,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 |---|---|---|
 | B0 | Base data: bases, slots, zones, projects, vault tables; placement rules incl. sensitive places from OSM; admin tools (place, clear, set tier, settings) | API, **built 2026-11-12** |
 | B1 | **Propose and approve**: plant a flag, PROPOSALS for the Commander, 48 h expiry; **raise a Spire** on approval; zone on the map; base card; holo table with tower and empty pads | API + app, **built 2026-11-12** |
-| B2 | **Projects and giving**: fund on site, assembly timer, presence speed-up, contribution points; modules Lattice, Shield Matrix, Vault, Uplink; the lock-on animation | API + app |
+| B2 | **Projects and giving**: fund on site, assembly timer, presence speed-up, contribution points; modules Lattice, Shield Matrix, Vault, Uplink; the lock-on animation | API + app, **built 2026-11-12** |
 | B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app |
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app |

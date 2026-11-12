@@ -153,6 +153,12 @@ var (
 	BaseGone             = def(1416, http.StatusNotFound, "That base is gone.")
 	FlagGone             = def(1417, http.StatusNotFound, "That flag has come down.")
 	BaseNameTaken        = def(1418, http.StatusConflict, "That name was just taken. Pick another.")
+	// Base projects (B2). ProjectRefused's message says which rule refused it.
+	ProjectRefused = def(1419, http.StatusConflict, "That project can't be started or changed.")
+	NotOnSite      = def(1420, http.StatusConflict, "Walk into the base's zone to do that.")
+	ProjectGone    = def(1421, http.StatusNotFound, "That project is done, cancelled or gone.")
+	NothingToGive  = def(1422, http.StatusConflict, "You have nothing this project still needs.")
+	VaultDailyCap  = def(1423, http.StatusConflict, "You have paid all you may from the vault today.")
 
 	// Faction ranks v2 and Nomads (faction-ranks-plan.md). The message says which rule refused it.
 	RankCantAppoint = def(1830, http.StatusForbidden, "Your rank can't give that rank.")

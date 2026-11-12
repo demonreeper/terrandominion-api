@@ -378,6 +378,8 @@ type BaseCardView struct {
 	Member   bool            `json:"member"`
 	Slots    []store.SlotRow `json:"slots,omitempty"`
 	Projects []store.Project `json:"projects,omitempty"`
+	// Vault: what the base holds, for members who may pay from it (Captain and up).
+	Vault *store.Resources4 `json:"vault,omitempty"`
 }
 
 func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCardView, error) {
@@ -406,6 +408,13 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 		if out.Projects, err = store.RunningProjects(ctx, s.db, baseID); err != nil {
 			return out, err
 		}
+		if game.Can(m.Rank, m.Nomad, game.PowerVaultOnSite) || game.Can(m.Rank, m.Nomad, game.PowerVaultAnywhere) {
+			v, err := store.VaultForUpdate(ctx, s.db, baseID)
+			if err != nil {
+				return out, err
+			}
+			out.Vault = &store.Resources4{Alloy: v[0], Crystal: v[1], Data: v[2], Credit: v[3]}
+		}
 	}
 	return out, nil
 }
@@ -413,6 +422,7 @@ func (s *Service) BaseCard(ctx context.Context, playerID, baseID int64) (BaseCar
 // baseTick brings unanswered flags down and tells their proposers.
 func (s *Service) baseTick(ctx context.Context) {
 	s.rankTick(ctx)
+	s.projectTick(ctx)
 	now := s.now()
 	due, err := store.DueFlags(ctx, s.db, now, 50)
 	if err != nil {

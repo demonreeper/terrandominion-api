@@ -199,7 +199,11 @@ func CancelOpenAsks(ctx context.Context, q db.Querier, playerID int64, now time.
 
 // DueAsks lists open asks whose time is up.
 func DueAsks(ctx context.Context, q db.Querier, now time.Time, limit int) ([]NomadAsk, error) {
-	return queryAsks(ctx, q, `a.status = 'open' AND a.expires_at <= $1 LIMIT $2`, now, limit)
+	asks, err := queryAsks(ctx, q, `a.status = 'open' AND a.expires_at <= $1`, now)
+	if len(asks) > limit {
+		asks = asks[:limit]
+	}
+	return asks, err
 }
 
 // BranchApprovers lists the members of a branch at or above a rank (who hear about a Nomad's ask).

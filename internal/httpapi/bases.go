@@ -214,3 +214,61 @@ func (s *Server) baseCard(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, out)
 }
+
+// ---- projects (B2) ----
+
+func (s *Server) startProject(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("base id"))
+		return
+	}
+	var body service.StartProjectRequest
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	out, err := s.svc.StartProject(r.Context(), playerID, id, body)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) giveToProject(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err1 := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	pid, err2 := strconv.ParseInt(r.PathValue("pid"), 10, 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("base or project id"))
+		return
+	}
+	var body service.GiveRequest
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	out, err := s.svc.GiveToProject(r.Context(), playerID, id, pid, body)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) cancelProject(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err1 := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	pid, err2 := strconv.ParseInt(r.PathValue("pid"), 10, 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("base or project id"))
+		return
+	}
+	if err := s.svc.CancelProject(r.Context(), playerID, id, pid); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"cancelled": pid})
+}

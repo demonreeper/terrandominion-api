@@ -227,3 +227,38 @@ func TestBaseBill(t *testing.T) {
 		t.Fatal("flags stand 48 h")
 	}
 }
+
+func TestBaseProjects(t *testing.T) {
+	s := DefaultSettings()
+	if ModuleBill("lattice", 1, s) != [4]int{300, 200, 100, 50} || ModuleBill("lattice", 3, s) != [4]int{900, 600, 300, 150} {
+		t.Fatal("module bills")
+	}
+	if ModuleBill("collector", 1, s) != [4]int{} || ValidModule("collector") || !ValidModule("uplink") {
+		t.Fatal("only the first four modules in B2")
+	}
+	if ModuleAssembly("vault", 2, s) != 60*time.Minute || ModuleHealth(3, s) != 900 {
+		t.Fatal("assembly and health by Mk")
+	}
+	if ProjectBill([4]int{100, 0, 0, 7}, 3, s) != [4]int{85, 0, 0, 6} || ProjectBill([4]int{100, 0, 0, 0}, 1, s) != [4]int{100, 0, 0, 0} {
+		t.Fatal("Verdant Exchange pays 15% less")
+	}
+	if AssemblyRate(1, 0, s) != 1 || AssemblyRate(1, 3, s) != 1.3 || AssemblyRate(1, 50, s) != 2 || AssemblyRate(2, 0, s) != 1.25 {
+		t.Fatal("presence and Forge Meridian")
+	}
+	got := Give([4]int64{500, 10, 0, 99}, [4]int64{300, 50, 9, 99}, [4]int64{400, 400, 150, 50}, [4]int64{0, 395, 0, 0})
+	if got != [4]int64{300, 5, 0, 50} {
+		t.Fatalf("give capped by holding and need: %v", got)
+	}
+	if !Funded([4]int64{1, 2, 0, 0}, [4]int64{1, 2, 0, 0}) || Funded([4]int64{1, 2, 0, 0}, [4]int64{1, 1, 0, 0}) {
+		t.Fatal("funded")
+	}
+	if GivePoints([4]int64{100, 50, 0, 0}, s) != 150 || GiveXP([4]int64{100, 100, 0, 0}, s) != 10 {
+		t.Fatal("points and XP")
+	}
+	if !CanCancelProject(true, RankWarden, RankLead) || CanCancelProject(false, RankWarden, RankWarden) || !CanCancelProject(false, RankLead, RankWarden) {
+		t.Fatal("cancel")
+	}
+	if StartPower("module", 0) != PowerStartProjects || StartPower("tier", 4) != PowerStartT4 || StartPower("tier", 5) != PowerApproveBase {
+		t.Fatal("start power")
+	}
+}

@@ -544,7 +544,16 @@ Every route that names a place is wrapped in the location checks. Everyone sees 
 | GET | `/bases/proposals` | – | For the Commander: every open flag of the faction in the region, oldest first, each with `near` (the 3 closest bases: `name, faction, distanceM`); for anyone else, their own open flag. Plus `canAnswer`, `canPropose`, `proposalsOff`, `held` and `cap` (bases and open flags against `BaseCap`) |
 | POST | `/bases/proposals/{id}/approve` | – | The Commander (rank 90+, same faction and region) raises the Spire on the flag from anywhere: the placement rules run again, then the base (status `building`), its zone, slots, vault and the `spire` project (bill `BaseCostT1*`, assembly `BaseAssemblyMinT1`). Returns `base`; pushes `base_approved`. 1762 not the Commander, 1417 when the flag is down |
 | POST | `/bases/proposals/{id}/decline` | – | Takes the flag down; the proposer gets `base_declined` and the `BaseProposalCooldownHours` cooldown |
+| POST | `/bases/{id}/projects` | `kind` (`module` or `module_upgrade`), `ring, index`, `module` (`lattice`, `shield`, `vault`, `uplink`) | B2: a Warden or above (power `start_projects`) of the base's faction and region starts a module on an empty pad, or the next Mk on a built one, from anywhere (the holo table). The Spire must stand; `BaseProjectsAtOnce` per base. Bill: the module's Mk I bill (`BaseMod*`) times the Mk, after the Verdant Exchange perk; assembly the Mk I time times the Mk. Returns the project. 1419 refused (says why) |
+| POST | `/bases/{id}/projects/{pid}/give` | `lat, lon, accuracyM, alloy, crystal, data, credit, fromVault` | Give to a funding project. From your own storage you must stand inside the zone (1420); what is given is capped to what the bill still needs and what you hold, earns `BasePointsPerUnit` contribution points and a little XP. `fromVault`: a Warden or above pays from the base's vault anywhere in the region (1837 outside it); a Captain only on site, up to `CaptainVaultDailyCap` a day (1423); vault payments earn no points. 1422 nothing to give. Returns `given, points, funded, project`. Funded projects assemble |
+| POST | `/bases/{id}/projects/{pid}/cancel` | – | Whoever started it, or a higher rank; what was given goes to the base's vault (logged). The Spire's project can't be cancelled. 1421 when gone |
 | PUT | `/bases/proposals-off` | `off` | The Commander turns proposals off (or on) for the region (1411 for proposers while off) |
+
+Assembly runs on the server's tick: 1 second per second, plus `BasePresenceStepPct` for each member of the faction whose
+last fix (within `BasePresenceSec`) is inside the zone, up to `BasePresenceMaxMult`; Forge Meridian builds
+`BasePerkForgeAssemblyPct` faster. When it is done the Spire stands (`active`, protected for `BaseProtectNewHours`), a
+module locks on (Mk, full health `BaseModuleHealth` times Mk, online) or its Mk goes up. The base card's `vault` shows to
+members who may pay from it.
 
 Unanswered flags come down after `BaseProposalHours` (the server's tick; `base_expired` to the proposer, who goes on the cooldown).
 
@@ -733,6 +742,11 @@ never reads as inside the range).
 | 1416 | Base gone | |
 | 1417 | Flag gone or not open | |
 | 1418 | That base name was just taken | |
+| 1419 | Project refused (the message says why) | |
+| 1420 | Not inside the base's zone | |
+| 1421 | Project done, cancelled or gone | |
+| 1422 | Nothing the project still needs | |
+| 1423 | Captain's vault limit for the day reached | |
 | 1600 | Tether Node limit reached | `max` |
 | 1601 | No free resource node in range of the build | |
 | 1602 | Not enough resources (TN build and upgrade, crafting, gear craft, upgrade and repair) | `short`: `{resource: amount still missing}` |

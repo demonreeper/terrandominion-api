@@ -212,6 +212,9 @@ type NewProject struct {
 	BaseID      int64
 	Kind        string
 	ToTier      int
+	Ring, Index int
+	Module      string
+	Mk          int
 	Bill        [4]int
 	AssemblySec int
 	StartedBy   int64
@@ -220,10 +223,12 @@ type NewProject struct {
 func InsertProject(ctx context.Context, q db.Querier, p NewProject) (int64, error) {
 	var id int64
 	err := q.QueryRowContext(ctx, `
-		INSERT INTO td.base_projects (base_id, kind, to_tier, bill_alloy, bill_crystal, bill_data, bill_credit,
-		                              assembly_sec, started_by)
-		VALUES ($1, $2, NULLIF($3, 0), $4, $5, $6, $7, $8, NULLIF($9, 0)) RETURNING id`,
-		p.BaseID, p.Kind, p.ToTier, p.Bill[0], p.Bill[1], p.Bill[2], p.Bill[3], p.AssemblySec, p.StartedBy).Scan(&id)
+		INSERT INTO td.base_projects (base_id, kind, to_tier, ring, idx, module, mk, bill_alloy, bill_crystal, bill_data,
+		                              bill_credit, assembly_sec, started_by)
+		VALUES ($1, $2, NULLIF($3, 0), NULLIF($4, 0), CASE WHEN $4 = 0 THEN NULL ELSE $5::smallint END, NULLIF($6, ''),
+		        NULLIF($7, 0), $8, $9, $10, $11, $12, NULLIF($13, 0)) RETURNING id`,
+		p.BaseID, p.Kind, p.ToTier, p.Ring, p.Index, p.Module, p.Mk, p.Bill[0], p.Bill[1], p.Bill[2], p.Bill[3],
+		p.AssemblySec, p.StartedBy).Scan(&id)
 	return id, err
 }
 
