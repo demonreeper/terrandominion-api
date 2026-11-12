@@ -20,8 +20,9 @@ to B2 (`docs/base-build-prompt.md`), using the new ranks there, without waiting 
 2. **Prospect:** new pledges start as Prospect; Member after `ProspectDays` or `ProspectPoints`, whichever first.
 3. **Captain:** appoint (Warden+), auto-promote by points, slots per region, squad of up to `CaptainSquadSize`, posts
    JOBS and base missions, gives from the vault on site up to `CaptainVaultDailyCap`.
-4. **Assistant Global Head:** the seat exists, stays empty while the power holds the Global Head seat, and the
-   acting rule is ready for when the global election opens.
+4. **Assistant Global Head:** the seat exists, stays empty while the power holds the Global Head seat; later it is
+   elected together with the Global Head, has a Warden's powers in every region, and acts as Global Head if that seat
+   falls vacant.
 5. **Nomads:** NOMAD (give up rank above Member, confirm), ask to move (48 h, push to the receiving region's
    Commander and Wardens), approve or decline (Commander, a Warden there, or the Global Head), move home region
    (start as Member, keep points, level, inventory; TNs stay put), `NomadMoveCooldownDays` 30, SETTLE. No vote or

@@ -8,8 +8,8 @@ Decided by the owner on 2026-11-12 in the base building thread. This replaces th
 
 | # | Rank | How you get it | What it adds |
 |---|---|---|---|
-| 1 | **Global Head** | The faction's power holds it for now. Later it is elected from the regional Commanders, when the global election opens. | Everything a Commander can do, in every region. Approves Nomad moves anywhere. Appoints the Assistant Global Head. |
-| 2 | **Assistant Global Head** | **Empty until the global election opens.** Then the elected Global Head appoints one. | Becomes **acting Global Head at once** if the seat falls vacant (step down, 14 days inactive), so the seat is never empty for long. A vote then follows, as for regional seats. |
+| 1 | **Global Head** | The faction's power holds it for now. Later it is elected from the regional Commanders, when the global election opens. | Everything a Commander can do, in every region. Approves Nomad moves anywhere. |
+| 2 | **Assistant Global Head** | **Empty until the global election opens.** Then **elected together with the Global Head** (they stand as a pair). | **A Warden's powers, in every region** of the faction, nothing more. Becomes **acting Global Head at once** if the seat falls vacant (step down, 14 days inactive), so the seat is never empty for long. A vote then follows, as for regional seats. |
 | 3 | **Regional Commander** | Claims the faction's seat in their country at `LeadFactionLevel`, or wins a vote. | Starts bases (approves flags), appoints leads, Wardens and Captains in the country. |
 | 4 | **Atoll/City Lead** | Appointed by the Commander, or earned with contribution points. One per atoll or city. | Proposes bases (flag), starts T4 projects, appoints Wardens and Captains in their area. |
 | 5 | **Warden** | Appointed, or earned with contribution points. | Proposes bases (flag), starts projects, pays from the vault anywhere in the region, posts JOBS, approves Nomads coming into their region. |
