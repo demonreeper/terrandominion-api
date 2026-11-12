@@ -100,3 +100,117 @@ func (s *Server) adminReleaseFlag(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, map[string]any{"released": id})
 }
+
+// ---- players (B1: flags, the Commander's answer, the map and the base card) ----
+
+func (s *Server) baseNames(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	names, err := s.svc.BaseNames(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"names": names})
+}
+
+func (s *Server) proposeBase(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body service.ProposeRequest
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	out, err := s.svc.ProposeBase(r.Context(), playerID, body)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) baseProposals(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	out, err := s.svc.Proposals(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) approveFlag(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("flag id"))
+		return
+	}
+	base, err := s.svc.ApproveFlag(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"base": base})
+}
+
+func (s *Server) declineFlag(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("flag id"))
+		return
+	}
+	if err := s.svc.DeclineFlag(r.Context(), playerID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"declined": id})
+}
+
+func (s *Server) setProposalsOff(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	var body struct {
+		Off bool `json:"off"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	if err := s.svc.SetProposalsOff(r.Context(), playerID, body.Off); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"proposalsOff": body.Off})
+}
+
+func (s *Server) basesNearby(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil {
+		fail(w, r, apperr.BadRequest.With("lat and lon are required"))
+		return
+	}
+	radius, _ := strconv.ParseFloat(q.Get("radius"), 64)
+	out, err := s.svc.BasesNearby(r.Context(), lat, lon, radius)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) baseCard(w http.ResponseWriter, r *http.Request) {
+	playerID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("base id"))
+		return
+	}
+	out, err := s.svc.BaseCard(r.Context(), playerID, id)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}

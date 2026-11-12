@@ -180,3 +180,50 @@ func TestCheckBaseGrowth(t *testing.T) {
 		t.Error("search must cover the own-faction spacing")
 	}
 }
+
+func TestBaseNames(t *testing.T) {
+	seq := 0
+	intn := func(n int) int { seq++; return seq % n }
+	for faction := 1; faction <= 6; faction++ {
+		name := MakeBaseName(faction, intn)
+		if !IsBaseName(faction, name) {
+			t.Fatalf("faction %d: %q not accepted", faction, name)
+		}
+		if IsBaseName(faction%6+1, name) && faction%6+1 != faction {
+			// Words belong to one faction; a clash would let one faction take another's style.
+			t.Errorf("%q is also a name of faction %d", name, faction%6+1)
+		}
+	}
+	for _, bad := range []string{"", "GLASS", "glass watch", "GLASS  WATCH", "GLASS WATCH X", "IRON WATCH"} {
+		if IsBaseName(1, bad) {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	if MakeBaseName(7, intn) != "" || IsBaseName(0, "GLASS WATCH") {
+		t.Error("unknown faction")
+	}
+	taken := map[string]bool{}
+	opts := BaseNameOptions(2, BaseNameOptionCount, intn, func(n string) bool { return taken[n] })
+	if len(opts) != BaseNameOptionCount {
+		t.Fatalf("got %d names", len(opts))
+	}
+	for _, n := range opts {
+		if taken[n] {
+			t.Fatalf("%q twice", n)
+		}
+		taken[n] = true
+	}
+}
+
+func TestBaseBill(t *testing.T) {
+	s := DefaultSettings()
+	if BaseBill(1, s) != [4]int{400, 400, 150, 50} || BaseBill(5, s) != [4]int{15000, 8000, 6000, 3000} {
+		t.Fatal("bills differ from the plan")
+	}
+	if BaseAssembly(1, s) != 15*time.Minute || BaseAssembly(5, s) != 72*time.Hour || BaseAssembly(9, s) != 0 {
+		t.Fatal("assembly times differ from the plan")
+	}
+	if !BaseProposalExpiry(time.Unix(0, 0), s).Equal(time.Unix(0, 0).Add(48 * time.Hour)) {
+		t.Fatal("flags stand 48 h")
+	}
+}

@@ -77,8 +77,8 @@ for the phone they own, and in the launch region many phones are not on Google's
 4. **Holo table for TNs.** "View TN" opens the 3D orbit view of your TN (tier, link lines, health ring).
    This is the base view's first version.
 5. **Living TNs in AR.** Your TN and other players' TNs get extra life in AR only: link lines pulse
-   with packets in the resource colour flowing toward the pylon, the pylon idles (slow turn, breathing
-   glow), and a fresh collection sends a visible burst up the line. The holo table shows the same TN,
+   with packets in the resource colour flowing toward the pylon, the pylon idles (a breathing glow; no turn: the owner dropped it 2026-11-12 so it stands still to walk round),
+   and a fresh collection sends a visible burst up the line. The holo table shows the same TN,
    plainer (static lines, no packets). Bases inherit all of this later.
 6. **AR photo mode.** A camera button in AR hides the HUD, frames your TN (later your base) in the real
    street, and adds a small TETHER RISE mark and your callsign. SHARE uses the existing share sheet

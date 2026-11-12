@@ -450,6 +450,10 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `invitation` | info | freelancer | At `LeadFactionLevel`: "You were invited. The choice is yours. Open FACTIONS." Plain game text, no power speaking; the inviting faction is `invited` in `GET /factions` | null | null |
 | `call` | info | freelancer | "Incoming call: <power>": a power's call the app did not fetch within `CallPushDelaySeconds`. Always pushed, whatever the two push switches say | null | null |
 | `warden` | info | member | Their Regional Commander made them a Warden | commander | null |
+| `base_proposal` | warning | Regional Commander | A Warden or lead planted a flag in the region (push) | proposer | null |
+| `base_approved` | info | proposer | Their flag was approved: the Spire project started (push) | commander | null |
+| `base_declined` | warning | proposer | Their flag was declined (push) | commander | null |
+| `base_expired` | warning | proposer | Their flag was not answered in time (push) | null | null |
 | `defused` | info | planter | The owner defused your spike | TN owner | null |
 
 Contest notices have `tnId` null.
@@ -521,6 +525,23 @@ on both outcomes, the percent; harvests also `linkXpBonus`) and harvest XP get `
 (25/40/50, 15/25/30, 10/20/30), added to any faction perk, never multiplied. Not on Tether Node collects, missions,
 drones, damage or shields. A signal lock or fake flag on any member (L1, L2) ends the link for everyone; an attack on a
 linked member's Tether Node ends it (`attack`). `/me` has `walkLink` (as above, or null) and `walkedTogetherM`.
+
+## Faction bases (docs/base-building-plan.md)
+
+Every route that names a place is wrapped in the location checks. Everyone sees every faction's bases and flags.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/bases/nearby` | `lat, lon, accuracy` (query), `radius?` (m, at most 3000) | `bases`: standing bases whose zone reaches the area `[{id, faction, factionName, color, region, name, tier, tierName, lat, lon, status, faded, coreHealth, coreMax, zoneM}]` (`status` `building` while the Spire's project runs: the seed beacon; `active`), and `flags`: open flags `[{id, faction, color, region, name, proposer {code, name}, lat, lon, status, createdAt, expiresAt}]` |
+| GET | `/bases/{id}` | – | The base card: `base` (as above), `member` (you are in its faction), `slots [{ring, index, module?, mk?, health?, maxHealth?, online}]` (everyone: the holo table draws them) and, for members only, `projects [{id, kind, toTier?, ring?, index?, module?, mk?, bill {alloy, crystal, data, credit}, given {...}, assemblySec, assembledSec, status, startedAt, fundedAt?}]`. 1416 when gone |
+| GET | `/bases/names` | – | `names`: six base names your faction can still take (two words from its own word list; call again for six more). 1798 for a freelancer |
+| POST | `/bases/propose` | `lat, lon, accuracyM, name` | **PROPOSE BASE**, standing on the spot: a Warden (rank 50), atoll/city lead (70) or the Regional Commander, in their home region. `name` must be one of the offered kind (1000 otherwise; 1418 if just taken). Runs every placement rule (1402-1415). Plants the flag (`flag`) and pushes `base_proposal` to the region's Commander; the Commander's own proposal counts as approved and returns `base` (a Spire, status `building`, with its `spire` project) |
+| GET | `/bases/proposals` | – | For the Commander: every open flag of the faction in the region, oldest first, each with `near` (the 3 closest bases: `name, faction, distanceM`); for anyone else, their own open flag. Plus `canAnswer`, `canPropose`, `proposalsOff`, `held` and `cap` (bases and open flags against `BaseCap`) |
+| POST | `/bases/proposals/{id}/approve` | – | The Commander (rank 90+, same faction and region) raises the Spire on the flag from anywhere: the placement rules run again, then the base (status `building`), its zone, slots, vault and the `spire` project (bill `BaseCostT1*`, assembly `BaseAssemblyMinT1`). Returns `base`; pushes `base_approved`. 1762 not the Commander, 1417 when the flag is down |
+| POST | `/bases/proposals/{id}/decline` | – | Takes the flag down; the proposer gets `base_declined` and the `BaseProposalCooldownHours` cooldown |
+| PUT | `/bases/proposals-off` | `off` | The Commander turns proposals off (or on) for the region (1411 for proposers while off) |
+
+Unanswered flags come down after `BaseProposalHours` (the server's tick; `base_expired` to the proposer, who goes on the cooldown).
 
 ## Orders and daily missions
 | Method | Path | Body | Notes |
@@ -684,6 +705,7 @@ never reads as inside the range).
 | 1415 | Bases switched off (`BasesEnabled`) | |
 | 1416 | Base gone | |
 | 1417 | Flag gone or not open | |
+| 1418 | That base name was just taken | |
 | 1600 | Tether Node limit reached | `max` |
 | 1601 | No free resource node in range of the build | |
 | 1602 | Not enough resources (TN build and upgrade, crafting, gear craft, upgrade and repair) | `short`: `{resource: amount still missing}` |

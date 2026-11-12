@@ -167,6 +167,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/admin/seed", s.admin(s.adminSeedStatus))
 	mux.HandleFunc("POST /v1/admin/seed", s.admin(s.adminSeedArea))
 	mux.HandleFunc("POST /v1/admin/seed/cell", s.admin(s.adminReseedCell))
+	// Faction bases (base-building-plan.md): flags, the Commander's answer, the map, the base card.
+	mux.HandleFunc("GET /v1/bases/nearby", s.authed(s.located(s.basesNearby)))
+	mux.HandleFunc("GET /v1/bases/names", s.authed(s.baseNames))
+	mux.HandleFunc("POST /v1/bases/propose", s.authed(s.located(s.proposeBase)))
+	mux.HandleFunc("GET /v1/bases/proposals", s.authed(s.baseProposals))
+	mux.HandleFunc("POST /v1/bases/proposals/{id}/approve", s.authed(s.approveFlag))
+	mux.HandleFunc("POST /v1/bases/proposals/{id}/decline", s.authed(s.declineFlag))
+	mux.HandleFunc("PUT /v1/bases/proposals-off", s.authed(s.setProposalsOff))
+	mux.HandleFunc("GET /v1/bases/{id}", s.authed(s.baseCard))
 	// Faction bases, B0 admin tools (base-building-plan.md).
 	mux.HandleFunc("GET /v1/admin/bases", s.admin(s.adminBases))
 	mux.HandleFunc("GET /v1/admin/bases/check", s.admin(s.adminCheckBaseSpot))

@@ -154,7 +154,8 @@ pass. `status` is `building` (the Spire's first project, the seed beacon), `acti
   rewritten when the tier changes.
 - `base_slots`: `(base_id, ring, idx)`. The slots a tier opens (`BaseSlotsT1..T5`, cumulative) go on ring 1 for T1
   and T2, ring 2 for T3, ring 3 for T4 and T5. `module`, `mk`, `health`, `online` are empty until B2.
-- `base_proposals`: flags. `open` holds the ground (the Spire's starting zone plus `BaseZoneGapM`) against other
+- `base_proposals`: flags, with the `name` the proposer picked (0064; names are unique among standing bases and open
+  flags). `open` holds the ground (the Spire's starting zone plus `BaseZoneGapM`) against other
   factions until `expires_at`; then `approved` (with `base_id`), `declined`, `expired` or `released` (an admin
   took it down; no cooldown). One open proposal per player (unique index). `faction_branches.base_proposals_off`
   is the Commander's switch.

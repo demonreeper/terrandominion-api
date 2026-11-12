@@ -48,6 +48,12 @@ var noticeSeverity = map[string]string{
 	"invitation":      SeverityInfo,
 	"call":            SeverityInfo,
 	"warden":          SeverityInfo,
+
+	// Faction bases (base-building-plan.md 1b): a flag for the Commander to answer, and its answer.
+	"base_proposal": SeverityWarning,
+	"base_approved": SeverityInfo,
+	"base_declined": SeverityWarning,
+	"base_expired":  SeverityWarning,
 }
 
 // NoticeDropReclaimed tells an owner that what their ended Tether Node left on the map was never

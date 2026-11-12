@@ -4,6 +4,8 @@
 // framework (such as Nakama) unchanged.
 package game
 
+import "fmt"
+
 // Settings mirrors the td.settings table. Every field has a default, so a missing row never
 // breaks the game; the table only overrides.
 type Settings struct {
@@ -111,6 +113,9 @@ type Settings struct {
 	BaseCapStep1Players, BaseCapStep2Players                        int
 	BaseCapStep3Players, BaseCapStep4Players                        int
 	BaseCapActiveDays                                               float64
+	// BaseCost[tier] is the bill to reach that tier (alloy, crystal, data, credit); BaseAssemblyMin its assembly.
+	BaseCost        [BaseTopTier + 1][4]int
+	BaseAssemblyMin [BaseTopTier + 1]float64
 
 	TnMaxPerPlayer    int
 	TnLinkRadiusM     float64
@@ -455,6 +460,9 @@ func DefaultSettings() Settings {
 		BaseCapStep3Players:       300,
 		BaseCapStep4Players:       600,
 		BaseCapActiveDays:         14,
+		BaseCost: [BaseTopTier + 1][4]int{{}, {400, 400, 150, 50}, {1200, 600, 400, 200}, {3000, 1500, 1000, 500},
+			{7000, 3500, 2500, 1200}, {15000, 8000, 6000, 3000}},
+		BaseAssemblyMin: [BaseTopTier + 1]float64{0, 15, 120, 480, 1440, 4320},
 
 		TnMaxPerPlayer:       3,
 		TnLinkRadiusM:        150,
@@ -779,6 +787,12 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("BaseCapStep3Players", &s.BaseCapStep3Players)
 	i("BaseCapStep4Players", &s.BaseCapStep4Players)
 	f("BaseCapActiveDays", &s.BaseCapActiveDays)
+	for t := 1; t <= BaseTopTier; t++ {
+		for k, res := range []string{"Alloy", "Crystal", "Data", "Credit"} {
+			i(fmt.Sprintf("BaseCostT%d%s", t, res), &s.BaseCost[t][k])
+		}
+		f(fmt.Sprintf("BaseAssemblyMinT%d", t), &s.BaseAssemblyMin[t])
+	}
 
 	i("TnMaxPerPlayer", &s.TnMaxPerPlayer)
 	f("TnLinkRadiusM", &s.TnLinkRadiusM)

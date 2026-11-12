@@ -91,16 +91,20 @@ func BasesHeld(ctx context.Context, q db.Querier, factionID int, region string, 
 	return n, err
 }
 
-// ActiveMembersInRegion is the region's signal population for the base cap: faction members of every faction
-// whose branch is in the region and who were seen within the last days.
-func ActiveMembersInRegion(ctx context.Context, q db.Querier, region string, days float64, now time.Time) (int, error) {
+// ActivePlayersInRegion is the region's signal population for the base cap (owner, 2026-11-12): every player,
+// freelancers included, whose last accepted fix lies in the region (its shape, or within maxKm of it) and is no
+// older than days.
+func ActivePlayersInRegion(ctx context.Context, q db.Querier, region string, days, maxKm float64, now time.Time) (int, error) {
 	var n int
 	err := q.QueryRowContext(ctx, `
-		SELECT count(*) FROM td.faction_members m
-		JOIN td.faction_branches b ON b.id = m.branch_id
-		JOIN td.players p ON p.id = m.player_id
-		WHERE b.country_code = $1 AND p.type = 'player' AND p.status = 'active'
-		  AND p.last_seen_at > $3::timestamptz - make_interval(secs => $2::float8 * 86400)`, region, days, now).Scan(&n)
+		SELECT count(*) FROM td.player_last_fix f
+		JOIN td.players p ON p.id = f.player_id
+		WHERE p.type = 'player' AND p.status = 'active'
+		  AND f.fixed_at > $3::timestamptz - make_interval(secs => $2::float8 * 86400)
+		  AND EXISTS (SELECT 1 FROM td.countries c
+		              WHERE c.code = $1
+		                AND ST_DWithin(c.geom::geography, ST_SetSRID(ST_MakePoint(f.lon, f.lat), 4326)::geography,
+		                               $4::float8 * 1000))`, region, days, now, maxKm).Scan(&n)
 	return n, err
 }
 

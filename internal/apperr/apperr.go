@@ -152,6 +152,7 @@ var (
 	BasesOff             = def(1415, http.StatusServiceUnavailable, "Bases are switched off.")
 	BaseGone             = def(1416, http.StatusNotFound, "That base is gone.")
 	FlagGone             = def(1417, http.StatusNotFound, "That flag has come down.")
+	BaseNameTaken        = def(1418, http.StatusConflict, "That name was just taken. Pick another.")
 
 	TetherCap      = def(1600, http.StatusConflict, "You already own the most Tether Nodes you can.") // data: max
 	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")

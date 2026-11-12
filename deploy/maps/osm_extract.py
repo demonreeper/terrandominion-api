@@ -8,7 +8,8 @@ Writes one JSON file for `tdapi import-osm` (scripts/import-osm.ps1 runs both):
   blocked  where a node must never stand: buildings, inland water, aprons, and runways and
            taxiways (lines, widened by "buf" metres on import)
   sensitive  where no faction base or flag may stand near (base-building-plan.md section 1): places of
-           worship, cemeteries, schools, hospitals, police, military and government sites, as areas
+           worship, cemeteries, schools (with kindergartens, childcare, colleges and universities, owner
+           2026-11-12), hospitals, police, military and government sites, as areas
            (closed ways) or points (tagged nodes)
 
 Pure Python, no GDAL/osmium, using the PBF reader in make_ocean.py. Multipolygon relations are
@@ -38,6 +39,9 @@ SENSITIVE_TAGS = [
     ("landuse", "religious", "worship"),
     ("landuse", "cemetery", "cemetery"), ("amenity", "grave_yard", "cemetery"),
     ("amenity", "school", "school"), ("building", "school", "school"),
+    ("amenity", "kindergarten", "school"), ("building", "kindergarten", "school"), ("amenity", "childcare", "school"),
+    ("amenity", "college", "school"), ("building", "college", "school"),
+    ("amenity", "university", "school"), ("building", "university", "school"),
     ("amenity", "hospital", "hospital"), ("building", "hospital", "hospital"),
     ("amenity", "police", "police"),
     ("landuse", "military", "military"), ("military", None, "military"),

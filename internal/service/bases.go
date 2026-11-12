@@ -38,7 +38,7 @@ func (s *Service) baseSpot(ctx context.Context, q db.Querier, lat, lon float64, 
 	if sp.Held, err = store.BasesHeld(ctx, q, factionID, region, selfFlag, s.now()); err != nil {
 		return sp, err
 	}
-	active, err := store.ActiveMembersInRegion(ctx, q, region, st.BaseCapActiveDays, s.now())
+	active, err := store.ActivePlayersInRegion(ctx, q, region, st.BaseCapActiveDays, st.CountryAtMaxKm, s.now())
 	if err != nil {
 		return sp, err
 	}

@@ -38,6 +38,11 @@ var pushRules = map[string]PushRule{
 	"friend_request":  {Title: "Friend request", Channel: PushChannelResults},
 	"friend_accepted": {Title: "New friend", Channel: PushChannelResults},
 
+	"base_proposal": {Title: "Base proposal", Channel: PushChannelResults},
+	"base_approved": {Title: "Flag approved", Channel: PushChannelResults},
+	"base_declined": {Title: "Flag declined", Channel: PushChannelResults},
+	"base_expired":  {Title: "Flag expired", Channel: PushChannelResults},
+
 	// A power's call the app did not pick up. The body is "Incoming call: <power>".
 	"call": {Title: "Tether Rise", Channel: PushChannelResults, Always: true},
 }

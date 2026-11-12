@@ -480,6 +480,7 @@ func (s *Service) RunTetherLoop(ctx context.Context) {
 			s.expireFriendRequests(ctx)
 		case <-walk.C:
 			s.walkTick(ctx)
+			s.baseTick(ctx)
 		case <-combat.C:
 			s.resolveCombat(ctx, s.Settings(ctx))
 		}
