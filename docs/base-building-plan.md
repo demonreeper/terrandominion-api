@@ -136,8 +136,9 @@ Everything that takes time (raising the Spire, a tier upgrade, a module, a modul
    it up by 10%, up to **x2** (`BasePresenceStepPct`, `BasePresenceMaxMult`). In AR and on the holo
    table the module descends on its beam and locks on as the bar fills.
 4. **Credit (decided, owner 2026-11-11):** every resource given earns **contribution points** and a little
-   XP; the values are set later. Points **auto-promote** a member to **Warden** and on to **atoll/city lead**
-   at set totals, as well as by appointment. **Never to regional Commander** (that seat is claimed or voted).
+   XP; the values are set later. Points **auto-promote** up the rank ladder (Prospect, Member, Captain, Warden,
+   atoll/city lead; see `docs/faction-ranks-plan.md`) at set totals, as well as by appointment. A **Captain** gives
+   from the vault on site up to a daily limit; Prospects give but can't start projects or use the vault. **Never to regional Commander** (that seat is claimed or voted).
    **Each rank has a limited number of slots per region** (settings): when the slots are full, the next
    promotion waits for a free slot, and the queue goes by points.
 5. A project can be **cancelled** by whoever started it or a higher rank: what was given goes to the
