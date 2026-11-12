@@ -216,7 +216,7 @@ func MarkVisited(ctx context.Context, q db.Querier, baseIDs []int64, now time.Ti
 		return nil
 	}
 	_, err := q.ExecContext(ctx, `
-		UPDATE td.bases SET last_visit_at = $2, faded_at = NULL WHERE id = ANY($1)`, baseIDs, now)
+		UPDATE td.bases SET last_visit_at = $2, faded_at = NULL, fade_dropped_at = NULL WHERE id = ANY($1)`, baseIDs, now)
 	return err
 }
 

@@ -166,6 +166,8 @@ pass. `status` is `building` (the Spire's first project, the seed beacon), `acti
 - `base_strikes` (0068): drones flying at a base and Overload Spikes armed on it (target: a slot, or the core when
   null), resolved on the tick. `base_hacks`: each hack, for the cooldown. `bases.attack_pushed_at` throttles the push;
   `map_drops.base_id` marks what a destroyed Spire left.
+- Upkeep (0069): `bases.last_visit_at` (a member on site), `faded_at` (fading since), `fade_dropped_at` (the fade's
+  last tier drop).
 - `base_vaults`: one per base. `base_vault_log`: every movement, signed, with its kind.
 
 ### notices and push

@@ -155,9 +155,14 @@ type Settings struct {
 	BaseAttackPushMin        float64
 	BaseDestroyDropPct       float64
 	BasePackedRefundPct      float64
-	BasePerkLumenCrystalPct  float64
-	BaseModuleCost           map[string][4]int
-	BaseModuleMin            map[string]float64
+	// Upkeep (B6).
+	BaseUpkeepDays          float64
+	BaseFadeDropDays        float64
+	BaseSpireCollapseDays   float64
+	BaseFadedShieldPct      float64
+	BasePerkLumenCrystalPct float64
+	BaseModuleCost          map[string][4]int
+	BaseModuleMin           map[string]float64
 	// BaseCost[tier] is the bill to reach that tier (alloy, crystal, data, credit); BaseAssemblyMin its assembly.
 	BaseCost        [BaseTopTier + 1][4]int
 	BaseAssemblyMin [BaseTopTier + 1]float64
@@ -547,6 +552,10 @@ func DefaultSettings() Settings {
 		BaseAttackPushMin:        30,
 		BaseDestroyDropPct:       50,
 		BasePackedRefundPct:      50,
+		BaseUpkeepDays:           7,
+		BaseFadeDropDays:         7,
+		BaseSpireCollapseDays:    14,
+		BaseFadedShieldPct:       50,
 		BaseCost: [BaseTopTier + 1][4]int{{}, {400, 400, 150, 50}, {1200, 600, 400, 200}, {3000, 1500, 1000, 500},
 			{7000, 3500, 2500, 1200}, {15000, 8000, 6000, 3000}},
 		BaseAssemblyMin: [BaseTopTier + 1]float64{0, 15, 120, 480, 1440, 4320},
@@ -910,6 +919,10 @@ func SettingsFrom(values map[string]float64) Settings {
 	f("BaseAttackPushMin", &s.BaseAttackPushMin)
 	f("BaseDestroyDropPct", &s.BaseDestroyDropPct)
 	f("BasePackedRefundPct", &s.BasePackedRefundPct)
+	f("BaseUpkeepDays", &s.BaseUpkeepDays)
+	f("BaseFadeDropDays", &s.BaseFadeDropDays)
+	f("BaseSpireCollapseDays", &s.BaseSpireCollapseDays)
+	f("BaseFadedShieldPct", &s.BaseFadedShieldPct)
 	for mk := 1; mk <= MaxModuleMk; mk++ {
 		i(fmt.Sprintf("BaseCollectorLinksMk%d", mk), &s.BaseCollectorLinks[mk])
 	}

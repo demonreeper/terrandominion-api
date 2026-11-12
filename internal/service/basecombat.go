@@ -129,7 +129,13 @@ func (s *Service) applyBaseHit(ctx context.Context, tx *sql.Tx, b store.BaseComb
 	if err != nil {
 		return out, err
 	}
-	hit := game.HitDamage(damage, intercept, game.BaseShieldShare(shieldMk, attackMk, b.FactionID, st))
+	// A faded base's shield works at half strength (B6).
+	faded, err := store.BaseFaded(ctx, tx, b.ID)
+	if err != nil {
+		return out, err
+	}
+	share := game.FadedShieldShare(game.BaseShieldShare(shieldMk, attackMk, b.FactionID, st), faded, st)
+	hit := game.HitDamage(damage, intercept, share)
 	out.Damage = int(game.Damage(hit))
 	if target.Core {
 		health, err := store.DamageCore(ctx, tx, b.ID, hit)

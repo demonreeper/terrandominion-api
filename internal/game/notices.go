@@ -59,6 +59,7 @@ var noticeSeverity = map[string]string{
 	"base_attacked":  SeverityDanger,
 	"base_tier_lost": SeverityDanger,
 	"base_destroyed": SeverityDanger,
+	"base_fading":    SeverityWarning,
 
 	// Ranks and Nomads (faction-ranks-plan.md).
 	"rank_up":        SeverityInfo,

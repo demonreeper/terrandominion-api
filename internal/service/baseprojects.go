@@ -70,6 +70,12 @@ func (s *Service) StartProject(ctx context.Context, playerID, baseID int64, req 
 		if b.Status != "active" {
 			return apperr.ProjectRefused.Say("The Spire has to stand first.")
 		}
+		// A fading base starts nothing new until a member walks to it (B6).
+		if faded, err := store.BaseFaded(ctx, tx, baseID); err != nil {
+			return err
+		} else if faded {
+			return apperr.ProjectRefused.Say("This base is fading. A member must walk to it first.")
+		}
 		running, err := store.RunningProjectRows(ctx, tx, baseID)
 		if err != nil {
 			return err

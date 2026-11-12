@@ -30,6 +30,10 @@ hacks (75 m, 50 data, 5-15% above the 20% safe floor, Bastion Order 35%, 30 min 
 the phone); intercept, defuse and repair on site; the push once per base per 30 min; a freelancer attacker loses
 neutral standing; the attacker's walk link with a member ends. Guard jobs on a base use the existing guard job at the
 base's spot; no base-specific guard job was added.
+**B6 built 2026-11-12** (migration 0069): fading after 7 days without a member on site (no new projects, shield halved,
+dimmed, members told "<Base> is fading. Walk to it."), a tier lost each further week, a faded Spire collapsing after 14
+days. A collapse is treated like a destruction (half the vault drops on the map): the plan doesn't say what a collapse
+leaves, so this follows the destruction rule.
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -320,7 +324,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app, **built 2026-11-12** |
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app, **built 2026-11-12** |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app, **built 2026-11-12** |
-| B6 | **Upkeep**: fading, tier drop, collapse | API |
+| B6 | **Upkeep**: fading, tier drop, collapse | API, **built 2026-11-12** |
 | B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio |
 | B8 | **Later**: Capital and Command Relay, Sensor Net, Drone Hangar, Fabricator | API + app |
 

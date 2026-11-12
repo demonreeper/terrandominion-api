@@ -30,6 +30,7 @@ func (s *Service) economyTick(ctx context.Context) {
 	lastEconomyTick = now
 	st := s.Settings(ctx)
 	s.visitTick(ctx, st, now, elapsed)
+	s.upkeepTick(ctx, st, now)
 	s.collectorTick(ctx, st, now)
 }
 

@@ -341,3 +341,47 @@ func FactionHasDamagedModule(ctx context.Context, q db.Querier, factionID int) (
 		                 AND s.health < s.max_health)`, factionID).Scan(&ok)
 	return ok, err
 }
+
+// UpkeepBase is a standing base as the upkeep tick reads it.
+type UpkeepBase struct {
+	ID        int64
+	Tier      int
+	LastVisit time.Time
+	FadedAt   *time.Time
+	DroppedAt *time.Time
+}
+
+func UpkeepBases(ctx context.Context, q db.Querier) ([]UpkeepBase, error) {
+	rows, err := q.QueryContext(ctx, `
+		SELECT id, tier, last_visit_at, faded_at, fade_dropped_at FROM td.bases WHERE status = 'active'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []UpkeepBase
+	for rows.Next() {
+		var u UpkeepBase
+		if err := rows.Scan(&u.ID, &u.Tier, &u.LastVisit, &u.FadedAt, &u.DroppedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func SetBaseFaded(ctx context.Context, q db.Querier, baseID int64, at time.Time) error {
+	_, err := q.ExecContext(ctx, `UPDATE td.bases SET faded_at = $2, fade_dropped_at = NULL WHERE id = $1 AND faded_at IS NULL`, baseID, at)
+	return err
+}
+
+func SetFadeDropped(ctx context.Context, q db.Querier, baseID int64, at time.Time) error {
+	_, err := q.ExecContext(ctx, `UPDATE td.bases SET fade_dropped_at = $2 WHERE id = $1`, baseID, at)
+	return err
+}
+
+// BaseFaded says whether a base is fading.
+func BaseFaded(ctx context.Context, q db.Querier, baseID int64) (bool, error) {
+	var faded bool
+	err := q.QueryRowContext(ctx, `SELECT faded_at IS NOT NULL FROM td.bases WHERE id = $1`, baseID).Scan(&faded)
+	return faded, err
+}

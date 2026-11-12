@@ -458,6 +458,7 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `base_attacked` | danger | faction members in the region | Their base was hit (push, once per base per `BaseAttackPushMin`) | null | null |
 | `base_tier_lost` | danger | faction members in the region | Their base dropped a tier (push) | null | null |
 | `base_destroyed` | danger | faction members in the region | Their Spire was destroyed (push) | null | null |
+| `base_fading` | warning | faction members in the region | Their base is fading: walk to it (push) | null | null |
 | `base_proposal` | warning | Regional Commander | A Warden or lead planted a flag in the region (push) | proposer | null |
 | `base_approved` | info | proposer | Their flag was approved: the Spire project started (push) | commander | null |
 | `base_declined` | warning | proposer | Their flag was declined (push) | commander | null |
@@ -573,6 +574,11 @@ each into the vault on the TN rules (the node's harvest; the cooldown grows like
 minute a member stands on site the base counts as visited (upkeep) and their stand-at-your-base mission counts a minute.
 The base card's `collecting` lists the tethered nodes. With a standing base in the region, one of a member's daily
 missions is a base mission from their power (`base_give`, `base_stand`; `base_repair` from B5).
+
+B6 (upkeep): a base with no member on site for `BaseUpkeepDays` fades (`faded` on the map and card; no new projects;
+its shield works at `BaseFadedShieldPct`; its members get `base_fading`), then drops a tier every further
+`BaseFadeDropDays` (outer modules packed away, no protection), and a faded Spire collapses after `BaseSpireCollapseDays`
+(as if destroyed: half its vault drops on the map). Any member on site ends the fade at once.
 
 Unanswered flags come down after `BaseProposalHours` (the server's tick; `base_expired` to the proposer, who goes on the cooldown).
 
