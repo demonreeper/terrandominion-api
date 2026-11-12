@@ -459,6 +459,8 @@ null when they don't apply. `body` is a finished sentence. Every kind:
 | `base_tier_lost` | danger | faction members in the region | Their base dropped a tier (push) | null | null |
 | `base_destroyed` | danger | faction members in the region | Their Spire was destroyed (push) | null | null |
 | `base_fading` | warning | faction members in the region | Their base is fading: walk to it (push) | null | null |
+| `base_raised` | info | faction members in the region | A Spire's assembly finished: the base stands (push) | null | null |
+| `base_tier_up` | info | faction members in the region | The base grew a tier (push) | null | null |
 | `base_proposal` | warning | Regional Commander | A Warden or lead planted a flag in the region (push) | proposer | null |
 | `base_approved` | info | proposer | Their flag was approved: the Spire project started (push) | commander | null |
 | `base_declined` | warning | proposer | Their flag was declined (push) | commander | null |
@@ -647,7 +649,7 @@ a repeat call `CallRepeatHours` (24) later and a written message `CallMessageHou
 after it came due is pushed as "Incoming call: <power>" through the notices outbox. No power says its own name, and
 nothing here links the six.
 
-Memberships (here and `faction` on `/me`) carry `rankKey`, `powers` (the rank's powers; a Nomad's are cut to a Member's without vote or seat), `nomad`, `nomadMoveAt` (when a Nomad may next move; absent when now), `joinedAt`, `points` (contribution points) and `factionId, factionCode, factionName, factionColor (what their Tether Nodes glow in), rank, branchId,
+Memberships (here and `faction` on `/me`) carry `voice` (the app's audio folder for the faction's power, for its base voice lines; a file path, never shown), `rankKey`, `powers` (the rank's powers; a Nomad's are cut to a Member's without vote or seat), `nomad`, `nomadMoveAt` (when a Nomad may next move; absent when now), `joinedAt`, `points` (contribution points) and `factionId, factionCode, factionName, factionColor (what their Tether Nodes glow in), rank, branchId,
 region, rankTitle`. `/me` also lists `badges`: `[{badge, factionCode, factionName, region}]`; `founder`
 goes to the first player ever to command a faction's branch in a country, and is permanent. Ranks: 1 Member, 50 Warden, 90 Regional Commander; 100 is the shared lore AI
 above every faction (internal name `signal`; players see a separate commander per faction), never a player.

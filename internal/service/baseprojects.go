@@ -434,7 +434,10 @@ func (s *Service) projectTick(ctx context.Context) {
 				if err != nil {
 					return err
 				}
-				return store.AdvanceProject(ctx, tx, id, float64(p.AssemblySec), grown, now)
+				if err := store.AdvanceProject(ctx, tx, id, float64(p.AssemblySec), grown, now); err != nil || !grown {
+					return err
+				}
+				return s.tellMembers(ctx, tx, b, "base_tier_up", game.NoticeBaseTierUp(b.Name, game.BaseTierName(p.ToTier)))
 			}
 			if err := store.AdvanceProject(ctx, tx, id, min(assembled, float64(p.AssemblySec)), done, now); err != nil {
 				return err
@@ -444,7 +447,10 @@ func (s *Service) projectTick(ctx context.Context) {
 			}
 			switch p.Kind {
 			case "spire":
-				return store.SetBaseActive(ctx, tx, b.ID, now.Add(time.Duration(st.BaseProtectNewHours*float64(time.Hour))))
+				if err := store.SetBaseActive(ctx, tx, b.ID, now.Add(time.Duration(st.BaseProtectNewHours*float64(time.Hour)))); err != nil {
+					return err
+				}
+				return s.tellMembers(ctx, tx, b, "base_raised", game.NoticeBaseRaised(b.Name))
 			case "module", "module_upgrade":
 				if err := store.SetSlotModule(ctx, tx, b.ID, p.Ring, p.Index, p.Module, p.Mk, game.ModuleHealth(p.Mk, st)); err != nil {
 					return err
@@ -458,4 +464,18 @@ func (s *Service) projectTick(ctx context.Context) {
 			slog.Error("E1900 project advance failed", "project", id, "err", err)
 		}
 	}
+}
+
+// tellMembers sends a notice to the base's faction members in its region.
+func (s *Service) tellMembers(ctx context.Context, tx *sql.Tx, b store.BaseRef, kind, body string) error {
+	members, err := store.FactionMembersInRegion(ctx, tx, b.FactionID, b.Region)
+	if err != nil {
+		return err
+	}
+	for _, id := range members {
+		if err := notify(ctx, tx, store.NewNotice{PlayerID: id, Kind: kind, Body: body}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

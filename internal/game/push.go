@@ -47,6 +47,8 @@ var pushRules = map[string]PushRule{
 	"base_tier_lost": {Title: "Base lost a tier", Channel: PushChannelAlerts},
 	"base_destroyed": {Title: "Base destroyed", Channel: PushChannelAlerts},
 	"base_fading":    {Title: "Base fading", Channel: PushChannelResults},
+	"base_raised":    {Title: "Spire raised", Channel: PushChannelResults},
+	"base_tier_up":   {Title: "Base grew", Channel: PushChannelResults},
 
 	"rank_up":        {Title: "New rank", Channel: PushChannelResults},
 	"nomad_ask":      {Title: "Nomad wants to move in", Channel: PushChannelResults},

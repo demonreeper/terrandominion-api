@@ -51,3 +51,9 @@ func FadedShieldShare(share float64, faded bool, s Settings) float64 {
 
 // NoticeBaseFading is the members' message (the plan's own words).
 func NoticeBaseFading(base string) string { return base + " is fading. Walk to it." }
+
+// NoticeBaseRaised: the Spire's assembly finished; the base stands.
+func NoticeBaseRaised(base string) string { return base + " stands. The Spire is raised." }
+
+// NoticeBaseTierUp: the base grew a tier.
+func NoticeBaseTierUp(base, tier string) string { return base + " is now a " + tier + "." }

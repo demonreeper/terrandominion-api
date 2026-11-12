@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/demonreeper/terrandominion/api/internal/db"
+	"github.com/demonreeper/terrandominion/api/internal/game"
 )
 
 type Faction struct {
@@ -222,6 +223,8 @@ type Membership struct {
 	// (its motto), shown once after HOLD TO PLEDGE.
 	PowerName string `json:"powerName,omitempty"`
 	PowerLine string `json:"powerLine,omitempty"`
+	// Voice is the app's audio folder for the faction's power (its base voice lines). A file path, never shown.
+	Voice string `json:"voice,omitempty"`
 }
 
 // FactionVoice is a faction's power and its motto.
@@ -265,6 +268,7 @@ func MembershipOf(ctx context.Context, q db.Querier, playerID int64) (*Membershi
 	if branch.Valid {
 		m.BranchID = &branch.Int64
 	}
+	m.Voice = game.PowerVoice(m.FactionID)
 	return &m, nil
 }
 

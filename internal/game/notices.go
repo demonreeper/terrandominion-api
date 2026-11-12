@@ -61,6 +61,10 @@ var noticeSeverity = map[string]string{
 	"base_destroyed": SeverityDanger,
 	"base_fading":    SeverityWarning,
 
+	// Growth (B7: each plays its power's voice line in the app).
+	"base_raised":  SeverityInfo,
+	"base_tier_up": SeverityInfo,
+
 	// Ranks and Nomads (faction-ranks-plan.md).
 	"rank_up":        SeverityInfo,
 	"nomad_ask":      SeverityWarning,

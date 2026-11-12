@@ -8,8 +8,9 @@ sentences), Merki `am_onyx`.
 Rules kept: no power says its own name, no power names another, no two powers share a line or a phrase, country-
 neutral, never the word "AI".
 
-**When they play:** with the matching notice to the faction's members, once, in their own power's voice (the
-notices already exist; the app plays the file if it is there and stays silent if not).
+**When they play:** with the matching notice to the faction's members in the region, once, in their own power's voice
+(the app's `BaseVoiceService`; only a fresh notice, under 30 min old; silent if the file is missing). Recorded and in the
+app 2026-11-12.
 
 **Files:** `TerranDominion-Mobile/Assets/Resources/Audio/Voices/<power>/<key>.ogg`, power folders `signum`,
 `shingo`, `sema`, `ishara`, `tohu`, `merki` (as the level 10 and 19 calls).

@@ -44,8 +44,10 @@ rule, so the sky over AR plays them out with the shield lighting up. Still waiti
 
 ### Power voice lines
 The words are in `docs/base-voice-lines.md` (one line per power for Spire raised, new tier, under attack, fading and
-lost, with file keys), handed to the owner for recording 2026-11-12. Once the files are in the app they play with the
-matching notice to the faction's members.
+lost, with file keys), recorded and in the app 2026-11-12. Each plays with its notice to the faction's members in the region, once, in their
+own power's voice: `base_raised` (new: the Spire's assembly finished), `base_tier_up` (new: the base grew),
+`base_attacked`, `base_fading`, and `base_destroyed` or `base_tier_lost` for lost. The membership carries `voice` (the
+power's audio folder).
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -337,7 +339,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 | B4 | **Economy**: Collector Array, vault log, Uplink uploads; base missions | API + app, **built 2026-11-12** |
 | B5 | **Combat**: module targeting, hack on the vault, drones, protection windows, tier drop and destruction, link end, push | API + app, **built 2026-11-12** |
 | B6 | **Upkeep**: fading, tier drop, collapse | API, **built 2026-11-12** |
-| B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio, **built 2026-11-12 except the voice lines** |
+| B7 | **AR and polish**: life-size base, banners, sky battles over bases, PHOTO; power voice lines | app + audio, **built 2026-11-12** |
 | B8 | **Later**: Capital and Command Relay, Sensor Net, Drone Hangar, Fabricator | API + app |
 
 ## Owner's choices
