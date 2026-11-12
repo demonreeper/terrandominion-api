@@ -592,6 +592,12 @@ above every faction (internal name `signal`; players see a separate commander pe
 | GET | `/admin/seed` | `lat, lon` (query) | Seeding readout: `cell` `{osmLoaded, cellId, seeded, target, seedNodes, walkM, totalCells, totalNodes}` for the cell at that point, and `areas` `[{id, name}]` |
 | POST | `/admin/seed` | `areaId` | Pre-seeds every cell of an area in `td.seed_areas` (`male`, `hulhumale`, `villimale`) in the background, one transaction per cell; cells already seeded are left alone. Returns `started`. Command line: `tdapi seed <area or all>` |
 | POST | `/admin/seed/cell` | `lat, lon` | Retires the seed nodes in the cell at that point and seeds it again. Returns `cellId, target, created, retired` |
+| GET | `/admin/bases` | `region` (query, optional) | Standing bases `[{id, faction, region, name, tier, tierName, lat, lon, status, coreHealth, zoneM, slots, fadedAt, createdAt}]` and open flags `[{id, faction, region, proposerId, lat, lon, status, createdAt, expiresAt}]` |
+| GET | `/admin/bases/check` | `faction, lat, lon` (query) | Runs the placement rules for that faction at that spot without placing: `{region, faction, ok, code, message, near, map {onLand, nearWalkway, inBlocked, nearSensitive}, held, cap, basesNearby, flagsNearby, roomM}` (`roomM` -1 with no neighbour) |
+| POST | `/admin/bases` | `faction, lat, lon, tier (1-5, default 1), name, force` | Places a standing base at once (no flag or project). The placement rules apply (1402-1408 with `near`) unless `force`. Returns the base |
+| PUT | `/admin/bases/{id}/tier` | `tier, force` | Sets the tier: zone, core health and slots follow (slots above the new tier are removed). Raising it runs the border rule (1404, 1405) unless `force` |
+| POST | `/admin/bases/{id}/clear` | – | Removes a base and everything of it. 1416 when gone |
+| POST | `/admin/flags/{id}/release` | – | Takes an open flag down (no cooldown for the proposer). 1417 when not open |
 
 ## Error codes
 `data` values are whole numbers unless noted. Distances are metres (`distanceM` rounded up, so it
@@ -662,8 +668,22 @@ never reads as inside the range).
 | 1303 | Faction already has a Regional Commander in your region | |
 | 1304 | (unused since regional command) Faction already active | |
 | 1305 | (log only) account cleanup skipped a faction head | |
-| 1402 | Base too close to the same faction's base | |
-| 1403 | Base too close to another faction's base | |
+| 1402 | Base too close to the same faction's base (`BaseSpacingSameFactionM`) | `near`: base name |
+| 1403 | Base too close to another faction's base centre (`BaseSpacingOtherFactionM`) | `near` |
+| 1404 | Zone would come within `BaseZoneGapM` of another base's zone | `near` |
+| 1405 | Another faction's flag holds the ground | |
+| 1406 | The faction holds all the bases and open flags its cap allows in the region | |
+| 1407 | Not on land beside a walkable way (or inside a building, water, airfield) | |
+| 1408 | Within `BaseSensitiveBufferM` of a sensitive place | |
+| 1409 | Proposer below Warden | |
+| 1410 | Proposing outside the proposer's home region | |
+| 1411 | The Regional Commander turned proposals off | |
+| 1412 | Fix less accurate than `BaseSpotAccuracyM` | |
+| 1413 | The proposer already has an open flag | |
+| 1414 | Proposal cooldown after a declined or expired flag | `until` (RFC 3339) |
+| 1415 | Bases switched off (`BasesEnabled`) | |
+| 1416 | Base gone | |
+| 1417 | Flag gone or not open | |
 | 1600 | Tether Node limit reached | `max` |
 | 1601 | No free resource node in range of the build | |
 | 1602 | Not enough resources (TN build and upgrade, crafting, gear craft, upgrade and repair) | `short`: `{resource: amount still missing}` |

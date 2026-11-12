@@ -406,20 +406,25 @@ func (s *Service) maybeSpawnRare(ctx context.Context, settings game.Settings, ti
 }
 
 // ImportOSM replaces the seeder's map layers with an extract made by deploy/maps/osm_extract.py.
-func (s *Service) ImportOSM(ctx context.Context, r io.Reader) (land, walk, blocked int, err error) {
+func (s *Service) ImportOSM(ctx context.Context, r io.Reader) (land, walk, blocked, sensitive int, err error) {
 	var file struct {
-		Land    []store.OSMFeature `json:"land"`
-		Walk    []store.OSMFeature `json:"walk"`
-		Blocked []store.OSMFeature `json:"blocked"`
+		Land      []store.OSMFeature `json:"land"`
+		Walk      []store.OSMFeature `json:"walk"`
+		Blocked   []store.OSMFeature `json:"blocked"`
+		Sensitive []store.OSMFeature `json:"sensitive"`
 	}
 	if err := json.NewDecoder(r).Decode(&file); err != nil {
-		return 0, 0, 0, fmt.Errorf("read extract: %w", err)
+		return 0, 0, 0, 0, fmt.Errorf("read extract: %w", err)
 	}
 	if len(file.Land) == 0 || len(file.Walk) == 0 {
-		return 0, 0, 0, fmt.Errorf("extract has %d land and %d walkway shapes; refusing to replace the map", len(file.Land), len(file.Walk))
+		return 0, 0, 0, 0, fmt.Errorf("extract has %d land and %d walkway shapes; refusing to replace the map", len(file.Land), len(file.Walk))
 	}
 	err = db.InTx(ctx, s.db, func(tx *sql.Tx) error {
-		return store.ReplaceOSM(ctx, tx, file.Land, file.Walk, file.Blocked)
+		if err := store.ReplaceOSM(ctx, tx, file.Land, file.Walk, file.Blocked); err != nil {
+			return err
+		}
+		// Sensitive places for faction bases (base-building-plan.md section 1); an older extract has none.
+		return store.ReplaceSensitive(ctx, tx, file.Sensitive)
 	})
-	return len(file.Land), len(file.Walk), len(file.Blocked), err
+	return len(file.Land), len(file.Walk), len(file.Blocked), len(file.Sensitive), err
 }

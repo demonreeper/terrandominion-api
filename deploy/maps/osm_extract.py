@@ -7,6 +7,9 @@ Writes one JSON file for `tdapi import-osm` (scripts/import-osm.ps1 runs both):
            living-street, unclassified and tertiary roads, and the outlines of parks and squares
   blocked  where a node must never stand: buildings, inland water, aprons, and runways and
            taxiways (lines, widened by "buf" metres on import)
+  sensitive  where no faction base or flag may stand near (base-building-plan.md section 1): places of
+           worship, cemeteries, schools, hospitals, police, military and government sites, as areas
+           (closed ways) or points (tagged nodes)
 
 Pure Python, no GDAL/osmium, using the PBF reader in make_ocean.py. Multipolygon relations are
 skipped (few in the Maldives); their outer ways are often tagged and closed anyway.
@@ -29,14 +32,52 @@ WALK_AREAS = {("leisure", "park"), ("leisure", "garden"), ("place", "square"), (
 NO_ACCESS = {"no", "private"}
 LAND_PLACES = {"island", "islet"}
 RUNWAY_BUFFER_M = {"runway": 30, "taxiway": 15}
+SENSITIVE_TAGS = [
+    ("amenity", "place_of_worship", "worship"), ("building", "mosque", "worship"), ("building", "church", "worship"),
+    ("building", "temple", "worship"), ("building", "shrine", "worship"), ("building", "synagogue", "worship"),
+    ("landuse", "religious", "worship"),
+    ("landuse", "cemetery", "cemetery"), ("amenity", "grave_yard", "cemetery"),
+    ("amenity", "school", "school"), ("building", "school", "school"),
+    ("amenity", "hospital", "hospital"), ("building", "hospital", "hospital"),
+    ("amenity", "police", "police"),
+    ("landuse", "military", "military"), ("military", None, "military"),
+    ("office", "government", "government"), ("government", None, "government"), ("amenity", "townhall", "government"),
+    ("amenity", "courthouse", "government"), ("building", "government", "government"),
+]
+SENSITIVE_KEYS = {k for k, _, _ in SENSITIVE_TAGS}
+
+
+def sensitive_kind(tags):
+    """The sensitive kind a feature's tags name, or None. A value of None matches any value but "no"."""
+    for k, v, kind in SENSITIVE_TAGS:
+        have = tags.get(k)
+        if have is not None and (have == v or (v is None and have != "no")):
+            return kind
+    return None
+
+
+def node_tags(strings, keys_vals):
+    """Splits DenseNodes keys_vals (k, v, k, v, 0, ...) into one tag dict per node."""
+    out, cur, i = [], {}, 0
+    while i < len(keys_vals):
+        k = keys_vals[i]
+        if k == 0:
+            out.append(cur)
+            cur, i = {}, i + 1
+            continue
+        cur[strings[k]] = strings[keys_vals[i + 1]]
+        i += 2
+    return out
 
 
 def read_ways(path):
-    """Returns ({node_id: (lon, lat)}, [(tags, refs)] for every way with tags)."""
+    """Returns ({node_id: (lon, lat)}, [(tags, refs)] for every way with tags, [(tags, (lon, lat))] for every
+    node with a sensitive tag)."""
     data = open(path, "rb").read()
     i = 0
     nodes = {}
     ways = []
+    points = []
     while i < len(data):
         (hlen,) = struct.unpack(">I", data[i:i + 4])
         i += 4
@@ -70,12 +111,19 @@ def read_ways(path):
                     ids = delta(packed(d.get(1, b"")))
                     lats = delta(packed(d.get(8, b"")))
                     lons = delta(packed(d.get(9, b"")))
-                    for nid, la, lo in zip(ids, lats, lons):
+                    tagged = node_tags(strings, packed(d.get(10, b""))) if d.get(10) else []
+                    for n, (nid, la, lo) in enumerate(zip(ids, lats, lons)):
                         nodes[nid] = ((lon_off + gran * lo) / 1e9, (lat_off + gran * la) / 1e9)
+                        if n < len(tagged) and tagged[n] and SENSITIVE_KEYS & tagged[n].keys():
+                            points.append((tagged[n], nodes[nid]))
                 elif fn == 1:  # plain Node
                     d = dict((f, x) for f, _, x in fields(v))
                     nodes[zigzag(d[1])] = ((lon_off + gran * zigzag(d[9])) / 1e9,
                                            (lat_off + gran * zigzag(d[8])) / 1e9)
+                    keys, vals = packed(d.get(2, b"")), packed(d.get(3, b""))
+                    tags = dict((strings[k], strings[v]) for k, v in zip(keys, vals))
+                    if SENSITIVE_KEYS & tags.keys():
+                        points.append((tags, nodes[zigzag(d[1])]))
                 elif fn == 3:  # Way
                     d = {}
                     for f, _, x in fields(v):
@@ -86,7 +134,7 @@ def read_ways(path):
                         continue
                     tags = dict((strings[k], strings[val]) for k, val in zip(keys, vals))
                     ways.append((tags, delta(packed(d.get(8, b"")))))
-    return nodes, ways
+    return nodes, ways, points
 
 
 def coords(nodes, refs):
@@ -103,8 +151,12 @@ def polygon(pts):
 
 
 def main(pbf, out):
-    nodes, ways = read_ways(pbf)
-    land, walk, blocked = [], [], []
+    nodes, ways, points = read_ways(pbf)
+    land, walk, blocked, sensitive = [], [], [], []
+    for tags, (lon, lat) in points:
+        kind = sensitive_kind(tags)
+        if kind:
+            sensitive.append({"k": kind, "g": {"type": "Point", "coordinates": [round(lon, 7), round(lat, 7)]}})
     coast = []
     for tags, refs in ways:
         closed = len(refs) >= 4 and refs[0] == refs[-1]
@@ -114,6 +166,11 @@ def main(pbf, out):
         pts = coords(nodes, refs)
         if len(pts) < 2:
             continue
+        # A sensitive place is recorded as well as whatever else the way is (a school is also a building).
+        kind = sensitive_kind(tags)
+        if kind:
+            g = polygon(pts) if closed and len(pts) >= 4 else line(pts)
+            sensitive.append({"k": kind, "g": g})
         if closed and tags.get("place") in LAND_PLACES and len(pts) >= 4:
             land.append({"k": tags["place"], "g": polygon(pts)})
             continue
@@ -147,12 +204,16 @@ def main(pbf, out):
             land.append({"k": "coastline", "g": polygon(pts)})
 
     with open(out, "w", encoding="utf-8") as f:
-        json.dump({"land": land, "walk": walk, "blocked": blocked}, f, separators=(",", ":"))
+        json.dump({"land": land, "walk": walk, "blocked": blocked, "sensitive": sensitive}, f, separators=(",", ":"))
     kinds = {}
     for w in walk:
         kinds[w["k"]] = kinds.get(w["k"], 0) + 1
     print("land %d (coastline rings %d, unclosed chains %d dropped), walkways %d, blocked %d" %
           (len(land), len(rings), len(leftovers), len(walk), len(blocked)))
+    skinds = {}
+    for x in sensitive:
+        skinds[x["k"]] = skinds.get(x["k"], 0) + 1
+    print("sensitive places:", ", ".join("%s %d" % kv for kv in sorted(skinds.items(), key=lambda kv: -kv[1])))
     print("walkways by kind:", ", ".join("%s %d" % kv for kv in sorted(kinds.items(), key=lambda kv: -kv[1])))
     print("written to", out)
 

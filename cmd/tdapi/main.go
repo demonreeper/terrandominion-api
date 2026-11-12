@@ -84,12 +84,12 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
-		land, walk, blocked, err := service.New(conn, cfg).ImportOSM(ctx, f)
+		land, walk, blocked, sensitive, err := service.New(conn, cfg).ImportOSM(ctx, f)
 		if err != nil {
 			slog.Error("E1900 OSM import failed", "err", err)
 			os.Exit(1)
 		}
-		fmt.Printf("imported %d land, %d walkway and %d blocked shapes\n", land, walk, blocked)
+		fmt.Printf("imported %d land, %d walkway, %d blocked and %d sensitive shapes\n", land, walk, blocked, sensitive)
 	case "seed":
 		// Pre-seeds one area from td.seed_areas, or every area with "all".
 		if len(os.Args) < 3 {

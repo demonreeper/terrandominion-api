@@ -1,0 +1,102 @@
+package httpapi
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/demonreeper/terrandominion/api/internal/apperr"
+	"github.com/demonreeper/terrandominion/api/internal/service"
+)
+
+// Faction bases, B0: admin tools only (docs/base-building-plan.md). Players' routes come with B1.
+
+func (s *Server) adminBases(w http.ResponseWriter, r *http.Request) {
+	view, err := s.svc.AdminBases(r.Context(), r.URL.Query().Get("region"))
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, view)
+}
+
+func (s *Server) adminCheckBaseSpot(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
+	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	if err1 != nil || err2 != nil || q.Get("faction") == "" {
+		fail(w, r, apperr.BadRequest.With("faction, lat and lon are required"))
+		return
+	}
+	out, err := s.svc.AdminCheckBaseSpot(r.Context(), q.Get("faction"), lat, lon)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, out)
+}
+
+func (s *Server) adminPlaceBase(w http.ResponseWriter, r *http.Request) {
+	adminID, _ := playerFrom(r.Context())
+	var body service.AdminPlaceBaseRequest
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	base, err := s.svc.AdminPlaceBase(r.Context(), adminID, body)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, base)
+}
+
+func (s *Server) adminSetBaseTier(w http.ResponseWriter, r *http.Request) {
+	adminID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("base id"))
+		return
+	}
+	var body struct {
+		Tier  int  `json:"tier"`
+		Force bool `json:"force"`
+	}
+	if err := decode(w, r, &body); err != nil {
+		fail(w, r, err)
+		return
+	}
+	base, err := s.svc.AdminSetBaseTier(r.Context(), adminID, id, body.Tier, body.Force)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, base)
+}
+
+func (s *Server) adminClearBase(w http.ResponseWriter, r *http.Request) {
+	adminID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("base id"))
+		return
+	}
+	if err := s.svc.AdminClearBase(r.Context(), adminID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"cleared": id})
+}
+
+func (s *Server) adminReleaseFlag(w http.ResponseWriter, r *http.Request) {
+	adminID, _ := playerFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, r, apperr.BadRequest.With("flag id"))
+		return
+	}
+	if err := s.svc.AdminReleaseFlag(r.Context(), adminID, id); err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"released": id})
+}

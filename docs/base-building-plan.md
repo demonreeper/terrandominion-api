@@ -1,6 +1,8 @@
 # Faction bases: plan
 
-Status: **approved by the owner 2026-11-11.** Nothing is built yet.
+Status: **approved by the owner 2026-11-11.** **B0 built 2026-11-12** (API: migration 0063, `internal/game/bases.go`,
+admin tools; settings group "Bases"). T1 (TN restyle) is on hold until ready-made models arrive (owner, 2026-11-12);
+B1 waits for the owner's go.
 In the API repo as `docs/base-building-plan.md`, with a short
 `GAME_DESIGN.md` entry replacing "Faction base design: Open". Every number is a starting value and
 a server setting, tuned in testing.
@@ -121,6 +123,9 @@ all factions in the country), and admins can adjust it as factions grow.
 - Together with the **3 000 m spacing between a faction's own bases**, Malé and Hulhumalé can hold about
   **2 to 3 bases per faction** at launch (Malé fits one; Hulhumalé one or two).
 - The FACTION screen shows `BASES 2 / 3`.
+- **Built (B0) with these starting values:** `BaseCapBase` 2, plus one at each of `BaseCapStep1Players` 50, `Step2`
+  150, `Step3` 300 and `Step4` 600 active members (0 turns a step off). "Active" is a faction member of any faction
+  whose branch is in the region, seen within `BaseCapActiveDays` 14. Open flags count toward the cap.
 
 ## 4. Building together: projects and contributions
 
@@ -282,7 +287,7 @@ renders in `video/base-mockup/v3-blender/tether-node/` (project files; source `s
 
 | # | Milestone | Side |
 |---|---|---|
-| B0 | Base data: bases, slots, zones, projects, vault tables; placement rules incl. sensitive places from OSM; admin tools (place, clear, set tier, settings) | API |
+| B0 | Base data: bases, slots, zones, projects, vault tables; placement rules incl. sensitive places from OSM; admin tools (place, clear, set tier, settings) | API, **built 2026-11-12** |
 | B1 | **Propose and approve**: plant a flag, PROPOSALS for the Commander, 48 h expiry; **raise a Spire** on approval; zone on the map; base card; holo table with tower and empty pads | API + app |
 | B2 | **Projects and giving**: fund on site, assembly timer, presence speed-up, contribution points; modules Lattice, Shield Matrix, Vault, Uplink; the lock-on animation | API + app |
 | B3 | **Growth**: tiers T2–T4, zone growth with the border rule and the ghost ring; base count cap | API + app |

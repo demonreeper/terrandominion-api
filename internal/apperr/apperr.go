@@ -137,6 +137,21 @@ var (
 
 	BaseSpacingSame  = def(1402, http.StatusConflict, "Too close to another of your faction's bases.")
 	BaseSpacingOther = def(1403, http.StatusConflict, "Too close to another faction's base.")
+	// Faction bases (base-building-plan.md). Spot errors carry data.near: the base it is too close to.
+	BaseZoneTooClose     = def(1404, http.StatusConflict, "Too close to another base's zone.")
+	BaseFlagHeld         = def(1405, http.StatusConflict, "Another faction's flag holds this ground.")
+	BaseCapReached       = def(1406, http.StatusConflict, "Your faction holds all the bases and flags it can in this region.")
+	BaseSpotTerrain      = def(1407, http.StatusConflict, "A base needs open land beside a walkable way.")
+	BaseSpotSensitive    = def(1408, http.StatusConflict, "Too close to a protected place.")
+	BaseRankTooLow       = def(1409, http.StatusForbidden, "Only a Warden or above can propose a base.")
+	BaseNotHomeRegion    = def(1410, http.StatusConflict, "You can only propose a base in your own region.")
+	BaseProposalsOff     = def(1411, http.StatusConflict, "Your Regional Commander has turned proposals off.")
+	BaseAccuracy         = def(1412, http.StatusBadRequest, "Your position isn't accurate enough. Wait for a better fix.")
+	BaseProposalOpen     = def(1413, http.StatusConflict, "You already have a flag standing.")
+	BaseProposalCooldown = def(1414, http.StatusConflict, "You can propose again later.") // data: until
+	BasesOff             = def(1415, http.StatusServiceUnavailable, "Bases are switched off.")
+	BaseGone             = def(1416, http.StatusNotFound, "That base is gone.")
+	FlagGone             = def(1417, http.StatusNotFound, "That flag has come down.")
 
 	TetherCap      = def(1600, http.StatusConflict, "You already own the most Tether Nodes you can.") // data: max
 	TetherNoNode   = def(1601, http.StatusConflict, "No free resource node in range. Build closer to one.")

@@ -167,6 +167,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/admin/seed", s.admin(s.adminSeedStatus))
 	mux.HandleFunc("POST /v1/admin/seed", s.admin(s.adminSeedArea))
 	mux.HandleFunc("POST /v1/admin/seed/cell", s.admin(s.adminReseedCell))
+	// Faction bases, B0 admin tools (base-building-plan.md).
+	mux.HandleFunc("GET /v1/admin/bases", s.admin(s.adminBases))
+	mux.HandleFunc("GET /v1/admin/bases/check", s.admin(s.adminCheckBaseSpot))
+	mux.HandleFunc("POST /v1/admin/bases", s.admin(s.adminPlaceBase))
+	mux.HandleFunc("PUT /v1/admin/bases/{id}/tier", s.admin(s.adminSetBaseTier))
+	mux.HandleFunc("POST /v1/admin/bases/{id}/clear", s.admin(s.adminClearBase))
+	mux.HandleFunc("POST /v1/admin/flags/{id}/release", s.admin(s.adminReleaseFlag))
 
 	// The web page behind a profile share link: public, no sign-in.
 	mux.HandleFunc("GET /p/{code}", s.profilePage)

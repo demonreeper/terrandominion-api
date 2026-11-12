@@ -96,6 +96,22 @@ type Settings struct {
 	BaseSpacingSameFactionM  float64
 	BaseSpacingOtherFactionM float64
 
+	// Faction bases (base-building-plan.md, B0).
+	BasesEnabled                                                    int
+	BaseZoneGapM                                                    float64
+	BaseSensitiveBufferM                                            float64
+	BaseWalkwayM                                                    float64
+	BaseSpotAccuracyM                                               float64
+	BaseProposalHours                                               float64
+	BaseProposalCooldownHours                                       float64
+	BaseZoneT1, BaseZoneT2, BaseZoneT3, BaseZoneT4, BaseZoneT5      float64
+	BaseSlotsT1, BaseSlotsT2, BaseSlotsT3, BaseSlotsT4, BaseSlotsT5 int
+	BaseCoreT1, BaseCoreT2, BaseCoreT3, BaseCoreT4, BaseCoreT5      int
+	BaseCapBase                                                     int
+	BaseCapStep1Players, BaseCapStep2Players                        int
+	BaseCapStep3Players, BaseCapStep4Players                        int
+	BaseCapActiveDays                                               float64
+
 	TnMaxPerPlayer    int
 	TnLinkRadiusM     float64
 	TnMinSpacingM     float64
@@ -408,8 +424,37 @@ func DefaultSettings() Settings {
 		WelcomeData:    200,
 		WelcomeCells:   5,
 
-		BaseSpacingSameFactionM:  500,
+		BaseSpacingSameFactionM:  3000,
 		BaseSpacingOtherFactionM: 150,
+
+		BasesEnabled:              1,
+		BaseZoneGapM:              30,
+		BaseSensitiveBufferM:      50,
+		BaseWalkwayM:              15,
+		BaseSpotAccuracyM:         20,
+		BaseProposalHours:         48,
+		BaseProposalCooldownHours: 24,
+		BaseZoneT1:                25,
+		BaseZoneT2:                40,
+		BaseZoneT3:                60,
+		BaseZoneT4:                80,
+		BaseZoneT5:                100,
+		BaseSlotsT1:               4,
+		BaseSlotsT2:               8,
+		BaseSlotsT3:               12,
+		BaseSlotsT4:               18,
+		BaseSlotsT5:               24,
+		BaseCoreT1:                500,
+		BaseCoreT2:                1500,
+		BaseCoreT3:                3500,
+		BaseCoreT4:                7000,
+		BaseCoreT5:                12000,
+		BaseCapBase:               2,
+		BaseCapStep1Players:       50,
+		BaseCapStep2Players:       150,
+		BaseCapStep3Players:       300,
+		BaseCapStep4Players:       600,
+		BaseCapActiveDays:         14,
 
 		TnMaxPerPlayer:       3,
 		TnLinkRadiusM:        150,
@@ -706,6 +751,34 @@ func SettingsFrom(values map[string]float64) Settings {
 
 	f("BaseSpacingSameFactionM", &s.BaseSpacingSameFactionM)
 	f("BaseSpacingOtherFactionM", &s.BaseSpacingOtherFactionM)
+	i("BasesEnabled", &s.BasesEnabled)
+	f("BaseZoneGapM", &s.BaseZoneGapM)
+	f("BaseSensitiveBufferM", &s.BaseSensitiveBufferM)
+	f("BaseWalkwayM", &s.BaseWalkwayM)
+	f("BaseSpotAccuracyM", &s.BaseSpotAccuracyM)
+	f("BaseProposalHours", &s.BaseProposalHours)
+	f("BaseProposalCooldownHours", &s.BaseProposalCooldownHours)
+	f("BaseZoneT1", &s.BaseZoneT1)
+	f("BaseZoneT2", &s.BaseZoneT2)
+	f("BaseZoneT3", &s.BaseZoneT3)
+	f("BaseZoneT4", &s.BaseZoneT4)
+	f("BaseZoneT5", &s.BaseZoneT5)
+	i("BaseSlotsT1", &s.BaseSlotsT1)
+	i("BaseSlotsT2", &s.BaseSlotsT2)
+	i("BaseSlotsT3", &s.BaseSlotsT3)
+	i("BaseSlotsT4", &s.BaseSlotsT4)
+	i("BaseSlotsT5", &s.BaseSlotsT5)
+	i("BaseCoreT1", &s.BaseCoreT1)
+	i("BaseCoreT2", &s.BaseCoreT2)
+	i("BaseCoreT3", &s.BaseCoreT3)
+	i("BaseCoreT4", &s.BaseCoreT4)
+	i("BaseCoreT5", &s.BaseCoreT5)
+	i("BaseCapBase", &s.BaseCapBase)
+	i("BaseCapStep1Players", &s.BaseCapStep1Players)
+	i("BaseCapStep2Players", &s.BaseCapStep2Players)
+	i("BaseCapStep3Players", &s.BaseCapStep3Players)
+	i("BaseCapStep4Players", &s.BaseCapStep4Players)
+	f("BaseCapActiveDays", &s.BaseCapActiveDays)
 
 	i("TnMaxPerPlayer", &s.TnMaxPerPlayer)
 	f("TnLinkRadiusM", &s.TnLinkRadiusM)

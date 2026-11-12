@@ -349,3 +349,27 @@ func SeedCellInfo(ctx context.Context, q db.Querier, id string) (SeedCellRow, bo
 	}
 	return r, err == nil, err
 }
+
+// ReplaceSensitive swaps the sensitive places (worship, cemeteries, schools, hospitals, police, military,
+// government) no faction base may stand near: points, lines or areas.
+func ReplaceSensitive(ctx context.Context, q db.Querier, features []OSMFeature) error {
+	if _, err := q.ExecContext(ctx, `TRUNCATE td.osm_sensitive`); err != nil {
+		return err
+	}
+	const chunk = 2000
+	for start := 0; start < len(features); start += chunk {
+		body, err := json.Marshal(features[start:min(start+chunk, len(features))])
+		if err != nil {
+			return err
+		}
+		if _, err := q.ExecContext(ctx, `
+			INSERT INTO td.osm_sensitive (kind, geom)
+			SELECT k, g FROM (
+			    SELECT f->>'k' AS k, ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(f->>'g'), 4326)) AS g
+			    FROM json_array_elements($1::json) f) x
+			WHERE NOT ST_IsEmpty(g)`, string(body)); err != nil {
+			return err
+		}
+	}
+	return nil
+}

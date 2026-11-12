@@ -23,13 +23,14 @@ players ─┬─ player_identities   sign-in links (google now; apple, nakama l
          ├─ harvests ── nodes                every harvest with the reported GPS fix
          ├─ xp_events                        XP ledger: every action that earned XP (target_player_id: the other player in a fight, for the daily cap)
          └─ faction_members ── factions ─┬─ faction_branches   regional branch, sub-leader
-                                          └─ bases              faction bases (spacing trigger)
+                                          └─ bases              faction bases (0063): zone, slots, projects, vault
 devices          anti-farming: welcome grant once per phone (stored as a keyed hash)
 settings         every tunable number with its group, name, range, step and lock (0038); edited from the
                  in-game admin settings screen, cached for a minute
 announcement     the one-line banner on everyone's main menu (one row at most)
 resource_types   crystal, alloy, data, credit
 osm_land, osm_walkways, osm_blocked   the node seeder's map layers (tdapi import-osm)
+osm_sensitive    worship, cemeteries, schools, hospitals, police, military, government: no base nearby (0063)
 seed_cells       every seeding cell looked at: its target, path length, when seeded and topped up
 seed_areas       areas an admin pre-seeds (Malé, Hulhumalé, Villimalé)
 callsign_blocked words a callsign may not contain
@@ -143,11 +144,23 @@ messages (`level19_day3` first); `read_at` only clears the unread mark. `player_
 invited a freelancer at `LeadFactionLevel`. `factions.persona_invite` is no longer read: the level 20 invitation is
 plain game text. Nothing in these tables joins the six powers.
 
-### bases
-Faction bases grow in place (`tier`). The spacing rules are a trigger, so no code path can skip
-them: one base per faction within `BaseSpacingSameFactionM` (E1402), and none within
-`BaseSpacingOtherFactionM` of another faction's base (E1403). An advisory lock serialises base
-inserts so two simultaneous builds cannot both pass.
+### bases (0063, base-building-plan.md B0)
+Faction bases grow in place (`tier` 1 Spire to 5 Capital) in a `region` (country code). The 0003 placeholder and
+its spacing trigger were dropped: the placement rules are pure functions in `internal/game/bases.go`, run by the
+service under the advisory lock `td.bases.placement` (`store.LockBasePlacement`), so two placements can't both
+pass. `status` is `building` (the Spire's first project, the seed beacon), `active` or `destroyed`; `last_visit_at`,
+`faded_at` and `protected_until` are for upkeep and combat (B5, B6).
+- `base_zones`: one row per base, the zone `radius_m` (from `BaseZoneT1..T5` at the tier) and its circle `area`;
+  rewritten when the tier changes.
+- `base_slots`: `(base_id, ring, idx)`. The slots a tier opens (`BaseSlotsT1..T5`, cumulative) go on ring 1 for T1
+  and T2, ring 2 for T3, ring 3 for T4 and T5. `module`, `mk`, `health`, `online` are empty until B2.
+- `base_proposals`: flags. `open` holds the ground (the Spire's starting zone plus `BaseZoneGapM`) against other
+  factions until `expires_at`; then `approved` (with `base_id`), `declined`, `expired` or `released` (an admin
+  took it down; no cooldown). One open proposal per player (unique index). `faction_branches.base_proposals_off`
+  is the Commander's switch.
+- `base_projects`: spire, tier, module or module upgrade, with a four-resource bill, what was given, the assembly
+  time and progress. `base_contributions`: who gave what (points; vault payments earn none).
+- `base_vaults`: one per base. `base_vault_log`: every movement, signed, with its kind.
 
 ### notices and push
 `notices` is what happened to a player. `push_state` makes it an outbox: a pushable kind is written as
