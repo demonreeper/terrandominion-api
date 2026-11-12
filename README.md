@@ -75,6 +75,27 @@ restarts the service.
 Migrations run on start-up, so deploying a binary with a new migration upgrades the database.
 Deploy to dev first; live only after dev has run the migration.
 
+## Dev2LiveSync (pre-launch only)
+
+`.\scripts\dev2live-sync.ps1` resets live's game data and carries the test players over from dev, so their
+accounts, sign-ins (Google and Apple, never `dev`) and callsigns are reserved for launch (`cmd/dev2live`).
+Without `-Apply` it is a dry run: the whole change runs in a transaction on live and is rolled back, printing
+what would happen. `-Apply` first backs live up on the server (`/home/ubuntu/td-backups/live-<time>.dump`;
+restore with `pg_restore --clean --if-exists --no-owner -d "<live url>" <file>`), then commits.
+
+- It runs on the API server with each service's own `.env`, so it works once the database only takes
+  connections from there. Both databases must be on the same migrations.
+- Carries every dev player with a Google or Apple sign-in except `-Skip` (default `44`, the owner's second
+  test account), banned or deleted ones. A sign-in that opens a different id on live stops it.
+- Wipes every game table (sessions and push tokens too: every phone signs in again), resets everyone to level 1
+  with no faction or sanctions, locks the factions again, removes admin test, rare and group nodes
+  (`-KeepTestNodes` keeps them) and refills the rest, then gives each player a new account's starter gear,
+  welcome resources and energy cells.
+- Gives the carried players the tester badge `-Badge` (default `first signal`, shown as FIRST SIGNAL) except
+  `-NoBadge` (default `1`, the owner).
+- A table it doesn't know stops it: add a new table to `keepTables` or `wipeTables` in `cmd/dev2live/main.go`.
+- It refuses when live has players dev doesn't: after launch it must never run (`-AllowLiveOnly` only before).
+
 ## Configuration
 
 | Variable | Meaning |
