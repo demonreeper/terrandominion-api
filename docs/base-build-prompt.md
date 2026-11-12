@@ -1,6 +1,6 @@
 # Prompt for local Claude Code: faction bases
 
-Start this **after the current build is finished**. `git pull` both repos first (API:
+Start this **after the current build is finished** and after the Tether Node restyle (`docs/tn-restyle-build-prompt.md`, T1). `git pull` both repos first (API:
 `docs/base-building-plan.md`; mobile: `docs/GAME_DESIGN.md`). Paste this into Claude Code in
 `D:\Development\Github\ProjectAR`.
 
