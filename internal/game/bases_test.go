@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -266,5 +267,23 @@ func TestBaseProjects(t *testing.T) {
 	}
 	if StartPower("module", 0) != PowerStartProjects || StartPower("tier", 4) != PowerStartT4 || StartPower("tier", 5) != PowerApproveBase {
 		t.Fatal("start power")
+	}
+}
+
+func TestTerrainMessage(t *testing.T) {
+	cases := []struct {
+		m    SpotMap
+		want string
+	}{
+		{SpotMap{OnLand: false, NearWalkway: true}, "on the water"},
+		{SpotMap{OnLand: true, NearWalkway: true, InBlocked: true, BlockedKind: "building"}, "inside a building"},
+		{SpotMap{OnLand: true, NearWalkway: true, InBlocked: true, BlockedKind: "water"}, "on water"},
+		{SpotMap{OnLand: true, NearWalkway: true, InBlocked: true, BlockedKind: "runway"}, "airfield"},
+		{SpotMap{OnLand: true, NearWalkway: false}, "path or street"},
+	}
+	for _, c := range cases {
+		if got := TerrainMessage(c.m); !strings.Contains(got, c.want) {
+			t.Errorf("%+v: got %q, want it to mention %q", c.m, got, c.want)
+		}
 	}
 }

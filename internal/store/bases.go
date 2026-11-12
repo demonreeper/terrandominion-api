@@ -73,9 +73,11 @@ func BaseSpotMap(ctx context.Context, q db.Querier, lat, lon, walkM, sensitiveM 
 		    EXISTS (SELECT 1 FROM td.osm_land l, p WHERE ST_Intersects(l.geom, p.g)),
 		    EXISTS (SELECT 1 FROM td.osm_walkways w, p WHERE ST_DWithin(w.geom::geography, p.g::geography, $3)),
 		    EXISTS (SELECT 1 FROM td.osm_blocked x, p WHERE ST_Intersects(x.geom, p.g)),
-		    EXISTS (SELECT 1 FROM td.osm_sensitive s, p WHERE ST_DWithin(s.geom::geography, p.g::geography, $4))
+		    EXISTS (SELECT 1 FROM td.osm_sensitive s, p WHERE ST_DWithin(s.geom::geography, p.g::geography, $4)),
+		    coalesce((SELECT x.kind FROM td.osm_blocked x, p WHERE ST_Intersects(x.geom, p.g)
+		              ORDER BY x.kind = 'building' DESC LIMIT 1), '')
 		FROM p`, lat, lon, walkM, sensitiveM).
-		Scan(&m.OnLand, &m.NearWalkway, &m.InBlocked, &m.NearSensitive)
+		Scan(&m.OnLand, &m.NearWalkway, &m.InBlocked, &m.NearSensitive, &m.BlockedKind)
 	return m, err
 }
 
