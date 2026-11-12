@@ -788,7 +788,7 @@ never reads as inside the range).
 | 1404 | Zone would come within `BaseZoneGapM` of another base's zone | `near` |
 | 1405 | Another faction's flag holds the ground | |
 | 1406 | The faction holds all the bases and open flags its cap allows in the region | |
-| 1407 | Not on land beside a walkable way (or inside a building, water, airfield) | |
+| 1407 | Not on land beside a walkable way (or inside a building, water, airfield). The message names which: on the water, inside a building, on water, on an airfield, or too far from a path | |
 | 1408 | Within `BaseSensitiveBufferM` of a sensitive place | |
 | 1409 | Proposer below Warden | |
 | 1410 | Proposing outside the proposer's home region | |

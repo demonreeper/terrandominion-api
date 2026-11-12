@@ -187,6 +187,26 @@ type SpotMap struct {
 	NearWalkway   bool `json:"nearWalkway"`
 	InBlocked     bool `json:"inBlocked"`
 	NearSensitive bool `json:"nearSensitive"`
+	// BlockedKind is what the spot is inside when InBlocked: building, water, or an airfield part (runway, taxiway, apron).
+	BlockedKind string `json:"blockedKind,omitempty"`
+}
+
+// TerrainMessage says plainly which part of the land rule a refused spot breaks (E1407 keeps its code), so a
+// player standing a few metres inside a building outline knows to step out instead of reading the general rule.
+func TerrainMessage(m SpotMap) string {
+	switch {
+	case !m.OnLand:
+		return "That spot is on the water. A base needs land."
+	case m.InBlocked && m.BlockedKind == "building":
+		return "You're inside a building on the map. Step out into the open and try again."
+	case m.InBlocked && m.BlockedKind == "water":
+		return "That spot is on water on the map. Move onto open land and try again."
+	case m.InBlocked:
+		return "A base can't stand on an airfield. Move away from it and try again."
+	case !m.NearWalkway:
+		return "Too far from a path or street. A base needs a walkable way close by."
+	}
+	return apperr.BaseSpotTerrain.Message
 }
 
 // BaseSpot is a place a base would stand, and what stands around it.
@@ -216,7 +236,7 @@ type BaseSpotError struct {
 func CheckBaseSpot(sp BaseSpot, s Settings) *BaseSpotError {
 	switch {
 	case !sp.Map.OnLand || sp.Map.InBlocked || !sp.Map.NearWalkway:
-		return &BaseSpotError{Err: apperr.BaseSpotTerrain}
+		return &BaseSpotError{Err: apperr.BaseSpotTerrain.Say("%s", TerrainMessage(sp.Map))}
 	case sp.Map.NearSensitive:
 		return &BaseSpotError{Err: apperr.BaseSpotSensitive}
 	}
