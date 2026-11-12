@@ -201,8 +201,10 @@ type Membership struct {
 	FactionID   int    `json:"factionId"`
 	FactionCode string `json:"factionCode"`
 	FactionName string `json:"factionName"`
-	Rank        int    `json:"rank"`
-	BranchID    *int64 `json:"branchId,omitempty"`
+	// FactionColor (#rrggbb) is what the member's Tether Nodes glow in (TN look, base-building-plan.md 9c).
+	FactionColor string `json:"factionColor"`
+	Rank         int    `json:"rank"`
+	BranchID     *int64 `json:"branchId,omitempty"`
 	// Region is the branch's country (MV); RankTitle names the rank. Filled by the service.
 	Region    string `json:"region,omitempty"`
 	RankTitle string `json:"rankTitle,omitempty"`
@@ -238,10 +240,10 @@ func MembershipOf(ctx context.Context, q db.Querier, playerID int64) (*Membershi
 	var m Membership
 	var branch sql.NullInt64
 	err := q.QueryRowContext(ctx, `
-		SELECT f.id, f.code, f.name, m.rank, m.branch_id, COALESCE(b.country_code, '')
+		SELECT f.id, f.code, f.name, f.color, m.rank, m.branch_id, COALESCE(b.country_code, '')
 		FROM td.faction_members m JOIN td.factions f ON f.id = m.faction_id
 		LEFT JOIN td.faction_branches b ON b.id = m.branch_id
-		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.Rank, &branch, &m.Region)
+		WHERE m.player_id = $1`, playerID).Scan(&m.FactionID, &m.FactionCode, &m.FactionName, &m.FactionColor, &m.Rank, &branch, &m.Region)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

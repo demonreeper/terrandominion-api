@@ -26,8 +26,9 @@ type Tether struct {
 	Owner     PlayerRef `json:"owner"`
 	Mine      bool      `json:"mine"`
 	FactionID *int      `json:"factionId"`
-	// FactionColor is the owner's faction colour (#rrggbb), empty for a freelancer. Looks only: the
-	// living Tether Nodes in AR wear it (no-ar-support-plan.md milestone 5); profiles show the faction anyway.
+	// FactionColor is the owner's faction colour now (#rrggbb), empty for a freelancer, so a TN built before its
+	// owner pledged glows in the faction's colour too. Looks only: every TN glows in it, freelancers' in freelancer
+	// blue (base-building-plan.md 9c); profiles show the faction anyway.
 	FactionColor string       `json:"factionColor,omitempty"`
 	Lat          float64      `json:"lat"`
 	Lon          float64      `json:"lon"`
@@ -90,7 +91,8 @@ const tetherColumns = `
 	(SELECT sp.fires_at FROM td.tether_spikes sp WHERE sp.tn_id = t.id AND sp.status = 'armed'),
 	(SELECT min(ds.arrives_at) FROM td.drone_strikes ds WHERE ds.tn_id = t.id AND ds.status = 'flying'),
 	t.shield_tier, ` + inboundDronesSQL + `, COALESCE(t.collected_at, t.built_at),
-	COALESCE((SELECT f.color FROM td.factions f WHERE f.id = t.faction_id), '')`
+	COALESCE((SELECT f.color FROM td.faction_members fm JOIN td.factions f ON f.id = fm.faction_id
+	          WHERE fm.player_id = t.owner_id), '')`
 
 func scanTether(row interface{ Scan(...any) error }, viewerID int64) (Tether, error) {
 	var t Tether

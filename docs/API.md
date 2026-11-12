@@ -347,7 +347,7 @@ Data sent with each push: `kind`, `noticeId`, and `tnId` when it concerns a Teth
 ## Tether Nodes
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
-| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, each with `owner {code, name}` (a PlayerRef, see Players), within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none), `factionColor` (the owner's faction colour `#rrggbb`, left out for a freelancer; looks only, for living TNs in AR) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
+| GET | `/tethers/nearby` | `lat, lon, radius?` | Active TNs nearest first, each with `owner {code, name}` (a PlayerRef, see Players), within the scanner's range (or the Drone Bay's, whichever is larger), with their links (`nodeId, resource, lat, lon`), `shieldTier` (0 = none), `factionColor` (the owner's faction colour now `#rrggbb`, left out for a freelancer; looks only: the TN glows in it, a freelancer's in freelancer blue `#3a8cff`, base-building-plan.md 9c) and, on your own, `drones`: each drone flying at it `{id, mk, launchedAt, arrivesAt, from {lat, lon}, intercepted}` (where it came from, not who sent it) |
 | GET | `/tethers/mine` | – | Every TN the player owns, wherever it is (no range check), plus ones that ended in the last `TnEndedShowMinutes` (60). Most urgent first; see My Tether Nodes below |
 | POST | `/tethers` | `lat, lon, accuracyM` | Builds a tier 1 TN at that fix. Checks GPS, the per-player cap and the cost (carried first, then stored), and links free nodes in range. Returns `tether, carried, stored, xp, progress, levelUp` |
 | GET | `/tethers/{id}` | `lat, lon, accuracyM?` | One TN. `links` (name, resource, amount gathered) is only filled within `TnInfoRangeM`; `inRange` says which |
@@ -574,7 +574,7 @@ a repeat call `CallRepeatHours` (24) later and a written message `CallMessageHou
 after it came due is pushed as "Incoming call: <power>" through the notices outbox. No power says its own name, and
 nothing here links the six.
 
-Memberships (here and `faction` on `/me`) carry `factionId, factionCode, factionName, rank, branchId,
+Memberships (here and `faction` on `/me`) carry `factionId, factionCode, factionName, factionColor (what their Tether Nodes glow in), rank, branchId,
 region, rankTitle`. `/me` also lists `badges`: `[{badge, factionCode, factionName, region}]`; `founder`
 goes to the first player ever to command a faction's branch in a country, and is permanent. Ranks: 1 Member, 50 Warden, 90 Regional Commander; 100 is the shared lore AI
 above every faction (internal name `signal`; players see a separate commander per faction), never a player.
