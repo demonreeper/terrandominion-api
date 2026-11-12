@@ -32,7 +32,13 @@ Decided by the owner on 2026-11-12 in the base building thread. This replaces th
 ## Nomads
 
 A **Nomad** is a faction member who can move their **home region** to another unlocked region of their own faction.
-It replaces the admin-only MOVE REGION for players (admins keep it).
+It exists for players who **really move to another country** (owner, 2026-11-12). It replaces the admin-only MOVE
+REGION for players (admins keep it).
+
+- **Being there still counts:** a move changes where a player belongs, not where they can play from. Missions, jobs,
+  orders, base giving, flags and anything else that acts on a place need the player's GPS in that country, with the
+  normal anti-spoofing checks (`s.located(...)`), as for everyone. A Nomad who moved home regions but is still abroad
+  can talk to the new region but can't do its missions until they are there.
 
 - **Becoming one:** a Member or higher chooses NOMAD on FACTIONS, giving up any rank above Member (and their
   squad) after a confirm. They stay in their faction; the pledge stays final.
@@ -41,7 +47,7 @@ It replaces the admin-only MOVE REGION for players (admins keep it).
   starts there as Member (Nomad), keeps their contribution points, level and inventory, and their TNs stay where they
   are. There are **30 days between moves** (`NomadMoveCooldownDays`).
 - **While a Nomad:** no vote, no seat, no rank above Member, no squad lead. Jobs, orders, missions and base giving
-  work in the current home region.
+  work in the current home region, only while the player stands in that country.
 - **Settling:** a Nomad can SETTLE in their current home region to become an ordinary Member again and climb from
   there. Becoming a Nomad again later starts the 30 days over.
 - **Visiting** other regions (talk only) is unchanged and doesn't need Nomad.

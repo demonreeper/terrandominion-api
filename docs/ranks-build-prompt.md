@@ -25,7 +25,9 @@ to B2 (`docs/base-build-prompt.md`), using the new ranks there, without waiting 
    falls vacant.
 5. **Nomads:** NOMAD (give up rank above Member, confirm), ask to move (48 h, push to the receiving region's
    Commander and Wardens), approve or decline (Commander, a Warden there, or the Global Head), move home region
-   (start as Member, keep points, level, inventory; TNs stay put), `NomadMoveCooldownDays` 30, SETTLE. No vote or
+   (start as Member, keep points, level, inventory; TNs stay put), `NomadMoveCooldownDays` 30, SETTLE. Every mission,
+   job, order and base action still needs GPS in that country through `s.located(...)`; a move never lets a player act
+   in a country they aren't in. No vote or
    seat while a Nomad. Admin: set rank, clear Nomad cooldown, MOVE REGION stays.
 6. **App:** rank names and badges wherever a rank shows, SQUAD on FACTIONS for Captains, NOMAD and SETTLE with
    confirms, the move asks list for Commanders and Wardens.
