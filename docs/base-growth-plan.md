@@ -67,6 +67,11 @@ towers; storeys are shared meshes so Unity can instance them).
 
 ## 4. Decided (owner, 2026-11-13)
 
+Built in the game on 14 Nov 2026 (mobile branch `feat/base-growth`, architecture.md "Bases that grow"); seen in the
+editor captures, still to be checked by the owner on the phone. `BaseModelScale` is a client constant
+(`ArBaseService`), not an admin setting. No API change.
+
+
 - Look approved ("ok looks"): main tower, pylons, sci-fi walls with energy fields and gates, module towers.
 - Every wall tower and bastion sends a light beam into the sky that fades out toward the top; the beams move, each in
   its own random way (owner: "make it more random").
