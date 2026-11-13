@@ -275,6 +275,7 @@ var (
 	// Anti GPS spoofing (social-signal-plan.md Part C).
 	SignalLocked = def(1790, http.StatusForbidden, "Signal rejected.") // data: until, incident (first or repeat)
 	FixStale     = def(1791, http.StatusBadRequest, "That position is too old. Wait for a fresh fix.")
+	WarUpHigh    = def(1792, http.StatusConflict, "Go down to street level.") // data: heightM, maxM
 
 	// Regions (social-signal-plan.md Part B).
 	RegionUnknown = def(1795, http.StatusConflict, "Your region could not be found from where you stand.")

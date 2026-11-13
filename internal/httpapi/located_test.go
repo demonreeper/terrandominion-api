@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"io"
+	"math"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -35,5 +37,17 @@ func TestReadFixFromQuery(t *testing.T) {
 	take := httptest.NewRequest("POST", "/v1/jobs/3/take", nil)
 	if fix, _ := readFix(take); fix.HasPosition() {
 		t.Error("a job take names no place")
+	}
+}
+
+func TestReadHeight(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/v1/tethers/1/attack", nil)
+	if h, _ := readHeight(r); !math.IsNaN(h) {
+		t.Errorf("no header: got %v, want NaN", h)
+	}
+	r.Header.Set("X-Fix-Height", "72.4")
+	r.Header.Set("X-Fix-Height-Acc", "3")
+	if h, a := readHeight(r); h != 72.4 || a != 3 {
+		t.Errorf("got %v ±%v, want 72.4 ±3", h, a)
 	}
 }

@@ -218,6 +218,11 @@ parameters. Old builds that send neither still work.
   `repeat`, `kind`: `teleport` or `mock_location`). Sign-in and everything else still work. `/me` returns `signalLockedUntil`,
   `signalLockLine` and `signalLockKind`. The kind carries no numbers on purpose: the app says only what tripped the lock.
 - A fix older than `FixMaxAgeSeconds` or from the future: **1791** `FixStale`, noted (`stale_fix`), no lock.
+- **War at street level** (owner, 2026-11-13): the app sends `X-Fix-Height` (metres above ground) and `X-Fix-Height-Acc`
+  with every request when it knows them. Tether attack, drone, intercept and defuse, node contests (start and join) and
+  every base combat route (attack, drone, hack, intercept, defuse, repair) answer **1792** `WarUpHigh` (data `heightM, maxM`)
+  while the height is over `WarMaxHeightM` (default 10, 0 = off) and its accuracy is 12 m or better. A missing or poor
+  height never blocks. Harvesting, collecting, building and fitting a shield are never blocked by height.
 - A hard signal (the fake flag with `SpoofCheckMockFlag`, or a jump over `SpoofTeleportKmh` and `SpoofTeleportMinKm`
   after both fixes' accuracy) refuses the request, starts a lock (`SpoofLockMinutes1/2/3`, stepping up within
   `SpoofRepeatDays`; a new incident during a lock adds no time) and files a report from Signal watch
@@ -749,6 +754,7 @@ never reads as inside the range).
 | 1783 | Too many email searches today | |
 | 1790 | Signal lock: location actions refused | `until`, `incident`, `kind` |
 | 1791 | The fix is too old or from the future | |
+| 1792 | War action while well above the ground (`WarMaxHeightM`) | `heightM, maxM` |
 | 1795 | No region near where the player stands | |
 | 1796 | The region where the player stands isn't live yet | `region` |
 | 1797 | That region has no Regional Commander yet (can't be viewed) | |

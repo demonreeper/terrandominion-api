@@ -228,6 +228,7 @@ type Settings struct {
 	CraftSpikeCredit    int
 
 	WeaponRangeM         float64
+	WarMaxHeightM        float64
 	EmPulseDamage        float64
 	JammerMinutes        float64
 	SpikeDamage          float64
@@ -619,6 +620,7 @@ func DefaultSettings() Settings {
 		CraftSpikeCredit:    10,
 
 		WeaponRangeM:         40,
+		WarMaxHeightM:        10,
 		EmPulseDamage:        25,
 		JammerMinutes:        30,
 		SpikeDamage:          40,
@@ -1022,6 +1024,7 @@ func SettingsFrom(values map[string]float64) Settings {
 	i("CraftSpikeCredit", &s.CraftSpikeCredit)
 
 	f("WeaponRangeM", &s.WeaponRangeM)
+	f("WarMaxHeightM", &s.WarMaxHeightM)
 	f("EmPulseDamage", &s.EmPulseDamage)
 	f("JammerMinutes", &s.JammerMinutes)
 	f("SpikeDamage", &s.SpikeDamage)

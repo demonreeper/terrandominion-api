@@ -351,24 +351,24 @@ func defendOf(b service.BaseAttackRequest) service.DefendRequest {
 }
 
 func (s *Server) routeBaseCombat(mux *http.ServeMux) {
-	mux.HandleFunc("POST /v1/bases/{id}/attack", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+	mux.HandleFunc("POST /v1/bases/{id}/attack", s.authed(s.located(s.grounded(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
 		return s.svc.AttackBase(r.Context(), p, b, body)
-	}))))
-	mux.HandleFunc("POST /v1/bases/{id}/drone", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+	})))))
+	mux.HandleFunc("POST /v1/bases/{id}/drone", s.authed(s.located(s.grounded(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
 		return s.svc.LaunchBaseDrone(r.Context(), p, b, body)
-	}))))
-	mux.HandleFunc("POST /v1/bases/{id}/hack", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+	})))))
+	mux.HandleFunc("POST /v1/bases/{id}/hack", s.authed(s.located(s.grounded(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
 		return s.svc.HackBase(r.Context(), p, b, body)
-	}))))
-	mux.HandleFunc("POST /v1/bases/{id}/intercept", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+	})))))
+	mux.HandleFunc("POST /v1/bases/{id}/intercept", s.authed(s.located(s.grounded(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
 		return s.svc.InterceptBaseDrone(r.Context(), p, b, defendOf(body))
-	}))))
-	mux.HandleFunc("POST /v1/bases/{id}/defuse", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+	})))))
+	mux.HandleFunc("POST /v1/bases/{id}/defuse", s.authed(s.located(s.grounded(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
 		return map[string]any{"defused": true}, s.svc.DefuseBaseSpike(r.Context(), p, b, defendOf(body))
-	}))))
-	mux.HandleFunc("POST /v1/bases/{id}/repair", s.authed(s.located(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
+	})))))
+	mux.HandleFunc("POST /v1/bases/{id}/repair", s.authed(s.located(s.grounded(s.baseCombat(func(r *http.Request, p, b int64, body service.BaseAttackRequest) (any, error) {
 		return s.svc.RepairBase(r.Context(), p, b, defendOf(body))
-	}))))
+	})))))
 }
 
 func (s *Server) baseFlights(w http.ResponseWriter, r *http.Request) {

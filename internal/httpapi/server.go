@@ -96,15 +96,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tethers/{id}/dismantle", s.authed(s.dismantleTether))
 	mux.HandleFunc("POST /v1/tethers/{id}/collect", s.authed(s.located(s.collectTether)))
 	mux.HandleFunc("POST /v1/tethers/{id}/upload", s.authed(s.located(s.uploadTether)))
-	mux.HandleFunc("POST /v1/tethers/{id}/attack", s.authed(s.located(s.attackTether)))
-	mux.HandleFunc("POST /v1/tethers/{id}/defuse", s.authed(s.located(s.defuseSpike)))
-	mux.HandleFunc("POST /v1/tethers/{id}/drone", s.authed(s.located(s.launchDrone)))
-	mux.HandleFunc("POST /v1/tethers/{id}/intercept", s.authed(s.located(s.interceptDrone)))
+	mux.HandleFunc("POST /v1/tethers/{id}/attack", s.authed(s.located(s.grounded(s.attackTether))))
+	mux.HandleFunc("POST /v1/tethers/{id}/defuse", s.authed(s.located(s.grounded(s.defuseSpike))))
+	mux.HandleFunc("POST /v1/tethers/{id}/drone", s.authed(s.located(s.grounded(s.launchDrone))))
+	mux.HandleFunc("POST /v1/tethers/{id}/intercept", s.authed(s.located(s.grounded(s.interceptDrone))))
 	mux.HandleFunc("POST /v1/tethers/{id}/shield", s.authed(s.located(s.fitShield)))
 	mux.HandleFunc("GET /v1/drones", s.authed(s.myDrones))
 
-	mux.HandleFunc("POST /v1/nodes/{id}/contest", s.authed(s.located(s.startContest)))
-	mux.HandleFunc("POST /v1/contests/{id}/join", s.authed(s.located(s.joinContest)))
+	mux.HandleFunc("POST /v1/nodes/{id}/contest", s.authed(s.located(s.grounded(s.startContest))))
+	mux.HandleFunc("POST /v1/contests/{id}/join", s.authed(s.located(s.grounded(s.joinContest))))
 
 	mux.HandleFunc("GET /v1/notices", s.authed(s.notices))
 

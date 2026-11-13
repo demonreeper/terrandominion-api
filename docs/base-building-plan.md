@@ -38,7 +38,7 @@ leaves, so this follows the destruction rule.
 **B7 partly built 2026-11-12**: the nearest two bases stand in AR from the models in their faction's colour with their
 banners (in their GPS direction, squeezed like Tether Nodes), the turrets idle round slowly (AR only; the holo table stays
 still), PHOTO works with a base on screen, and signal echoes are also placed by bases. Then (same day) the rest: packets
-in the resource colour run home along the Collector lines, two patrol drones circle and a low mist drifts in the
+in the resource colour run home along the Collector lines, patrol drones circle (13 Nov 2026: 3 at T1, 6 at T2 and T3, 9 at T4, 15 at T5, 3 more with a Drone Hangar; the model at 1.3x true size) and a low mist drifts in the
 faction's colour (effects, AR only; the drones are glow points like the sky battles' drones, since none of the ready-made
 models was a drone then; the `base_drone` model replaced them the same day), and drones at bases and the strikes that land (`GET /v1/bases/flights`) show on the map by the TN
 rule, so the sky over AR plays them out with the shield lighting up. Still waiting: the power voice lines, below.
@@ -275,7 +275,7 @@ neutral standing for 3 days; attacking it ends a walk-together link that has one
   when hit, the living-TN packet flow along Collector lines. PHOTO works on bases.
 - **AR extras on bases** (the "AR sees more" rules from `no-ar-support-plan.md`, looks only: no resources, XP
   or combat information):
-  - **Living base:** packets flow along Collector lines to the tower, patrol drones circle, banners and mist
+  - **Living base:** packets flow along Collector lines to the tower, patrol drones circle (more with tier and a Drone Hangar), banners and mist
     move, turrets idle. The holo table shows the same base **plainer**: static lines, no packets, no idle motion.
   - **Signal echoes** are also placed near bases (same placement and CODEX rules as near nodes and TNs).
     Tap one in AR to read its line; the approved echo lines only, nothing about a seventh voice.
