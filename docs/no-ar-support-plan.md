@@ -13,9 +13,10 @@ If nothing changes, a large share of Android phones in the launch region can't e
 
 ## The rule
 
-**AR is a view, never a gate.** Every action in the game can be done from the map or a 3D view.
-AR shows the same things life-size, in the camera. The server never knows or cares which view
-was used, so there is nothing to cheat with and nothing to balance.
+**AR is never forced** (owner, 2026-11-13). The whole game can be played from the map or a 3D view: nobody has to
+open the AR view to progress, build, fight, defend or join. Beyond that AR is free: it may give a gameplay
+advantage and may have features only AR has (see "Does AR give an advantage?"). Until such a feature is built the
+server still does not know which view was used; one that needs to know says so in its own plan.
 
 ## What already works without AR
 
@@ -46,7 +47,11 @@ same view is ready and tested before bases arrive.
 
 ## Does AR give an advantage?
 
-**Decided (owner, 2026-11-11): no gameplay advantage, looks only.** Fights, harvests and builds are equal.
+**Changed (owner, 2026-11-13): an AR advantage is fine, and so are AR-only features, as long as AR is never
+forced.** Each advantage or AR-only feature is its own decision in the mobile repo's `docs/GAME_DESIGN.md`; the
+first asked for is attacking a base from the AR view. What follows is the earlier decision, kept for the record.
+
+**Was decided (owner, 2026-11-11): no gameplay advantage, looks only.** Fights, harvests and builds are equal.
 AR players get the wow factor: life-size pylons and bases, and later an AR photo mode for sharing.
 A small AR bonus (for example extra XP) was considered and is not recommended: it punishes players
 for the phone they own, and in the launch region many phones are not on Google's list.
@@ -150,6 +155,6 @@ Milestones 1 to 8 are built and on the owner's phone (builds 143 to the last one
 ## Open (owner's choice)
 
 - ~~Bases on non-AR phones~~: **decided A, holo table**, available on AR phones too (owner, 2026-11-11).
-- ~~AR advantage~~: **decided, looks only, no gameplay bonus** (owner, 2026-11-11).
+- ~~AR advantage~~: **allowed, and AR-only features too, never forced** (owner, 2026-11-13; was looks only, no gameplay bonus, 2026-11-11).
 - ~~AR sees more~~: **now**, milestones 5 to 8 (owner, 2026-11-11). First echo set approved.
 - ~~Use AR view setting~~: **decided yes**, AR phones can pick the holo table (owner, 2026-11-11).
