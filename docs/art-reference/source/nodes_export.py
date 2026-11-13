@@ -1,5 +1,7 @@
 # Unity export of the grounded resource nodes (mock-ups in nodes.py, approved by the owner 2026-11-13).
 # Same layout as export.py: metres, pivot at the ground centre, Y up, one root per asset with child meshes by role:
+#   Credit (Mint, 2026-11-13) adds HullSpin + GlowSpin: the coin, turned slowly about the vertical axis in Unity
+#   (baked into the same maps as Hull, then split off, so the node keeps one texture set).
 #   Hull (baked BaseColor / MetallicSmoothness / Normal / Emission), Glow (solid, white: tinted in Unity with the
 #   resource colour), GlowSoft (half-transparent glow, white). The soft glow pool of the mock-up is left out (the game
 #   draws its own ring and halo).
@@ -18,7 +20,7 @@ TEXRES = 1024
 def role(matname):
     n = matname
     if n.endswith('_pool'): return None
-    if n in ('crystal_glass', 'data_soft'): return 'GlowSoft'
+    if n in ('crystal_glass', 'data_soft', 'credit_soft'): return 'GlowSoft'
     if n.endswith(('_seam', '_glow', '_m')): return 'Glow'
     return 'Hull'
 
@@ -40,6 +42,7 @@ def split_by_role(asset):
         r = role(ob.data.materials[0].name if ob.data.materials else 'hull')
         if r is None:
             bpy.data.objects.remove(ob); continue
+        if ob.get('spin'): r += 'Spin'
         bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
         if ob.parent is not None:
             bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
@@ -111,9 +114,22 @@ def export(kind):
     nodes.BUILD[kind](0)
     parts = split_by_role(asset)
     mats = {'Glow': flat_mat('TR_Glow', 4, 1), 'GlowSoft': flat_mat('TR_GlowSoft', 2, .5)}
+    spin = parts.pop('HullSpin', None)
+    if spin is not None:  # bake the coin with the hull (one texture set), split it off again after
+        vg = spin.vertex_groups.new(name='spin'); vg.add(list(range(len(spin.data.vertices))), 1.0, 'REPLACE')
+        bpy.ops.object.select_all(action='DESELECT'); spin.select_set(True); parts['Hull'].select_set(True)
+        bpy.context.view_layer.objects.active = parts['Hull']; bpy.ops.object.join()
     for r, o in parts.items():
         if r == 'Hull': bake_hull(o, asset, folder)
-        else: o.data.materials.clear(); o.data.materials.append(mats[r])
+        else: o.data.materials.clear(); o.data.materials.append(mats[r.replace('Spin', '')])
+    if spin is not None:
+        h = parts['Hull']; bpy.ops.object.select_all(action='DESELECT'); h.select_set(True); bpy.context.view_layer.objects.active = h
+        bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='DESELECT')
+        h.vertex_groups.active = h.vertex_groups['spin']; bpy.ops.object.vertex_group_select()
+        bpy.ops.mesh.separate(type='SELECTED'); bpy.ops.object.mode_set(mode='OBJECT')
+        for o in bpy.context.selected_objects:
+            if o is not h: o.name = 'HullSpin'; o.data.name = asset + '_HullSpin'; parts['HullSpin'] = o
+        for o in (h, parts['HullSpin']): o.vertex_groups.clear()
     root = bpy.data.objects.new(asset, None); bpy.context.scene.collection.objects.link(root)
     for o in parts.values(): o.parent = root
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in parts.values())

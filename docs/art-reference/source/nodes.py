@@ -1,6 +1,7 @@
 # Resource node mock-ups (owner, 2026-11-13): grounded designs per resource, to approve before the models are made.
 # Crystal: an outcrop out of a cracked rock. Alloy: an ore vein of half-buried plates. Data: a low relay terminal with
 # its cubes just above. Credit: a sealed cache plate with hex chips. Each has a glow ring where it meets the ground.
+# Credit v2 (2026-11-13): the Mint, an upright hex coin in a cradle (node_credit); the first design is node_credit_v1.
 # Self-contained (procedural materials, no texture files), Blender 4.5:
 #   blender -b -P nodes.py -- <shot> <samples> <outdir>     shot: lineup | crystal | alloy | data | credit | all
 import bpy, bmesh, math, random, sys, os
@@ -325,7 +326,8 @@ def node_data(off):
     ground_ring('data_ring', 1.2, col)
 
 
-def node_credit(off):
+def node_credit_v1(off):
+    """The first credit node (cache plate with chip stacks), replaced by the Mint on 2026-11-13."""
     col = RES['credit']; body = hull('credit_body', (0.05, 0.06, 0.055), .35, .8, 8); glow = emit('credit_glow', col, 6); chip = hull('credit_chip', (0.1, 0.3, 0.16), .25, .9, 20)
     # A sealed cache plate set flush in the ground, the lid a little raised, a glowing seam round it.
     cyl('plate', .85, .06, (0, 0, -.01), 6, body)
@@ -342,6 +344,55 @@ def node_credit(off):
         for j in range(n):
             cyl('chip', .13, .045, (x + random.uniform(-.01, .01), y + random.uniform(-.01, .01), j * .05), 6,
                 glow if j == n - 1 else chip, (0, 0, random.uniform(0, 1)))
+    ground_ring('credit_ring', 1.35, col)
+
+
+# Credit v2, the MINT (owner pick 2026-11-13, concept A of credit.py): a big hex coin standing on its edge in a cradle of
+# two angled jaws, slowly turning in the game. The coin parts are marked 'spin' so the export puts them in their own
+# child (pivot on the vertical axis through the node centre).
+def credit_glyph(m, at, rot, r, depth):
+    """The credit mark: hex outline round a small hex, a short bar above and below (vertical only, no crossbar)."""
+    from mathutils import Matrix, Euler
+    E = Euler(rot).to_matrix().to_4x4(); T = Matrix.Translation(at)
+    for i in range(6):
+        am = i * math.pi / 3 + math.pi / 6
+        o = box('glyph', (1, 1, 1), (0, 0, 0), (0, 0, 0), m, 0)
+        o.matrix_world = T @ E @ Matrix.Translation((r * .866 * math.cos(am), r * .866 * math.sin(am), 0)) @ Matrix.Rotation(am + math.pi / 2, 4, 'Z') @ Matrix.Diagonal((r, r * .11, depth, 1))
+    c = cyl('glyph_core', r * .32, depth, (0, 0, -depth / 2), 6, m); c.matrix_world = T @ E
+    for s in (1, -1):
+        b = box('glyph_bar', (1, 1, 1), (0, 0, 0), (0, 0, 0), m, 0)
+        b.matrix_world = T @ E @ Matrix.Translation((0, s * r * .55, 0)) @ Matrix.Diagonal((r * .1, r * .32, depth, 1))
+
+
+def credit_coin(body_m, glow_m, r, t, at, rot):
+    from mathutils import Matrix, Euler
+    before = set(bpy.data.objects)
+    E = Euler(rot).to_matrix().to_4x4(); T = Matrix.Translation(at)
+    cyl('coin', r, t, (0, 0, -t / 2), 6, body_m).matrix_world = T @ E
+    cyl('coin_rim', r * 1.02, t * .3, (0, 0, -t * .15), 6, glow_m).matrix_world = T @ E
+    for s in (1, -1):
+        credit_glyph(glow_m, tuple((T @ E @ Matrix.Translation((0, 0, s * (t / 2 + .002)))).translation),
+                     tuple((Euler(rot).to_matrix() @ Matrix.Rotation(0 if s > 0 else math.pi, 3, 'X')).to_euler()), r * .62, .012)
+    for o in set(bpy.data.objects) - before: o['spin'] = True
+
+
+def node_credit(off):
+    col = RES['credit']
+    body = hull('credit_body', (0.05, 0.06, 0.055), .35, .8, 8); coinm = hull('credit_coin', (0.05, 0.16, 0.09), .45, .6, 4)
+    glow = emit('credit_glow', col, 7); soft = emit('credit_soft', col, 2.5, .55)
+    cyl('base', .8, .08, (0, 0, 0), 6, body)
+    cyl('base_seam', .62, .085, (0, 0, 0), 6, glow)
+    cyl('plinth', .55, .14, (0, 0, .07), 6, body)
+    for s in (1, -1):
+        box('jaw', (.16, .5, .55), (s * .38, 0, .38), (0, s * .45, 0), body, .02)
+        box('jaw_light', (.02, .4, .3), (s * .3, 0, .42), (0, s * .45, 0), glow, 0)
+    credit_coin(coinm, glow, .62, .14, (0, 0, .95), (math.pi / 2, 0, .35))
+    cyl('beam', .07, .45, (0, 0, .2), 12, soft)
+    random.seed(3)
+    for r, a, n in ((1.0, .9, 4), (1.05, 2.4, 2), (.95, 4.0, 5), (1.0, 5.4, 3)):
+        x, y = r * math.cos(a), r * math.sin(a)
+        for j in range(n):
+            cyl('chip', .13, .045, (x, y, j * .05), 6, glow if j == n - 1 else coinm, (0, 0, random.uniform(0, 1)))
     ground_ring('credit_ring', 1.35, col)
 
 
