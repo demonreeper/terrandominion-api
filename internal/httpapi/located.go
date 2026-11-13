@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -80,4 +81,30 @@ func readFix(r *http.Request) (game.FixReport, error) {
 		}
 	}
 	return game.FixReport{Lat: f.Lat, Lon: f.Lon, AccuracyM: f.AccuracyM, Mock: f.Mock, FixAt: f.FixAt}, nil
+}
+
+// grounded refuses a war action while the phone reports itself well above the ground (game.WarUpHigh: a balcony or
+// a tower flat). The app sends X-Fix-Height (metres above ground) and X-Fix-Height-Acc with every request when it
+// knows them; without them nothing is refused. Wrap it inside located, on attacks, drones, hacks, contests and
+// defending; never on harvesting, collecting or building.
+func (s *Server) grounded(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		height, accuracy := readHeight(r)
+		st := s.svc.Settings(r.Context())
+		if game.WarUpHigh(height, accuracy, st) {
+			fail(w, r, apperr.WarUpHigh.WithData(map[string]any{"heightM": math.Round(height), "maxM": st.WarMaxHeightM}))
+			return
+		}
+		next(w, r)
+	}
+}
+
+// readHeight is the phone's height above ground and its accuracy from the headers; NaN and 0 when not sent.
+func readHeight(r *http.Request) (float64, float64) {
+	height, err := strconv.ParseFloat(r.Header.Get("X-Fix-Height"), 64)
+	if err != nil {
+		height = math.NaN()
+	}
+	accuracy, _ := strconv.ParseFloat(r.Header.Get("X-Fix-Height-Acc"), 64)
+	return height, accuracy
 }
