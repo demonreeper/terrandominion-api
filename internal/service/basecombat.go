@@ -667,6 +667,27 @@ func (s *Service) baseThreats(ctx context.Context, q db.Querier, baseID int64) (
 
 // BaseFlights is GET /v1/bases/flights (B7): drones flying at bases and strikes that just landed, as the map draws them
 // (and so the sky over AR): only the viewer's own drones and those at their faction's bases.
+// DroneCount is how many of the player's drones are in the air (at Tether Nodes and at bases) and how many their
+// equipped Drone Bay can fly at once (0 without a working one), for the app's launch button.
+func (s *Service) DroneCount(ctx context.Context, playerID int64) (flying, limit int, err error) {
+	bay, err := store.EquippedDroneBay(ctx, s.db, playerID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return 0, 0, err
+	}
+	if err == nil {
+		limit = bay.Drones
+	}
+	tn, err := store.DronesInFlight(ctx, s.db, playerID)
+	if err != nil {
+		return 0, 0, err
+	}
+	base, err := store.BaseDronesInFlight(ctx, s.db, playerID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return tn + base, limit, nil
+}
+
 func (s *Service) BaseFlights(ctx context.Context, playerID int64) ([]store.BaseFlight, error) {
 	m, err := store.MembershipOf(ctx, s.db, playerID)
 	if err != nil {

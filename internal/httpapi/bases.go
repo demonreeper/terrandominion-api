@@ -378,5 +378,10 @@ func (s *Server) baseFlights(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	ok(w, map[string]any{"flights": out})
+	flying, limit, err := s.svc.DroneCount(r.Context(), playerID)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	ok(w, map[string]any{"flights": out, "drones": map[string]int{"flying": flying, "limit": limit}})
 }
