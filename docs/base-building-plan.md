@@ -273,6 +273,11 @@ neutral standing for 3 days; attacking it ends a walk-together link that has one
 - **AR** (looks only): life-size. Tower height by tier (about 6 m Spire to 30 m Capital), modules
   locking on with beams and a small shockwave, banners moving in the wind, the shield dome flickering
   when hit, the living-TN packet flow along Collector lines. PHOTO works on bases.
+- **Attacking from AR** (built 13 Nov 2026, mobile repo `docs/GAME_DESIGN.md`, Field and AR): tap a base in AR for a
+  quick attack bar (EM PULSE, PLANT SPIKE, LAUNCH DRONE, HACK THE VAULT, FULL CARD); tap a module to aim at it, the
+  tower for the core. Aiming by a tap is the first AR-only feature; the same attacks stay on the base card. No API
+  change: the bar calls the same `/v1/bases/{id}/attack`, `/drone` and `/hack`, and reads `/v1/bases/flights` for
+  the drone's countdown and landing.
 - **AR extras on bases** (the "AR sees more" rules from `no-ar-support-plan.md`, looks only: no resources, XP
   or combat information):
   - **Living base:** packets flow along Collector lines to the tower, patrol drones circle (more with tier and a Drone Hangar), banners and mist
