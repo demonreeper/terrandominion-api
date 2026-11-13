@@ -68,9 +68,9 @@ with a shield dome and drones, a seed beacon on the ground in a park.
 
 - **Only factions build bases.** Changed by the owner 2026-11-11: **only the regional Commander starts a
   base**; Wardens and atoll/city leads **propose** one, and the Commander approves (section 1b).
-- **AR is a view, never a gate** (`no-ar-support-plan.md`): a base is a **GPS spot plus a hex-slot
-  layout owned by the server**. Every phone builds and manages it in the **holo table**; AR shows the
-  same base life-size, looks only, no gameplay bonus.
+- **AR is never forced** (`no-ar-support-plan.md`; since 2026-11-13 AR may give an advantage and have its own
+  features): a base is a **GPS spot plus a hex-slot layout owned by the server**. Every phone builds and manages
+  it in the **holo table**; AR shows the same base life-size (looks only as built so far).
 - Bases **grow in place** in tiers. One base per faction within **500 m** (`BaseSpacingSameFactionM`)
   and a minimum distance from other factions' bases (`BaseSpacingOtherFactionM`, 150 m).
 - **Hacking a base**: hex-path puzzle at 75 m, costs data, steals 5–15% of stored resources, 30 min
